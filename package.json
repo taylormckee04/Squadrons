@@ -1,0 +1,1 @@
+{"description":"Squadrons lockstep multiplayer relay + game page (zero dependencies)","engines":{"node":">=18"},"name":"squadrons-relay","private":true,"scripts":{"start":"node server.js"},"version":"1.0.0"}
