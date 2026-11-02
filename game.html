@@ -141,7 +141,7 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
     .diff[aria-pressed="true"] { border-color: var(--you); background: #eef5ff; }
     .diff b { font: 600 17px var(--font-display); }
     .diff span { font-size: 12.5px; color: var(--ink-soft); }
-    #menuStep1, #menuStep2 { display: grid; gap: 14px; }
+    #menuStep0, #menuStep1, #menuStep2 { display: grid; gap: 14px; }
     /* v88: Learn to play is as wide as the difficulty box (.diffs spans the
        full sheet width), so it stretches across the sheet too. */
     #tutBtn { justify-self: stretch; width: 100%; text-align: center; padding: 16px 22px; font-size: 20px; }
@@ -337,7 +337,14 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
   <div class="sheet">
     <h2 class="big">Squadrons</h2>
     <p>Fly your squadron across the sky, claim cloud land, and wipe out the enemy base.</p>
-    <div id="menuStep1">
+    <div id="menuStep0">
+      <p style="margin:0"><b>How do you want to play?</b></p>
+      <button class="go" id="fdSpBtn" type="button">Single Player</button>
+      <p style="margin:0">Just you against the AI — pick a difficulty and your animal. No sign-in, ever.</p>
+      <button class="go" id="fdMpBtn" type="button">Multiplayer</button>
+      <p style="margin:0">Play another person over the internet — queue up for a match, or use a private room code.</p>
+    </div>
+    <div id="menuStep1" hidden>
       <p style="margin:0"><b>Difficulty</b> — applies to all three enemy teams. No difficulty gives the AI free clouds, free HP, or extra vision; they differ only in how fast and how well it decides.</p>
       <div class="diffs" id="diffRow">
         <button class="diff" id="diffEasy" data-diff="easy" aria-pressed="false"><b>Easy</b><span>An 8-year-old could win.</span></button>
@@ -397,11 +404,18 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 button.chip.mpGuestAct { cursor: pointer; font: inherit; color: inherit; text-align: left; }
 button.chip.mpGuestAct:hover { border-color: var(--you); }
 .diff:disabled { cursor: default; }
+#mpMain, #mpGate, #mpQueue, #mpFound, #mpDraft { display: grid; gap: 14px; }
+.fdCount { font: 700 30px/1.2 var(--font-display); text-align: center; color: var(--ink); min-height: 36px; }
+.fdPickGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#fdGisBtn { display: flex; justify-content: center; min-height: 44px; }
+#fdDevName { font: 600 16px var(--font-display); padding: 10px 12px; border: 2px solid var(--line); border-radius: 10px; width: 100%; box-sizing: border-box; background: #fff; color: var(--ink); }
 </style>
 <div class="ov" id="mpOverlay" hidden>
   <div class="sheet">
     <h2 class="big">Multiplayer</h2>
     <div id="mpHome">
+      <button class="go" id="fdHomeBtn" type="button">Find Match — online queue</button>
+      <p style="margin:0">Sign in and queue up: we pair you with another player, run a ready check, and draft your animals before the match. Or use a private room code below — that is the <b>Custom Game</b>.</p>
       <p>Host a game and read the room code to your guest — or type in a host's code and join theirs. The other two teams are AI pilots. Both computers run the same match in lockstep (the StarCraft way): only your orders cross the network, so both players get the identical game at the identical speed.</p>
       <button class="go" id="mpHostBtn" type="button">Host game</button>
       <p style="margin:0"><b>Join a game</b> — enter the host's room code, pick your animal, then Join:</p>
@@ -436,6 +450,53 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       <p id="mpWaitNote" style="margin:0" hidden>Waiting for the host to launch…</p>
       <div class="mpStatusLine" id="mpLobbyStatus">MP: off</div>
       <button class="go" id="mpLeaveBtn" type="button">Leave room</button>
+    </div>
+    <div id="mpMain" hidden>
+      <p style="margin:0">Signed in as <b id="fdMainName">Player</b></p>
+      <button class="go" id="fdFindBtn" type="button">Find Match</button>
+      <p style="margin:0">Queue up and we will pair you with another signed-in player: a ready check first, then you take turns drafting your animals, then the match launches.</p>
+      <button class="go" id="fdCustomBtn" type="button">Custom Game (room code)</button>
+      <p style="margin:0">Host a private room with a code, or join one — the classic way to play a specific person.</p>
+      <div class="mpStatusLine" id="fdMainStatus"></div>
+      <div class="mpBtnRow">
+        <button class="go" id="fdMainBackBtn" type="button">← Back to menu</button>
+        <button class="go" id="fdOutBtn" type="button">Sign out</button>
+      </div>
+    </div>
+    <div id="mpGate" hidden>
+      <p style="margin:0"><b>Sign in to play multiplayer.</b> Single Player never needs an account — this gate is only for playing other people.</p>
+      <div id="fdGisWrap"><div id="fdGisBtn"></div></div>
+      <div id="fdDevWrap" hidden>
+        <p style="margin:0">Google sign-in is not configured yet for this copy of the game (the site owner has not added the client ID). For local testing only, pick a display name:</p>
+        <input id="fdDevName" size="16" maxlength="40" placeholder="Your display name" autocomplete="off">
+        <button class="go" id="fdDevBtn" type="button">Dev sign-in (local testing only)</button>
+      </div>
+      <div class="mpStatusLine" id="fdGateStatus"></div>
+      <button class="go" id="fdGateBackBtn" type="button">← Back to menu</button>
+    </div>
+    <div id="mpQueue" hidden>
+      <h3 style="margin:0">Finding a match…</h3>
+      <p style="margin:0">You are in the queue. When another signed-in player is found, you will both get a ready check.</p>
+      <div class="mpStatusLine" id="fdQueueStatus"></div>
+      <button class="go" id="fdQueueLeaveBtn" type="button">Leave queue</button>
+    </div>
+    <div id="mpFound" hidden>
+      <h3 style="margin:0">Game found!</h3>
+      <p style="margin:0" id="fdFoundPlayers"></p>
+      <div class="fdCount" id="fdFoundCount"></div>
+      <button class="go" id="fdReadyBtn" type="button">Ready</button>
+      <div class="mpStatusLine" id="fdFoundStatus"></div>
+      <button class="go" id="fdFoundLeaveBtn" type="button">Leave queue</button>
+    </div>
+    <div id="mpDraft" hidden>
+      <h3 style="margin:0">Draft — pick your animal</h3>
+      <p style="margin:0" id="fdDraftOrder"></p>
+      <p style="margin:0" id="fdDraftTurn"></p>
+      <div class="fdCount" id="fdDraftCount"></div>
+      <div class="fdPickGrid" id="fdDraftBtns"></div>
+      <p style="margin:0" id="fdDraftPicks"></p>
+      <div class="mpStatusLine" id="fdDraftStatus"></div>
+      <button class="go" id="fdDraftLeaveBtn" type="button">Leave</button>
     </div>
   </div>
 </div>
@@ -504,10 +565,24 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      own orders are delayed and tick-stamped too — no zero-delay
      advantage for anyone). MP.guestSel is likewise just "the local
      player's selection id list" for either role. */
-  var MP = { enabled: false, role: null, myTeam: 0, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false };
+  var MP = { enabled: false, role: null, myTeam: 0, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '261bfae61b';
+  var LS_BUILD_ID = 'ee02ee32c6';
+  /* ---------------- FRONT DOOR (Stage A+B) ----------------
+     Mode select lives on the main menu (menuStep0): Single Player
+     goes to the existing menu flow and is NEVER gated; Multiplayer
+     asks for Google sign-in first (GIS), then offers Find Match
+     (the relay-run queue -> ready check -> animal draft) or Custom
+     Game (the room-code lobby above, unchanged). The relay verifies
+     the ID token; this page only carries it. GOOGLE_CLIENT_ID must
+     match the relay's GOOGLE_CLIENT_ID env var — the site owner
+     creates the OAuth client (see README-FRONTDOOR.md). While the
+     constant below is still the placeholder, sign-in is reported as
+     not configured and the gate offers the relay's dev sign-in for
+     local testing instead. */
+  var GOOGLE_CLIENT_ID = '31883324545-22qspho706oncqmjj44179urbvmb7pe0.apps.googleusercontent.com';
+  var FD = { configured: GOOGLE_CLIENT_ID !== 'REPLACE_WITH_GOOGLE_CLIENT_ID', token: null, authed: false, name: null, picture: null, state: 'idle', ui: null, players: [], myIndex: -1, deadline: 0, countInt: null, countEl: null, draft: null, wantQueue: false, gisState: 'idle', gisWaiters: [] };
   /* ---------------- seeded RNG cage ----------------
      Two mulberry32 streams (the spike's implementation). SIMR is the
      simulation's ONLY source of randomness: its state and draw count
@@ -931,8 +1006,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function mpRenderLobby() {
     var rc = document.getElementById('mpRoomCode'); if (rc) rc.textContent = MP.roomCode || '—';
     var isHost = MP.role === 'host';
-    var s0 = document.getElementById('mpSlot0'); if (s0) s0.textContent = isHost ? ('You (host) — ' + mpRaceName(MP.hostRace || pickRace)) : ('Host — ' + mpRaceName(MP.hostRace || 'fox'));
-    var s1 = document.getElementById('mpSlot1'); if (s1) s1.textContent = isHost ? (MP.guestConnected ? ('Guest — ' + mpRaceName(MP.guestRace || 'fox') + ' · connected') : 'Waiting for guest…') : ('You (guest) — ' + mpRaceName(MP.myRace || MP.joinRace || 'fox'));
+    var s0 = document.getElementById('mpSlot0'); if (s0) s0.textContent = isHost ? ((FD.authed && FD.name ? FD.name + ' (host)' : 'You (host)') + ' — ' + mpRaceName(MP.hostRace || pickRace)) : ((MP.hostName ? MP.hostName + ' (host)' : 'Host') + ' — ' + mpRaceName(MP.hostRace || 'fox'));
+    var s1 = document.getElementById('mpSlot1'); if (s1) s1.textContent = isHost ? (MP.guestConnected ? ((MP.guestName ? MP.guestName + ' (guest)' : 'Guest') + ' — ' + mpRaceName(MP.guestRace || 'fox') + ' · connected') : 'Waiting for guest…') : ((FD.authed && FD.name ? FD.name + ' (guest)' : 'You (guest)') + ' — ' + mpRaceName(MP.myRace || MP.joinRace || 'fox'));
     var aiTxt = 'AI · ' + mpDiffLabel(isHost ? pickDifficulty : (MP.hostDifficulty || 'normal')) + ' difficulty';
     var s2 = document.getElementById('mpSlot2'); if (s2) s2.textContent = aiTxt;
     var s3 = document.getElementById('mpSlot3'); if (s3) s3.textContent = aiTxt;
@@ -972,6 +1047,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var ov = document.getElementById('mpOverlay'); if (ov) ov.hidden = false;
     var home = document.getElementById('mpHome'); if (home) home.hidden = false;
     var lob = document.getElementById('mpLobby'); if (lob) lob.hidden = true;
+    fdHideScreens(); FD.ui = 'mpHome';
     var bk = document.getElementById('mpBackBtn'); if (bk) bk.hidden = !!overGame;
     var cl = document.getElementById('mpHomeCloseBtn'); if (cl) cl.hidden = !overGame;
     var ci = document.getElementById('mpCode'); if (ci && MP.roomCode && (overGame || !ci.value)) ci.value = MP.roomCode;
@@ -981,11 +1057,24 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var ov = document.getElementById('mpOverlay'); if (ov) ov.hidden = false;
     var home = document.getElementById('mpHome'); if (home) home.hidden = true;
     var lob = document.getElementById('mpLobby'); if (lob) lob.hidden = false;
+    fdHideScreens(); FD.ui = 'mpLobby';
     mpEnsureGrids(); mpRenderLobby();
   }
   function mpOpenUI() {
     var m = document.getElementById('menu'); if (m) m.hidden = true;
-    if (MP.enabled && MP.ws) mpShowLobby(); else mpShowHome(false);
+    /* Front door routing: an in-flight queue/draft returns to its own
+       screen; a live room returns to the lobby; a signed-in player
+       lands on the multiplayer home; with Google sign-in configured,
+       a signed-out player lands on the gate; with the placeholder
+       client ID (local/dev copies) the classic home opens directly,
+       exactly as before the front door existed. */
+    if (FD.state === 'queued') { fdShowScreen('mpQueue'); mpStatus(); return; }
+    if (FD.state === 'found') { fdShowScreen('mpFound'); return; }
+    if (FD.state === 'draft') { fdShowScreen('mpDraft'); fdRenderDraft(); return; }
+    if (MP.enabled && MP.ws && (MP.role === 'host' || MP.role === 'guest')) mpShowLobby();
+    else if (FD.authed) fdShowMain();
+    else if (FD.configured) fdShowGate();
+    else mpShowHome(false);
     mpStatus();
   }
   function mpCloseUI() {
@@ -1055,7 +1144,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     mpStatus('Game launched — lockstep match running');
   }
   function mpDisconnect() {
-    MP.enabled = false; MP.role = null; MP.guestConnected = false; MP.guestBuild = null; MP.roomCode = null; MP.inGame = false; MP.launchArmed = false; MP.lastStatus = null;
+    MP.enabled = false; MP.role = null; MP.guestConnected = false; MP.guestBuild = null; MP.guestName = null; MP.hostName = null; MP.roomCode = null; MP.inGame = false; MP.launchArmed = false; MP.lastStatus = null;
+    FD.state = 'idle'; FD.draft = null; FD.wantQueue = false; fdStopCountdown();
     LS.state = 'off'; LS.pending = {};
     if (MP.snapTimer) { clearInterval(MP.snapTimer); MP.snapTimer = null; }
     if (MP.ws) { var w = MP.ws; MP.ws = null; try { w.close(); } catch (e) {} }
@@ -1187,10 +1277,13 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      the exact same code through an in-process transport. */
   function mpOnMessage(o) {
     if (!o || typeof o.type !== 'string') return;
+    /* Front-door messages are role-independent (they arrive before a
+       room exists, or change the gate state) — handled first. */
+    if (fdOnMessage(o)) return;
     if (MP.role === 'host') {
       if (o.type === 'room') { MP.roomCode = o.code; mpStatus('Room created — read the code to your guest, then Launch when they are in'); }
       else if (o.type === 'join') {
-        MP.guestRace = o.race; MP.guestConnected = true; if (o.build) MP.guestBuild = o.build;
+        MP.guestRace = o.race; MP.guestConnected = true; if (o.build) MP.guestBuild = o.build; if (o.name) MP.guestName = o.name;
         if (MP.guestBuild && MP.guestBuild !== LS_BUILD_ID) mpStatus('Your guest joined with a DIFFERENT game build — you both need the same game.html before Launch will work');
         if (G && mode === 'play' && LS.state !== 'off' && !G.over) {
           /* Lockstep rejoin: the guest needs the CURRENT state, not a
@@ -1200,7 +1293,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           mpSend({ type: 'start', races: G.teams.map(function (tm) { return tm.race; }), difficulty: pickDifficulty, seed: LS.seed, delay: LS.delay, build: LS_BUILD_ID, rejoin: true });
           lsSendSnap();
           mpStatus('Guest reconnected — sending the current match state…');
-        } else { mpSend({ type: 'joined', team: 1 }); mpSendLobby(); mpStatus('Guest joined as ' + o.race + ' — Launch game when you are both ready'); }
+        } else { mpSend({ type: 'joined', team: 1, name: FD.authed ? FD.name : undefined }); mpSendLobby(); mpStatus('Guest joined as ' + o.race + ' — Launch game when you are both ready'); }
       }
       else if (o.type === 'race') { MP.guestRace = o.race; mpStatus('Guest changed animal to ' + mpRaceName(o.race)); }
       else if (o.type === 'guestLeft') { MP.guestConnected = false; if (G && mode === 'play' && !G.over) { paused = true; try { note('Guest disconnected — game paused.'); } catch (e) {} } mpStatus('Guest disconnected' + (G && mode === 'play' ? ' — paused' : '')); }
@@ -1212,7 +1305,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       else if (o.type === 'lsDesyncFail') lsEndMatchDesync();
     } else if (MP.role === 'guest') {
       if (o.type === 'joinError') { MP.guestConnected = false; mpStatus('Join failed: ' + (o.msg || 'unknown error') + ' — check the room code and click Join again'); }
-      else if (o.type === 'joined') { MP.guestConnected = true; mpShowLobby(); mpStatus('Joined room ' + (MP.roomCode || '') + ' — waiting for the host to launch'); }
+      else if (o.type === 'joined') { MP.guestConnected = true; if (o.name) MP.hostName = o.name; mpShowLobby(); mpStatus('Joined room ' + (MP.roomCode || '') + ' — waiting for the host to launch'); }
       else if (o.type === 'lobby') { MP.hostRace = o.hostRace; MP.hostDifficulty = o.difficulty; mpStatus('Lobby updated by the host'); }
       else if (o.type === 'start') {
         if (o.build && o.build !== LS_BUILD_ID) { mpStatus('Version mismatch: the host is running a different game build — you both need the same game.html file. This match was refused.'); try { note('Version mismatch — match refused. You both need the same game.html.', true); } catch (e) {} return; }
@@ -1262,9 +1355,257 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     catch (e) { mpStatus('The connection to the game server could not be started — try opening the game from the server\'s address (http://desktop-dq18pee:8000/game.html).'); return; }
     var myWs = MP.ws;
     MP.ws.onerror = function () { if (MP.ws !== myWs) return; mpStatus('Could not reach the game server — check the host PC\'s server window is still running and Tailscale is signed in on this machine.'); };
-    MP.ws.onopen = function () { if (MP.ws !== myWs) return; if (role === 'host') mpSend({ type: 'hello', role: 'host' }); else mpSend({ type: 'join', role: 'guest', race: race, code: code, build: LS_BUILD_ID }); mpStatus('Connected, waiting for ' + (role === 'host' ? 'the room code' : 'the host')); };
+    MP.ws.onopen = function () { if (MP.ws !== myWs) return; if (FD.token) mpSend({ type: 'auth', idToken: FD.token }); if (role === 'host') mpSend({ type: 'hello', role: 'host' }); else mpSend({ type: 'join', role: 'guest', race: race, code: code, build: LS_BUILD_ID }); mpStatus('Connected, waiting for ' + (role === 'host' ? 'the room code' : 'the host')); };
     MP.ws.onmessage = function (ev) { if (MP.ws !== myWs) return; var o; try { o = JSON.parse(ev.data); } catch (e) { return; } mpOnMessage(o); };
     MP.ws.onclose = function () { if (MP.ws !== myWs || !MP.enabled) return; if (role === 'host' && G && mode === 'play' && !G.over) { paused = true; try { note('Connection lost — game paused.'); } catch (e) {} } MP.guestConnected = false; mpStatus(role === 'host' ? 'Disconnected (host) — the room is closed' : 'Disconnected — rejoin with the same room code to resume'); if (role === 'guest' && MP.inGame) mpShowHome(true); };
+  }
+  /* ---------------- FRONT DOOR: screens, sign-in, queue, draft ---------------- */
+  var FD_SCREENS = ['mpMain', 'mpGate', 'mpQueue', 'mpFound', 'mpDraft'];
+  function fdHideScreens() { for (var i = 0; i < FD_SCREENS.length; i++) { var el = document.getElementById(FD_SCREENS[i]); if (el) el.hidden = true; } }
+  function fdShowScreen(id) {
+    var ov = document.getElementById('mpOverlay'); if (ov) ov.hidden = false;
+    var home = document.getElementById('mpHome'); if (home) home.hidden = id !== 'mpHome';
+    var lob = document.getElementById('mpLobby'); if (lob) lob.hidden = id !== 'mpLobby';
+    for (var i = 0; i < FD_SCREENS.length; i++) { var el = document.getElementById(FD_SCREENS[i]); if (el) el.hidden = FD_SCREENS[i] !== id; }
+    FD.ui = id;
+  }
+  function fdSetStatus(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
+  function fdShowMain() { var nm = document.getElementById('fdMainName'); if (nm) nm.textContent = FD.name || 'Player'; fdShowScreen('mpMain'); }
+  function fdShowGate() { fdShowScreen('mpGate'); fdRenderGate(); }
+  /* The gate in two flavours: with a real client ID it renders the
+     Google button (GIS is loaded lazily and dynamically — if Google
+     is unreachable the gate says so plainly and nothing else breaks;
+     Single Player never touches any of this). With the placeholder
+     ID it explains that sign-in is not configured and offers the
+     relay's dev sign-in for local testing. */
+  function fdRenderGate() {
+    var dev = document.getElementById('fdDevWrap'); if (dev) dev.hidden = FD.configured;
+    var gis = document.getElementById('fdGisWrap'); if (gis) gis.hidden = !FD.configured;
+    if (!FD.configured) { fdSetStatus('fdGateStatus', 'Sign-in is not configured yet — dev sign-in below works against a local relay in dev mode.'); return; }
+    if (FD.gisRendered) return;
+    fdLoadGis(function (ok) {
+      if (!ok) { fdSetStatus('fdGateStatus', 'Sign-in is unavailable right now — Google sign-in could not be loaded. Check your connection and reopen Multiplayer. Single Player is unaffected.'); return; }
+      try {
+        google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: fdOnGoogleCredential });
+        var holder = document.getElementById('fdGisBtn');
+        if (holder) { holder.innerHTML = ''; google.accounts.id.renderButton(holder, { theme: 'outline', size: 'large', text: 'signin_with' }); }
+        FD.gisRendered = true;
+        fdSetStatus('fdGateStatus', 'Sign in with your Google account to play multiplayer.');
+      } catch (e) { fdSetStatus('fdGateStatus', 'Sign-in is unavailable right now.'); }
+    });
+  }
+  function fdLoadGis(cb) {
+    if (typeof window !== 'undefined' && window.google && window.google.accounts && window.google.accounts.id) { cb(true); return; }
+    if (FD.gisState === 'loading') { FD.gisWaiters.push(cb); return; }
+    if (FD.gisState === 'failed') { cb(false); return; }
+    if (!document.head || !document.createElement) { cb(false); return; }
+    FD.gisState = 'loading'; FD.gisWaiters = [cb];
+    var s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
+    s.onload = function () { FD.gisState = 'ready'; var w = FD.gisWaiters; FD.gisWaiters = []; var okk = !!(window.google && window.google.accounts && window.google.accounts.id); for (var i = 0; i < w.length; i++) w[i](okk); };
+    s.onerror = function () { FD.gisState = 'failed'; var w = FD.gisWaiters; FD.gisWaiters = []; for (var i = 0; i < w.length; i++) w[i](false); };
+    document.head.appendChild(s);
+  }
+  function fdOnGoogleCredential(resp) { if (resp && resp.credential) fdBeginAuth(resp.credential); }
+  /* One socket serves the whole front door (auth -> queue -> the
+     match itself). Custom games keep their own mpConnect socket;
+     both send the stored token first when they open, so the relay's
+     production gate lets the room/queue action through (the relay
+     defers it until verification settles). */
+  function fdSocketReady() { return !!(MP.ws && MP.ws.readyState === 1); }
+  function fdOpenSocket() {
+    if (MP.ws) { try { MP.ws.close(); } catch (e) {} MP.ws = null; }
+    if (!location.host) { fdSetStatus('fdGateStatus', 'This page was opened as a file, so it cannot reach the game server. Open the game from the server\'s address instead.'); return false; }
+    if (typeof WebSocket === 'undefined') { fdSetStatus('fdGateStatus', 'Sign-in is unavailable right now — this browser cannot open a connection.'); return false; }
+    var wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host;
+    var ws;
+    try { ws = new WebSocket(wsUrl); } catch (e) { fdSetStatus('fdGateStatus', 'The connection to the game server could not be started.'); return false; }
+    MP.ws = ws; MP.enabled = true;
+    ws.onopen = function () { if (MP.ws !== ws) return; if (FD.token) mpSend({ type: 'auth', idToken: FD.token }); };
+    ws.onmessage = function (ev) { if (MP.ws !== ws) return; var o; try { o = JSON.parse(ev.data); } catch (e) { return; } mpOnMessage(o); };
+    ws.onerror = function () { if (MP.ws !== ws) return; fdSetStatus('fdGateStatus', 'Could not reach the game server — check your connection and try again.'); fdSetStatus('fdMainStatus', 'Could not reach the game server — check your connection and try again.'); };
+    ws.onclose = function () { if (MP.ws !== ws) return; fdOnSocketClose(); };
+    return true;
+  }
+  function fdOnSocketClose() {
+    if (MP.role === 'host' || MP.role === 'guest') {
+      /* The socket became a match socket at queue_start — mirror the
+         custom-game close behaviour. */
+      if (MP.role === 'host' && G && mode === 'play' && !G.over) { paused = true; try { note('Connection lost — game paused.'); } catch (e) {} }
+      MP.guestConnected = false;
+      mpStatus(MP.role === 'host' ? 'Disconnected (host) — the room is closed' : 'Disconnected — the match connection was lost');
+      if (MP.role === 'guest' && MP.inGame) mpShowHome(true);
+      return;
+    }
+    if (FD.state === 'queued' || FD.state === 'found' || FD.state === 'draft') {
+      FD.state = 'idle'; FD.draft = null; fdStopCountdown();
+      if (FD.authed) { fdShowMain(); fdSetStatus('fdMainStatus', 'Disconnected from the server — Find Match will reconnect.'); }
+    }
+  }
+  function fdBeginAuth(token) {
+    FD.token = token;
+    fdSetStatus('fdGateStatus', 'Signing in…');
+    if (fdSocketReady()) mpSend({ type: 'auth', idToken: token });
+    else fdOpenSocket();
+  }
+  function fdFindMatch() {
+    if (!FD.authed) { FD.wantQueue = true; fdShowGate(); return; }
+    if (!fdSocketReady()) { FD.wantQueue = true; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'Connecting…'); fdOpenSocket(); return; }
+    fdQueueJoin();
+  }
+  function fdQueueJoin() { FD.state = 'queued'; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'Searching for another player…'); mpSend({ type: 'queue_join' }); }
+  function fdLeaveQueue() { mpSend({ type: 'queue_leave' }); FD.state = 'idle'; FD.draft = null; fdStopCountdown(); if (FD.authed) fdShowMain(); else fdShowGate(); }
+  function fdReadySend() { mpSend({ type: 'ready' }); var b = document.getElementById('fdReadyBtn'); if (b) b.disabled = true; fdSetStatus('fdFoundStatus', 'Ready — waiting for the other player…'); }
+  function fdPick(i) { if (FD.state !== 'draft' || !FD.draft || FD.draft.turnPlayer !== FD.myIndex) return; mpSend({ type: 'draft_pick', animal: i }); }
+  function fdStartCountdown(elId) {
+    FD.countEl = elId;
+    if (FD.countInt) return;
+    FD.countInt = setInterval(function () {
+      var el = FD.countEl ? document.getElementById(FD.countEl) : null;
+      if (!el) return;
+      var remain = Math.ceil((FD.deadline - Date.now()) / 1000);
+      if (remain < 0) remain = 0;
+      el.textContent = remain + 's';
+    }, 100);
+  }
+  function fdStopCountdown() { if (FD.countInt) { clearInterval(FD.countInt); FD.countInt = null; } FD.countEl = null; }
+  function fdBuildDraftButtons() {
+    var box = document.getElementById('fdDraftBtns'); if (!box || !FD.draft) return;
+    box.innerHTML = '';
+    FD.draft.animals.forEach(function (key, i) {
+      var b = document.createElement('button');
+      b.className = 'go'; b.type = 'button'; b.setAttribute('data-fdanimal', String(i));
+      b.textContent = mpRaceName(key);
+      b.addEventListener('click', function () { try { Aud.ui('select'); } catch (e) {} fdPick(i); });
+      box.appendChild(b);
+    });
+  }
+  function fdRenderDraft() {
+    if (!FD.draft) return;
+    var d = FD.draft;
+    var ordEl = document.getElementById('fdDraftOrder');
+    if (ordEl) ordEl.textContent = 'Pick order: ' + d.order.join(' → ');
+    var mine = d.turnPlayer === FD.myIndex;
+    var turnEl = document.getElementById('fdDraftTurn');
+    if (turnEl) turnEl.textContent = d.turnPlayer < 0 ? '' : (mine ? 'Your pick — choose your animal!' : (FD.players[d.turnPlayer] || 'The other player') + ' is picking…');
+    var box = document.getElementById('fdDraftBtns');
+    if (box) Array.prototype.forEach.call(box.children, function (b) {
+      var i = parseInt(b.getAttribute('data-fdanimal'), 10);
+      var takenBy = -1;
+      for (var p in d.picks) if (d.picks[p] === i) takenBy = parseInt(p, 10);
+      b.disabled = takenBy >= 0 || !mine;
+      b.textContent = mpRaceName(d.animals[i]) + (takenBy >= 0 ? ' — ' + (FD.players[takenBy] || 'picked') + (d.autoPicks && d.autoPicks[takenBy] ? ' (auto)' : '') : '');
+    });
+    var pk = document.getElementById('fdDraftPicks');
+    if (pk) pk.textContent = FD.players.map(function (nm, pi) { return nm + ': ' + (d.picks[pi] != null ? mpRaceName(d.animals[d.picks[pi]]) : '…'); }).join(' · ');
+  }
+  /* Queue match launch (host seat): identical machinery to the lobby
+     Launch, but the lineup comes from the draft instead of the lobby
+     pickers, and the difficulty is the queue's fixed Normal for the
+     two AI teams. The 'start' broadcast is the ordinary lockstep one. */
+  function fdLaunchQueueMatch(o) {
+    var lineup = o.lineup.teamAnimals;
+    MP.hostRace = lineup[0]; MP.guestRace = lineup[1];
+    MP.aiTeams = (o.lineup.aiTeams || [2, 3]).slice();
+    pickRace = lineup[0];
+    pickDifficulty = String(o.lineup.aiDifficulty || 'Normal').toLowerCase();
+    lsStartCommon(lineup, (Math.random() * 4294967296) >>> 0, 5);
+    LS_LINEUP = lineup.slice();
+    MP.launchArmed = true;
+    try { newGame(lineup[0]); } finally { MP.launchArmed = false; }
+    MP.inGame = true;
+    mpEnterPlay();
+    lsSendFrame();
+    mpStatus('Queue match launched — lockstep match running');
+  }
+  /* Front-door message routing. Returns true when the message was a
+     front-door one (consumed here, never a room message). */
+  function fdOnMessage(o) {
+    if (o.type === 'auth_ok') {
+      FD.authed = true; FD.name = o.name || 'Player'; FD.picture = o.picture || null;
+      mpStatus('Signed in as ' + FD.name);
+      if (FD.wantQueue) { FD.wantQueue = false; fdQueueJoin(); }
+      else fdShowMain();
+      return true;
+    }
+    if (o.type === 'auth_fail') {
+      FD.authed = false;
+      fdSetStatus('fdGateStatus', 'Sign-in failed: ' + (o.reason || 'the server could not verify it') + '.');
+      mpStatus('Sign-in failed: ' + (o.reason || 'unknown'));
+      return true;
+    }
+    if (o.type === 'auth_required') {
+      var msg = o.msg || 'Please sign in first';
+      mpStatus(msg);
+      if (FD.ui === 'mpQueue' || FD.ui === 'mpFound' || FD.ui === 'mpMain' || FD.ui === 'mpGate' || FD.state === 'queued' || FD.state === 'found') {
+        FD.state = 'idle'; FD.wantQueue = false; fdStopCountdown();
+        fdShowGate(); fdSetStatus('fdGateStatus', msg + ' — sign in to play multiplayer.');
+      }
+      return true;
+    }
+    if (o.type === 'queue_error') {
+      if (FD.state === 'queued') { FD.state = 'idle'; fdShowMain(); fdSetStatus('fdMainStatus', o.msg || 'Could not join the queue.'); }
+      else mpStatus(o.msg || 'Queue error');
+      return true;
+    }
+    if (o.type === 'game_found') {
+      FD.state = 'found'; FD.players = (o.players || []).slice(); FD.myIndex = (typeof o.you === 'number') ? o.you : -1;
+      FD.deadline = Date.now() + (typeof o.readyMs === 'number' ? o.readyMs : 10000);
+      var fp = document.getElementById('fdFoundPlayers'); if (fp) fp.textContent = FD.players.join('  vs  ');
+      var rb = document.getElementById('fdReadyBtn'); if (rb) rb.disabled = false;
+      fdSetStatus('fdFoundStatus', 'Both players must click Ready before the timer runs out.');
+      fdShowScreen('mpFound');
+      fdStartCountdown('fdFoundCount');
+      try { Aud.ui('start'); } catch (e) {}
+      return true;
+    }
+    if (o.type === 'ready_failed') {
+      fdStopCountdown(); FD.draft = null;
+      if (o.requeued) { FD.state = 'queued'; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'The other player did not ready up — you are back in the queue.'); }
+      else { FD.state = 'idle'; if (FD.authed) { fdShowMain(); fdSetStatus('fdMainStatus', 'The ready check failed — you are out of the queue. Find Match to try again.'); } }
+      return true;
+    }
+    if (o.type === 'draft_start') {
+      FD.state = 'draft';
+      FD.draft = { animals: (o.animals || []).slice(), order: (o.order || []).slice(), picks: {}, autoPicks: {}, turnPlayer: -1 };
+      fdSetStatus('fdDraftStatus', 'Picks are unique — once an animal is taken, it is gone.');
+      fdBuildDraftButtons();
+      fdShowScreen('mpDraft');
+      fdRenderDraft();
+      return true;
+    }
+    if (o.type === 'draft_turn') {
+      if (FD.draft) { FD.draft.turnPlayer = o.player; FD.deadline = (typeof o.deadline === 'number') ? o.deadline : 0; fdRenderDraft(); fdStartCountdown('fdDraftCount'); }
+      return true;
+    }
+    if (o.type === 'draft_picked') {
+      if (FD.draft) { FD.draft.picks[o.player] = o.animal; if (o.auto) FD.draft.autoPicks[o.player] = true; fdRenderDraft(); }
+      return true;
+    }
+    if (o.type === 'draft_error') { fdSetStatus('fdDraftStatus', o.msg || 'That pick is not allowed.'); return true; }
+    if (o.type === 'draft_aborted') {
+      fdStopCountdown(); FD.draft = null; FD.state = 'queued';
+      fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', o.msg || 'The other player left — you are back in the queue.');
+      return true;
+    }
+    if (o.type === 'queue_start') {
+      fdStopCountdown(); FD.state = 'match'; FD.draft = null;
+      MP.enabled = true; MP.roomCode = o.room; MP.guestConnected = true;
+      MP.aiTeams = (o.lineup.aiTeams || [2, 3]).slice();
+      if (o.role === 'host') {
+        MP.role = 'host'; MP.myTeam = 0;
+        MP.guestBuild = LS_BUILD_ID; /* a queue match is seated by the relay between two copies of this build; the guest still self-checks the start handshake */
+        fdLaunchQueueMatch(o);
+      } else {
+        MP.role = 'guest'; MP.myTeam = 1;
+        MP.hostRace = o.lineup.teamAnimals[0]; MP.myRace = o.lineup.teamAnimals[1];
+        MP.hostDifficulty = String(o.lineup.aiDifficulty || 'Normal').toLowerCase();
+        fdSetStatus('fdDraftStatus', 'Match starting…');
+        mpStatus('Queue match — the host is starting the game…');
+      }
+      return true;
+    }
+    return false;
   }
   /* ---- Lobby + guest-chrome wiring — wired ONCE at load with
      addEventListener. (Lesson of the 2026-10-29 hotfix: this wiring must
@@ -1281,8 +1622,26 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var mpResB = document.getElementById('mpBtnResearch'); if (mpResB) mpResB.addEventListener('click', function () { mpOrder({ type: 'order', kind: 'research' }); });
   var mpProdB = document.getElementById('mpBtnHangarProd'); if (mpProdB) mpProdB.addEventListener('click', function () { mpOrder({ type: 'order', kind: 'hangarProd' }); });
   var mpElimW = document.getElementById('mpElimWatch'); if (mpElimW) mpElimW.addEventListener('click', function () { var el = document.getElementById('mpElim'); if (el) el.hidden = true; var bn = document.getElementById('mpElimBanner'); if (bn) bn.hidden = false; try { note('Spectating — your squadron is out, but you can keep watching the battle.', false); } catch (e) {} });
+  /* ---- Front-door wiring (mode select + gate + queue + draft) ---- */
+  var fdSpB = document.getElementById('fdSpBtn'); if (fdSpB) fdSpB.addEventListener('click', function () { try { Aud.ui('select'); } catch (e) {} menuShowStep(1); });
+  var fdMpB = document.getElementById('fdMpBtn'); if (fdMpB) fdMpB.addEventListener('click', function () { try { Aud.ui('select'); } catch (e) {} mpOpenUI(); });
+  var fdHomeB = document.getElementById('fdHomeBtn'); if (fdHomeB) fdHomeB.addEventListener('click', function () { try { Aud.ui('select'); } catch (e) {} if (FD.authed) fdShowMain(); else fdShowGate(); });
+  var fdGateBackB = document.getElementById('fdGateBackBtn'); if (fdGateBackB) fdGateBackB.addEventListener('click', function () { mpCloseUI(); });
+  var fdDevB = document.getElementById('fdDevBtn'); if (fdDevB) fdDevB.addEventListener('click', function () { var ni = document.getElementById('fdDevName'); var nm = ni ? String(ni.value || '').trim() : ''; if (!nm) { fdSetStatus('fdGateStatus', 'Type a display name first, then Dev sign-in.'); return; } fdBeginAuth('dev:' + nm); });
+  var fdFindB = document.getElementById('fdFindBtn'); if (fdFindB) fdFindB.addEventListener('click', function () { try { Aud.ui('select'); } catch (e) {} fdFindMatch(); });
+  var fdCustomB = document.getElementById('fdCustomBtn'); if (fdCustomB) fdCustomB.addEventListener('click', function () { mpShowHome(false); mpStatus(); });
+  var fdMainBackB = document.getElementById('fdMainBackBtn'); if (fdMainBackB) fdMainBackB.addEventListener('click', function () { mpCloseUI(); });
+  var fdOutB = document.getElementById('fdOutBtn'); if (fdOutB) fdOutB.addEventListener('click', function () {
+    FD.authed = false; FD.token = null; FD.name = null; FD.picture = null; FD.wantQueue = false;
+    if (!MP.room && MP.ws) { try { MP.ws.close(); } catch (e) {} MP.ws = null; MP.enabled = false; MP.role = null; }
+    fdShowGate(); fdSetStatus('fdGateStatus', 'Signed out.');
+  });
+  var fdQLB = document.getElementById('fdQueueLeaveBtn'); if (fdQLB) fdQLB.addEventListener('click', function () { fdLeaveQueue(); });
+  var fdReadyB = document.getElementById('fdReadyBtn'); if (fdReadyB) fdReadyB.addEventListener('click', function () { fdReadySend(); });
+  var fdFLB = document.getElementById('fdFoundLeaveBtn'); if (fdFLB) fdFLB.addEventListener('click', function () { fdLeaveQueue(); });
+  var fdDLB = document.getElementById('fdDraftLeaveBtn'); if (fdDLB) fdDLB.addEventListener('click', function () { fdLeaveQueue(); });
   /* Expose a tiny test hook for the Node harness (not used by browsers) */
-  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
+  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
   var EL = 50 * Math.PI / 180, SE = Math.sin(EL), CE = Math.cos(EL);
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), ctx = cv.getContext('2d');
@@ -5472,8 +5831,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   // game, Learn to play advances to step 2 with a tutorial pending, and
   // Take off on step 2 starts whichever was chosen. Back clears the pending
   // tutorial, so you must click Learn to play again to re-enter tutorial mode.
-  function menuShowStep(step) { $('menuStep1').hidden = step !== 1; $('menuStep2').hidden = step !== 2; }
-  menuShowStep(1);
+  function menuShowStep(step) { var s0 = $('menuStep0'); if (s0) s0.hidden = step !== 0; $('menuStep1').hidden = step !== 1; $('menuStep2').hidden = step !== 2; }
+  menuShowStep(0); /* front door: the menu boots on the mode-select step */
   $('toRaceBtn').addEventListener('click', function () { tutPending = false; Aud.ui('select'); menuShowStep(2); });
   $('backBtn').addEventListener('click', function () { tutPending = false; Aud.ui('select'); menuShowStep(1); });
   $('tutBtn').addEventListener('click', function () { tutPending = true; Aud.ui('select'); menuShowStep(2); });
