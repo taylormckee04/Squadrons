@@ -76,6 +76,9 @@ const RATE_MAX = parseInt(process.env.MP_RATE_MAX || '300', 10);
 const RATE_WINDOW = parseInt(process.env.MP_RATE_WINDOW_MS || '10000', 10);
 const HEARTBEAT_MS = parseInt(process.env.MP_HEARTBEAT_MS || '10000', 10);
 const TIMEOUT_MS = parseInt(process.env.MP_TIMEOUT_MS || '35000', 10);
+/* Fix E: how long a dropped match player's seat is held for a
+   reconnect before the room falls back to the old teardown. */
+const REJOIN_GRACE_MS = parseInt(process.env.SQ_REJOIN_GRACE_MS || '45000', 10);
 
 /* ---------------- front door: auth + matchmaking (Stage A+B) ---------------- */
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
@@ -145,12 +148,59 @@ function sendTo(conn, obj) {
   try { conn.sock.write(wsFrame(JSON.stringify(obj))); } catch (e) { killConn(conn, 'send failed'); }
 }
 
+function clearAwayTimer(room) {
+  if (room.awayTimer) { clearTimeout(room.awayTimer); room.awayTimer = null; }
+}
+/* Fix E: when a player drops out of a STARTED match, hold their seat
+   for REJOIN_GRACE_MS instead of tearing the room down at once. The
+   peer is told the seat is being held (peerAway); if the player
+   reclaims the seat in time nothing else changes, otherwise the old
+   guestLeft / hostLeft semantics run at expiry. Only authenticated
+   players get a held seat — the raw protocol flows never authenticate,
+   so their disconnect semantics are unchanged. */
+function graceExpire(code, room) {
+  room.awayTimer = null;
+  if (rooms.get(code) !== room) return;
+  if (room.awayGuest) {
+    room.awayGuest = null;
+    if (room.host) sendTo(room.host, { type: 'guestLeft' });
+  } else if (room.awayHost) {
+    room.awayHost = null;
+    if (room.guest) {
+      sendTo(room.guest, { type: 'hostLeft' });
+      room.guest.room = null;
+      room.guest.role = null;
+      room.guest = null;
+    }
+    rooms.delete(code);
+  }
+}
+function graceHold(conn, room, code) {
+  const role = conn.role;
+  const peer = role === 'host' ? room.guest : room.host;
+  if (role === 'host') { room.awayHost = { sub: conn.identity.sub, name: conn.identity.name }; room.host = null; }
+  else { room.awayGuest = { sub: conn.identity.sub, name: conn.identity.name }; room.guest = null; }
+  conn.room = null;
+  conn.role = null;
+  sendTo(peer, { type: 'peerAway', role: role, graceMs: REJOIN_GRACE_MS });
+  clearAwayTimer(room);
+  room.awayTimer = setTimeout(function () { graceExpire(code, room); }, REJOIN_GRACE_MS);
+  if (room.awayTimer.unref) room.awayTimer.unref();
+}
 function cleanupRoom(conn) {
   if (!conn.room) return;
   const room = rooms.get(conn.room);
   if (!room) { conn.room = null; return; }
+  /* Fix E grace: a started match with a live peer and an authenticated
+     dropper -> hold the seat instead of the immediate teardown. */
+  if (room.started && conn.identity && (conn.role === 'host' || conn.role === 'guest')) {
+    const peerE = conn.role === 'host' ? room.guest : room.host;
+    const otherAway = conn.role === 'host' ? room.awayGuest : room.awayHost;
+    if (peerE && !otherAway) { const codeE = conn.room; graceHold(conn, room, codeE); return; }
+  }
   if (conn.role === 'host' && room.host === conn) {
     if (room.guest) { sendTo(room.guest, { type: 'hostLeft' }); room.guest.room = null; room.guest.role = null; }
+    clearAwayTimer(room);
     rooms.delete(conn.room);
   } else if (conn.role === 'guest' && room.guest === conn) {
     room.guest = null;
@@ -200,6 +250,10 @@ function verifyGoogleToken(token, cb) {
 function handleAuth(conn, token) {
   if (typeof token !== 'string' || !token) { sendTo(conn, { type: 'auth_fail', reason: 'missing token' }); return; }
   if (AUTH_DEV_MODE) {
+    /* Fix A test hook: dev:EXPIRED:<name> simulates an expired Google
+       credential, so the client's stale-token recovery can be driven
+       end-to-end in dev mode. */
+    if (token.indexOf('dev:EXPIRED:') === 0) { sendTo(conn, { type: 'auth_fail', reason: 'Sign-in expired' }); return; }
     if (token.indexOf('dev:') === 0) {
       const name = token.slice(4).trim().slice(0, 40);
       if (!name) { sendTo(conn, { type: 'auth_fail', reason: 'dev token needs a display name (dev:<DisplayName>)' }); return; }
@@ -394,7 +448,7 @@ function finishDraft(match) {
   /* Room seating assumes exactly 2 humans (Stage B / MATCH_HUMANS=2):
      the lockstep room protocol is one host + one guest. */
   const code = newRoomCode();
-  rooms.set(code, { host: players[0], guest: players[1] });
+  rooms.set(code, { host: players[0], guest: players[1], started: true }); /* Fix E: a seated queue match is live — seat grace applies */
   players[0].role = 'host'; players[0].room = code;
   players[1].role = 'guest'; players[1].room = code;
   sendTo(players[0], { type: 'queue_start', role: 'host', room: code, lineup });
@@ -447,6 +501,23 @@ function routeMessage(conn, msg) {
   if (!conn.role) {
     if (o.type === 'hello' && o.role === 'host') {
       if (!AUTH_DEV_MODE && !conn.identity) { sendTo(conn, { type: 'auth_required', msg: 'Please sign in first' }); return; }
+      /* Fix E: hello WITH a code = a host reclaiming a seat held by
+         the reconnect grace. Only the same identity may reclaim. */
+      if (typeof o.code === 'string' && o.code) {
+        const rcode = o.code.trim().toUpperCase();
+        const rroom = rooms.get(rcode);
+        if (rroom && rroom.awayHost && (!rroom.awayHost.sub || (conn.identity && conn.identity.sub === rroom.awayHost.sub))) {
+          rroom.awayHost = null;
+          clearAwayTimer(rroom);
+          rroom.host = conn; conn.role = 'host'; conn.room = rcode;
+          sendTo(conn, { type: 'room', code: rcode });
+          if (rroom.guest) sendTo(rroom.guest, { type: 'peerBack', role: 'host' });
+          console.log('[relay] host conn ' + conn.id + ' reclaimed room ' + rcode + ' within the reconnect grace');
+        } else {
+          sendTo(conn, { type: 'joinError', msg: 'That room is gone — it cannot be rejoined' });
+        }
+        return;
+      }
       const code = newRoomCode();
       rooms.set(code, { host: conn, guest: null });
       conn.role = 'host'; conn.room = code;
@@ -458,6 +529,14 @@ function routeMessage(conn, msg) {
       const room = code ? rooms.get(code) : null;
       if (!room || !room.host) { sendTo(conn, { type: 'joinError', msg: 'Room not found — check the code the host gave you' }); return; }
       if (room.guest) { sendTo(conn, { type: 'joinError', msg: 'That room already has a guest' }); return; }
+      /* Fix E: the guest seat may be held for a dropped player
+         (reconnect grace). Only the same identity may reclaim it. */
+      if (room.awayGuest) {
+        if (room.awayGuest.sub && !(conn.identity && conn.identity.sub === room.awayGuest.sub)) { sendTo(conn, { type: 'joinError', msg: 'That room already has a guest' }); return; }
+        room.awayGuest = null;
+        clearAwayTimer(room);
+        if (room.host) sendTo(room.host, { type: 'peerBack', role: 'guest' });
+      }
       room.guest = conn; conn.role = 'guest'; conn.room = code;
       if (conn.identity) o.name = conn.identity.name; /* the host's lobby slot shows who joined */
       sendTo(room.host, o); /* host learns the guest's race from the original join */
@@ -467,6 +546,7 @@ function routeMessage(conn, msg) {
   }
   const room = rooms.get(conn.room);
   if (!room) return;
+  if (conn.role === 'host' && o.type === 'start') room.started = true; /* Fix E: the match is live — seat grace applies from here */
   const peer = conn.role === 'host' ? room.guest : room.host;
   if (peer && !peer.dead) { try { peer.sock.write(wsFrame(msg)); } catch (e) { killConn(peer, 'forward failed'); } }
 }

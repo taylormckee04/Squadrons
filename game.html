@@ -388,6 +388,8 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 #mpOverlay { z-index: 40; }
 #mpElim { z-index: 30; }
 #mpElimBanner { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 30; background: #d63c52; color: #fff; font: 600 14px var(--font-display); letter-spacing: .02em; padding: 8px 18px; border-radius: 999px; box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: none; white-space: nowrap; }
+#fxStall { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 31; background: #8a6d1d; color: #fff; font: 600 14px var(--font-display); letter-spacing: .02em; padding: 8px 18px; border-radius: 999px; box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: none; white-space: nowrap; }
+#fxError { position: fixed; top: 94px; left: 50%; transform: translateX(-50%); z-index: 32; max-width: 92vw; background: #7a1f2b; color: #fff; font: 600 13px var(--font-display); letter-spacing: .01em; padding: 8px 16px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.4); pointer-events: none; text-align: center; }
 #mpOverlay .sheet { max-width: 640px; }
 #mpHome, #mpLobby { display: grid; gap: 14px; }
 #mpRoomCode { font: 700 42px/1.1 var(--font-display); letter-spacing: 6px; text-align: center; color: var(--ink); background: #fff; border: 2px solid var(--line); border-radius: 12px; padding: 10px 6px; }
@@ -508,6 +510,15 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   </div>
 </div>
 <div id="mpElimBanner" hidden>☠ Your squadron was eliminated — spectating (orders are disabled)</div>
+<div id="fxStall" hidden></div>
+<div id="fxError" hidden></div>
+<div class="ov" id="fxEndOv" hidden>
+  <div class="sheet">
+    <h2 id="fxEndTitle">Match ended</h2>
+    <p id="fxEndText">The match has ended.</p>
+    <div class="row"><button class="go" id="fxEndBtn" type="button">Back to menu</button></div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -568,7 +579,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var MP = { enabled: false, role: null, myTeam: 0, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = 'ee02ee32c6';
+  var LS_BUILD_ID = '530e36b01f';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -582,7 +593,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      not configured and the gate offers the relay's dev sign-in for
      local testing instead. */
   var GOOGLE_CLIENT_ID = '31883324545-22qspho706oncqmjj44179urbvmb7pe0.apps.googleusercontent.com';
-  var FD = { configured: GOOGLE_CLIENT_ID !== 'REPLACE_WITH_GOOGLE_CLIENT_ID', token: null, authed: false, name: null, picture: null, state: 'idle', ui: null, players: [], myIndex: -1, deadline: 0, countInt: null, countEl: null, draft: null, wantQueue: false, gisState: 'idle', gisWaiters: [] };
+  var FD = { configured: GOOGLE_CLIENT_ID !== 'REPLACE_WITH_GOOGLE_CLIENT_ID', token: null, authed: false, name: null, picture: null, state: 'idle', ui: null, players: [], myIndex: -1, deadline: 0, countInt: null, countEl: null, draft: null, wantQueue: false, gisState: 'idle', gisWaiters: [], credProvider: null, credWaiters: [], pendingCustom: null, customAttempt: null, freshBypass: false };
   /* ---------------- seeded RNG cage ----------------
      Two mulberry32 streams (the spike's implementation). SIMR is the
      simulation's ONLY source of randomness: its state and draw count
@@ -607,7 +618,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      | 'over' (match finished). peerUpto = highest tick the peer has
      asserted fully ordered; a side may step tick T only when
      peerUpto >= T (its own orders are local by construction). */
-  var LS = { state: 'off', tick: 0, delay: 5, seed: null, seedPending: null, lineup: null, accNs: 0, pending: {}, ownSeq: 0, peerUpto: -1, hashes: {}, peerHashes: {}, waiting: false, waitMs: 0, nagAt: 0, resyncs: 0, lastResyncAt: 0, desyncTick: -1, rejoinPending: false };
+  var LS = { state: 'off', tick: 0, delay: 5, seed: null, seedPending: null, lineup: null, accNs: 0, pending: {}, ownSeq: 0, peerUpto: -1, hashes: {}, peerHashes: {}, waiting: false, waitMs: 0, nagAt: 0, resyncs: 0, lastResyncAt: 0, desyncTick: -1, rejoinPending: false, epoch: 0, completedEpoch: -1, desyncSince: 0, lastSnapAt: 0, snapSends: 0, snapReqs: 0, endSent: false, sharedPause: null, pausePending: null, pauseNagMs: 0, reconnecting: false, reconnectGen: 0, reconnectTry: 0, reconnectAttempt: false, lastAdvanceAt: 0, testThrowAt: -1, chunkBytes: 102400, snapSeq: 0, snapRx: null, snapBytes: 0, snapChunks: 0, stallText: '' };
   var LS_DT_NS = 33333333; /* one 1/30 s tick, integer nanoseconds */
   var LS_LINEUP = null;    /* explicit 4-race lineup for newGame (build patch reads it) */
   function mpLsOn() { return MP.enabled && LS.state !== 'off'; }
@@ -758,16 +769,21 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         done(rn2 > 0, rn2 > 0 ? ('Released ' + rn2 + ' plane(s) from the Bunny Burrow.' + (left2 ? ' ' + left2 + ' remain stored until you have room under the 80-plane limit.' : '')) : 'No room under the 80-plane limit, or the Burrow is empty. Stored planes stay safe in the Burrow.');
       }
     }
+    /* Fix F: the shared pause is itself an order, so both sims halt
+       at the same tick. The halt engages at the end of this tick
+       (lsStepTick reads pausePending after stepping). */
+    else if (o.kind === 'pause') { LS.pausePending = tm; done(true, null); }
     return res;
   }
   /* ---------------- lockstep engine ---------------- */
   function lsSendFrame() { mpSend({ type: 'lsFrame', slot: MP.myTeam, upto: LS.tick + LS.delay - 1 }); }
   function lsOnFrame(o) { if (o && (o.slot === 0 || o.slot === 1) && o.slot !== MP.myTeam && typeof o.upto === 'number' && o.upto > LS.peerUpto) LS.peerUpto = o.upto; }
-  function lsCanStep() { return LS.state === 'run' && !G.over && LS.peerUpto >= LS.tick; }
+  function lsCanStep() { return LS.state === 'run' && !G.over && !LS.sharedPause && LS.peerUpto >= LS.tick; }
   /* One tick: apply every order stamped for this tick in (slot, seq)
      order — identical on both machines — then step the sim exactly
      like single-player does (update + the two AI teams). */
   function lsStepTick() {
+    if (LS.testThrowAt === LS.tick) { LS.testThrowAt = -1; throw new Error('injected tick fault (test hook)'); }
     var T = LS.tick, due = (LS.pending[T] || []).slice().sort(function (a, b) { return (a.slot - b.slot) || (a.seq - b.seq); });
     delete LS.pending[T];
     for (var i = 0; i < due.length; i++) {
@@ -777,6 +793,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     update(1 / 30);
     for (var aiIdx = 0; aiIdx < MP.aiTeams.length; aiIdx++) aiTickTeam(1 / 30, MP.aiTeams[aiIdx]);
     LS.tick++;
+    LS.lastAdvanceAt = performance.now();
+    if (LS.pausePending !== null && LS.pausePending !== undefined) { var pby = LS.pausePending; LS.pausePending = null; lsEngageSharedPause(pby); }
     if (LS.tick % 2 === 0) lsSendFrame(); /* frame messages bundle 2 ticks: 15 msg/s, inside the relay cap */
     if (LS.tick % 30 === 0) {
       var h = lsHash();
@@ -793,6 +811,16 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      so — the lockstep wait, surfaced with the game's own words. */
   function lsFrameStep(elMs) {
     if (LS.state !== 'run') { LS.accNs = 0; lsCheckElimination(); return; }
+    if (LS.sharedPause) {
+      /* Fix F: halted on both machines at the same tick. Keep
+         advertising frame coverage (~2/s) so the peer's barrier and
+         the relay heartbeat both see a live, caught-up player, and
+         the paused match is never reaped as idle. */
+      LS.accNs = 0; LS.pauseNagMs += elMs;
+      if (LS.pauseNagMs >= 500) { LS.pauseNagMs = 0; lsSendFrame(); }
+      lsCheckElimination();
+      return;
+    }
     LS.accNs += Math.round(elMs * 1000000);
     if (LS.accNs > LS_DT_NS * 10) LS.accNs = LS_DT_NS * 10; /* shed backlog after a stall rather than spiral */
     var steps = 0;
@@ -822,59 +850,159 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lsEnterDesync(t) {
     if (LS.state !== 'run') return;
     if (LS.resyncs > 0 && performance.now() - LS.lastResyncAt < 60000) { lsEndMatchDesync(); return; } /* second mismatch inside a minute: stop, don't loop */
-    LS.state = 'desync'; LS.desyncTick = t;
-    mpSend({ type: 'lsDesync', tick: t });
+    LS.state = 'desync'; LS.desyncTick = t; LS.desyncSince = performance.now(); LS.snapSends = 0; LS.snapReqs = 0; LS.endSent = false;
+    mpSend({ type: 'lsDesync', tick: t, epoch: LS.epoch });
     try { note('Out of sync with your opponent — resyncing…', true); } catch (e) {}
     mpStatus('Out of sync — resyncing…');
-    if (MP.role === 'host') lsSendSnap();
+    fxStallRefresh();
+    if (MP.role === 'host') { LS.epoch++; lsSendSnap(LS.epoch); }
   }
   function lsOnDesync(o) {
-    if (LS.state !== 'run') return;
-    LS.state = 'desync'; LS.desyncTick = (o && typeof o.tick === 'number') ? o.tick : LS.tick;
-    try { note('Out of sync with your opponent — resyncing…', true); } catch (e) {}
-    mpStatus('Out of sync — resyncing…');
-    if (MP.role === 'host') lsSendSnap();
+    if (LS.state === 'run') {
+      LS.state = 'desync'; LS.desyncTick = (o && typeof o.tick === 'number') ? o.tick : LS.tick;
+      LS.desyncSince = performance.now(); LS.snapSends = 0; LS.snapReqs = 0; LS.endSent = false;
+      try { note('Out of sync with your opponent — resyncing…', true); } catch (e) {}
+      mpStatus('Out of sync — resyncing…');
+      fxStallRefresh();
+      if (MP.role === 'host') { LS.epoch++; lsSendSnap(LS.epoch); }
+      return;
+    }
+    /* Already recovering: a NEWER episode announced by the host
+       restarts the guest's wait (its snapshot is on the way). */
+    if (MP.role === 'guest' && LS.state === 'desync' && o && typeof o.epoch === 'number' && o.epoch > LS.epoch) { LS.epoch = o.epoch; LS.desyncSince = performance.now(); LS.snapReqs = 0; }
   }
   function lsEndMatchDesync() {
     /* MP.inGame deliberately stays true: frame() then keeps this
        world frozen instead of solo-stepping it as a "single-player"
        game. Leaving the room or a fresh start resets everything. */
-    LS.state = 'off';
+    LS.state = 'off'; LS.sharedPause = null; LS.reconnecting = false;
     try { note('The match went out of sync and could not be recovered — it has ended. You can start a fresh match from the lobby.', true); } catch (e) {}
     mpStatus('Out of sync — the match has ended (recovery failed)');
-    if (MP.role === 'guest') mpShowHome(true);
+    fxShowEnd('Out of sync', 'The match went out of sync and could not be re-synced — it has ended. You can start a fresh match from the menu.');
+    fxStallRefresh();
   }
-  function lsSendSnap() { var h = lsHash(); mpSend({ type: 'lsSnap', tick: LS.tick, hash: h, snap: lsSnapshot() }); }
+  /* Fix H: snapshots travel whole while they fit comfortably; past
+     LS.chunkBytes the snapshot string is sliced into lsSnapChunk
+     messages, so no single WebSocket message can hit the relay cap
+     and kill the sender's connection mid-resync (the audited
+     late-game freeze). The size is logged either way. */
+  function lsSendSnap(epoch) {
+    var h = lsHash();
+    var msg = { type: 'lsSnap', tick: LS.tick, hash: h, epoch: epoch, snap: lsSnapshot() };
+    var whole = '';
+    try { whole = JSON.stringify(msg); } catch (e) { whole = ''; }
+    LS.lastSnapAt = performance.now(); LS.snapSends++;
+    LS.snapBytes = whole.length; LS.snapChunks = 0;
+    if (whole.length > 0 && whole.length <= LS.chunkBytes) {
+      try { console.log('[ls] snapshot ' + whole.length + ' bytes (whole)'); } catch (e) {}
+      mpSend(msg);
+      return;
+    }
+    var snapStr = '';
+    try { snapStr = JSON.stringify(msg.snap); } catch (e) { snapStr = ''; }
+    var per = Math.max(1024, LS.chunkBytes - 512);
+    var count = Math.max(1, Math.ceil(snapStr.length / per));
+    LS.snapSeq++; LS.snapChunks = count;
+    try { console.log('[ls] snapshot ' + whole.length + ' bytes in ' + count + ' chunks'); } catch (e) {}
+    for (var ci = 0; ci < count; ci++) {
+      mpSend({ type: 'lsSnapChunk', id: LS.snapSeq, idx: ci, count: count, epoch: epoch, tick: LS.tick, hash: h, data: snapStr.slice(ci * per, (ci + 1) * per) });
+    }
+  }
+  function lsOnSnapChunk(o) {
+    if (!o || typeof o.id !== 'number' || typeof o.idx !== 'number' || typeof o.count !== 'number' || typeof o.data !== 'string') return;
+    var rx = LS.snapRx;
+    if (!rx || rx.id !== o.id) { rx = LS.snapRx = { id: o.id, count: o.count, parts: [], got: 0, epoch: o.epoch, tick: o.tick, hash: o.hash }; }
+    if (rx.parts[o.idx] === undefined) { rx.parts[o.idx] = o.data; rx.got++; }
+    if (rx.got >= rx.count) {
+      var str = rx.parts.join('');
+      LS.snapRx = null;
+      var snap = null;
+      try { snap = JSON.parse(str); } catch (e) { snap = null; }
+      if (snap) lsOnSnap({ type: 'lsSnap', tick: rx.tick, hash: rx.hash, epoch: rx.epoch, snap: snap });
+    }
+  }
   function lsOnSnap(o) {
-    if (MP.role !== 'guest' || !o || !o.snap) return;
-    if (LS.state !== 'desync' && LS.state !== 'resync') return;
+    if (!o || !o.snap) return;
+    var ep = (typeof o.epoch === 'number') ? o.epoch : null;
+    /* Fix G: accept in 'desync'/'resync' (either role — a host that
+       reclaimed its seat needs the guest's snapshot), and accept in
+       'run' when the epoch is newer than the last completed one:
+       that is the host re-sending after a lost lsReady, which the old
+       code ignored while the host waited forever (audited deadlock). */
+    var accept = (LS.state === 'desync' || LS.state === 'resync') || (LS.state === 'run' && ep !== null && ep > LS.completedEpoch);
+    if (!accept) return;
     var wasRejoin = LS.state === 'resync';
     lsApplySnapshot(o.snap);
     var h = lsHash();
     if (h === o.hash) {
       LS.state = 'run';
+      if (ep !== null) { LS.epoch = ep; LS.completedEpoch = ep; }
+      LS.snapReqs = 0; LS.endSent = false;
       if (!wasRejoin) { LS.resyncs++; LS.lastResyncAt = performance.now(); }
-      mpSend({ type: 'lsReady', tick: LS.tick, hash: h });
+      if (LS.reconnecting) { LS.reconnecting = false; LS.reconnectTry = 0; }
+      mpSend({ type: 'lsReady', tick: LS.tick, hash: h, epoch: ep });
       lsSendFrame();
+      fxHideEnd();
       mpStatus(wasRejoin ? 'Rejoined — match synced' : 'Resynced — match continues');
-    } else {
-      mpSend({ type: 'lsDesyncFail', tick: o.tick });
-      lsEndMatchDesync();
+      fxStallRefresh();
+    } else if (LS.state === 'desync' || LS.state === 'resync') {
+      /* The snapshot itself did not verify: ask for a fresh one a
+         bounded number of times before giving up visibly. */
+      if (LS.snapReqs < 3) { LS.snapReqs++; LS.desyncSince = performance.now(); mpSend({ type: 'lsSnapReq', epoch: ep, bad: 1 }); }
+      else { mpSend({ type: 'lsDesyncFail', tick: o.tick }); lsEndMatchDesync(); }
     }
   }
   function lsOnReady(o) {
-    if (MP.role !== 'host' || !o) return;
+    if (!o) return;
     if (LS.rejoinPending) {
       LS.rejoinPending = false;
-      if (o.hash === lsHash()) { paused = false; lsSendFrame(); mpStatus('Guest reconnected — resumed'); }
-      else { LS.state = 'desync'; lsSendSnap(); mpStatus('Rejoin sync failed — resyncing…'); }
+      if (o.hash === lsHash()) {
+        if (LS.state === 'desync') LS.state = 'run';
+        LS.reconnecting = false; LS.reconnectTry = 0;
+        if (!LS.sharedPause) paused = false;
+        fxHideEnd();
+        lsSendFrame(); mpStatus(MP.role === 'host' ? 'Guest reconnected — resumed' : 'Reconnected — resumed');
+        fxStallRefresh();
+      }
+      else if (MP.role === 'host') { LS.state = 'desync'; LS.desyncSince = performance.now(); LS.epoch++; lsSendSnap(LS.epoch); mpStatus('Rejoin sync failed — resyncing…'); }
       return;
     }
-    if (LS.state === 'desync' && o.hash === lsHash()) {
-      LS.state = 'run'; LS.resyncs++; LS.lastResyncAt = performance.now();
-      lsSendFrame();
-      mpStatus('Resynced — match continues');
+    if (MP.role !== 'host') return;
+    if (LS.state === 'desync') {
+      if (o.hash === lsHash() && (typeof o.epoch !== 'number' || o.epoch === LS.epoch)) {
+        LS.state = 'run'; LS.resyncs++; LS.lastResyncAt = performance.now();
+        lsSendFrame();
+        mpStatus('Resynced — match continues');
+        fxStallRefresh();
+      } else if (o.hash !== lsHash()) {
+        /* Fix G: the guest's ready does not match the snapshot last
+           sent (stale, or ours was lost). The old code silently did
+           nothing here and both sides waited forever — the audited
+           deadlock. Start a fresh episode: a new epoch makes the
+           guest accept the re-send even though it believes it is
+           already running. */
+        LS.epoch++; LS.desyncSince = performance.now(); LS.snapSends = 0; lsSendSnap(LS.epoch);
+      }
     }
+  }
+  /* Fix G: the guest re-requests a snapshot it never got; the host
+     re-sends (a 'bad' report — the snapshot failed its hash — bumps
+     the epoch so the replacement is accepted even from 'run'). */
+  function lsOnSnapReq(o) {
+    if (MP.role !== 'host') return;
+    if (LS.rejoinPending) return;
+    if (LS.state !== 'desync') return;
+    if (o && o.bad) LS.epoch++;
+    lsSendSnap(LS.epoch);
+  }
+  /* Fix G, guest side of the reclaim pull: the host reclaimed its
+     seat and asked for the current state — send it, and wait for the
+     host's ready to resume. */
+  function lsOnSnapReqGuest(o) {
+    if (MP.role !== 'guest') return;
+    if (LS.state === 'off' || LS.state === 'over') return;
+    LS.rejoinPending = true;
+    lsSendSnap((o && typeof o.epoch === 'number') ? o.epoch : LS.epoch);
   }
   /* ---------------- resync snapshot ----------------
      The lobby build's snapshot idea, extended to a FULL state
@@ -942,6 +1070,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     LS.seed = seed; LS.seedPending = seed; LS.lineup = lineup;
     LS.pending = {}; LS.ownSeq = 0; LS.peerUpto = -1; LS.hashes = {}; LS.peerHashes = {};
     LS.accNs = 0; LS.waiting = false; LS.waitMs = 0; LS.nagAt = 0; LS.resyncs = 0; LS.lastResyncAt = 0; LS.desyncTick = -1; LS.rejoinPending = false;
+    LS.epoch = 0; LS.completedEpoch = -1; LS.desyncSince = 0; LS.lastSnapAt = 0; LS.snapSends = 0; LS.snapReqs = 0; LS.endSent = false; LS.sharedPause = null; LS.pausePending = null; LS.pauseNagMs = 0; LS.reconnecting = false; LS.reconnectTry = 0; LS.lastAdvanceAt = performance.now(); LS.testThrowAt = -1; LS.snapRx = null; LS.snapBytes = 0; LS.snapChunks = 0; LS.stallText = '';
   }
   /* Called from newGame's host hook (build patch) while Launch is
      armed: the world the host just built IS the lineup in the message,
@@ -1105,6 +1234,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var ov = document.getElementById('mpOverlay'); if (ov) ov.hidden = true;
     var en = document.getElementById('end'); if (en) en.hidden = true;
     var tp = document.getElementById('tutPanel'); if (tp) tp.hidden = true;
+    var fxE = document.getElementById('fxEndOv'); if (fxE) fxE.hidden = true;
     mode = 'play'; paused = false;
     var pb = document.getElementById('pauseBtn'); if (pb) pb.textContent = '⏸ Pause';
     try { note(HINT); } catch (e) {}
@@ -1146,7 +1276,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function mpDisconnect() {
     MP.enabled = false; MP.role = null; MP.guestConnected = false; MP.guestBuild = null; MP.guestName = null; MP.hostName = null; MP.roomCode = null; MP.inGame = false; MP.launchArmed = false; MP.lastStatus = null;
     FD.state = 'idle'; FD.draft = null; FD.wantQueue = false; fdStopCountdown();
-    LS.state = 'off'; LS.pending = {};
+    FD.customAttempt = null; FD.pendingCustom = null;
+    LS.state = 'off'; LS.pending = {}; LS.reconnecting = false; LS.sharedPause = null;
     if (MP.snapTimer) { clearInterval(MP.snapTimer); MP.snapTimer = null; }
     if (MP.ws) { var w = MP.ws; MP.ws = null; try { w.close(); } catch (e) {} }
     mpStatus('MP: off — you left the room');
@@ -1281,7 +1412,18 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
        room exists, or change the gate state) — handled first. */
     if (fdOnMessage(o)) return;
     if (MP.role === 'host') {
-      if (o.type === 'room') { MP.roomCode = o.code; mpStatus('Room created — read the code to your guest, then Launch when they are in'); }
+      if (o.type === 'room') {
+        MP.roomCode = o.code;
+        if (LS.reconnecting && MP.inGame && G && !G.over && LS.state !== 'off') {
+          /* Fix E: the host reclaimed its held seat after a drop.
+             The guest kept the world — pull its snapshot and adopt
+             it, then both resume from the same tick. */
+          LS.state = 'resync'; LS.rejoinPending = false;
+          mpSend({ type: 'lsSnapReq', epoch: ++LS.epoch, rejoin: 1 });
+          mpStatus('Reconnected — re-syncing the match…');
+          fxStallRefresh();
+        } else mpStatus('Room created — read the code to your guest, then Launch when they are in');
+      }
       else if (o.type === 'join') {
         MP.guestRace = o.race; MP.guestConnected = true; if (o.build) MP.guestBuild = o.build; if (o.name) MP.guestName = o.name;
         if (MP.guestBuild && MP.guestBuild !== LS_BUILD_ID) mpStatus('Your guest joined with a DIFFERENT game build — you both need the same game.html before Launch will work');
@@ -1291,18 +1433,25 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
              rejoin start + the full snapshot; unpause on lsReady. */
           paused = true; LS.rejoinPending = true;
           mpSend({ type: 'start', races: G.teams.map(function (tm) { return tm.race; }), difficulty: pickDifficulty, seed: LS.seed, delay: LS.delay, build: LS_BUILD_ID, rejoin: true });
-          lsSendSnap();
+          lsSendSnap(LS.epoch);
           mpStatus('Guest reconnected — sending the current match state…');
         } else { mpSend({ type: 'joined', team: 1, name: FD.authed ? FD.name : undefined }); mpSendLobby(); mpStatus('Guest joined as ' + o.race + ' — Launch game when you are both ready'); }
       }
       else if (o.type === 'race') { MP.guestRace = o.race; mpStatus('Guest changed animal to ' + mpRaceName(o.race)); }
-      else if (o.type === 'guestLeft') { MP.guestConnected = false; if (G && mode === 'play' && !G.over) { paused = true; try { note('Guest disconnected — game paused.'); } catch (e) {} } mpStatus('Guest disconnected' + (G && mode === 'play' ? ' — paused' : '')); }
+      else if (o.type === 'guestLeft') { MP.guestConnected = false; if (G && mode === 'play' && !G.over) { paused = true; try { note('Guest disconnected — game paused.'); } catch (e) {} } mpStatus('Guest disconnected' + (G && mode === 'play' ? ' — paused' : '')); if (G && mode === 'play' && !G.over && mpLsOn()) fxShowEnd('Your opponent left', 'Your opponent disconnected and did not come back — the match has ended.'); }
       else if (o.type === 'lsOrder') lsReceiveOrder(o.order);
       else if (o.type === 'lsFrame') lsOnFrame(o);
       else if (o.type === 'lsHash') lsOnHash(o);
       else if (o.type === 'lsDesync') lsOnDesync(o);
+      else if (o.type === 'lsSnap') lsOnSnap(o);
       else if (o.type === 'lsReady') lsOnReady(o);
       else if (o.type === 'lsDesyncFail') lsEndMatchDesync();
+      else if (o.type === 'lsSnapReq') lsOnSnapReq(o);
+      else if (o.type === 'lsSnapChunk') lsOnSnapChunk(o);
+      else if (o.type === 'lsResume') lsOnResume(o);
+      else if (o.type === 'peerAway') { if (G && mode === 'play' && !G.over) paused = true; mpStatus('Opponent connection lost — waiting for them to reconnect…'); fxStallRefresh(); }
+      else if (o.type === 'peerBack') { mpStatus('Opponent reconnected — re-syncing…'); }
+      else if (o.type === 'joinError') { if (LS.reconnecting) mpStatus('Reconnect failed: ' + (o.msg || 'room unavailable')); }
     } else if (MP.role === 'guest') {
       if (o.type === 'joinError') { MP.guestConnected = false; mpStatus('Join failed: ' + (o.msg || 'unknown error') + ' — check the room code and click Join again'); }
       else if (o.type === 'joined') { MP.guestConnected = true; if (o.name) MP.hostName = o.name; mpShowLobby(); mpStatus('Joined room ' + (MP.roomCode || '') + ' — waiting for the host to launch'); }
@@ -1332,15 +1481,46 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       else if (o.type === 'lsDesync') lsOnDesync(o);
       else if (o.type === 'lsSnap') lsOnSnap(o);
       else if (o.type === 'lsDesyncFail') lsEndMatchDesync();
+      else if (o.type === 'lsSnapReq') lsOnSnapReqGuest(o);
+      else if (o.type === 'lsSnapChunk') lsOnSnapChunk(o);
+      else if (o.type === 'lsResume') lsOnResume(o);
+      else if (o.type === 'peerAway') { mpStatus('Host connection lost — waiting for them to reconnect…'); fxStallRefresh(); }
+      else if (o.type === 'peerBack') { LS.rejoinPending = true; mpStatus('Host reconnected — re-syncing…'); fxStallRefresh(); }
       else if (o.type === 'gameOver') mpStatus('Game over — winner team ' + o.winner + '. Rematch: the host opens Multiplayer and clicks Launch game again — you drop straight in');
-      else if (o.type === 'hostLeft') { MP.guestConnected = false; MP.inGame = false; mpStatus('Host disconnected — room closed. When the host restarts, get the NEW room code and Join again'); if (mode === 'play') mpShowHome(true); }
+      else if (o.type === 'hostLeft') { MP.guestConnected = false; mpStatus('Host disconnected — room closed. When the host restarts, get the NEW room code and Join again'); if (mode === 'play' && mpLsOn()) { LS.state = 'off'; LS.reconnecting = false; fxShowEnd('Host disconnected', 'The host disconnected and did not come back — the match has ended.'); fxStallRefresh(); } else { MP.inGame = false; if (mode === 'play') mpShowHome(true); } }
     }
   }
   function mpConnect(role, race, code) {
     if (MP.ws) { try { MP.ws.close(); } catch (e) {} MP.ws = null; }
+    if (!LS.reconnectAttempt) LS.reconnectGen++; /* a manual connect supersedes any pending auto-reconnect (fix E) */
+    /* Fix A: a Custom host/join (or a manual rejoin) rides a NEW
+       socket that re-sends the stored Google credential. If that
+       credential is expired or nearly so, the relay refuses it and
+       no room is ever created — the brother-session Custom failure.
+       Refresh the credential BEFORE connecting. (The queue never
+       calls mpConnect: a queue match stays on its verified socket,
+       so queue behaviour is unchanged. Unconfigured placeholder
+       builds skip all of this.) */
+    if (FD.configured && !FD.freshBypass) {
+      if (LS.reconnectAttempt) {
+        if (fdTokenStale()) {
+          fdObtainFreshCredential(function (tok) { FD.freshBypass = true; mpConnect(role, race, code); }, function () { FD.freshBypass = true; mpConnect(role, race, code); });
+          return;
+        }
+      } else {
+        FD.customAttempt = { role: role, race: race, code: code, retried: 0 };
+        if (fdTokenStale()) {
+          FD.pendingCustom = { role: role, race: race, code: code };
+          mpStatus('Your sign-in needs a quick refresh…');
+          fdObtainFreshCredential(function (tok) { FD.pendingCustom = null; FD.freshBypass = true; mpConnect(role, race, code); }, function () { fdGateForCustom('Your sign-in expired — sign in again to continue'); });
+          return;
+        }
+      }
+    }
+    FD.freshBypass = false;
     MP.enabled = true; MP.role = role; MP.myTeam = role === 'host' ? 0 : 1;
     if (role === 'host') MP.hostRace = MP.hostRace || pickRace;
-    if (role === 'guest') MP.myRace = race;
+    if (role === 'guest') { MP.myRace = race; if (code) MP.roomCode = code; } /* the code is recorded here, not only by the Join button — the auto-reconnect (fix E) rejoins by it after an unexpected drop */
     mpStatus(); /* re-render the lobby with the role set — the click handlers show it BEFORE connecting, so a failure can never be invisible */
     /* A page opened as a downloaded file has no host in its address:
        there is no game server to connect to, and new WebSocket('ws://')
@@ -1355,9 +1535,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     catch (e) { mpStatus('The connection to the game server could not be started — try opening the game from the server\'s address (http://desktop-dq18pee:8000/game.html).'); return; }
     var myWs = MP.ws;
     MP.ws.onerror = function () { if (MP.ws !== myWs) return; mpStatus('Could not reach the game server — check the host PC\'s server window is still running and Tailscale is signed in on this machine.'); };
-    MP.ws.onopen = function () { if (MP.ws !== myWs) return; if (FD.token) mpSend({ type: 'auth', idToken: FD.token }); if (role === 'host') mpSend({ type: 'hello', role: 'host' }); else mpSend({ type: 'join', role: 'guest', race: race, code: code, build: LS_BUILD_ID }); mpStatus('Connected, waiting for ' + (role === 'host' ? 'the room code' : 'the host')); };
-    MP.ws.onmessage = function (ev) { if (MP.ws !== myWs) return; var o; try { o = JSON.parse(ev.data); } catch (e) { return; } mpOnMessage(o); };
-    MP.ws.onclose = function () { if (MP.ws !== myWs || !MP.enabled) return; if (role === 'host' && G && mode === 'play' && !G.over) { paused = true; try { note('Connection lost — game paused.'); } catch (e) {} } MP.guestConnected = false; mpStatus(role === 'host' ? 'Disconnected (host) — the room is closed' : 'Disconnected — rejoin with the same room code to resume'); if (role === 'guest' && MP.inGame) mpShowHome(true); };
+    MP.ws.onopen = function () { if (MP.ws !== myWs) return; if (FD.token) mpSend({ type: 'auth', idToken: FD.token }); if (role === 'host') { if (MP.reclaim && MP.roomCode) { mpSend({ type: 'hello', role: 'host', code: MP.roomCode }); } else mpSend({ type: 'hello', role: 'host' }); MP.reclaim = false; } else mpSend({ type: 'join', role: 'guest', race: race, code: code, build: LS_BUILD_ID }); mpStatus('Connected, waiting for ' + (role === 'host' ? 'the room code' : 'the host')); };
+    MP.ws.onmessage = function (ev) { if (MP.ws !== myWs) return; var o; try { o = JSON.parse(ev.data); } catch (e) { return; } try { mpOnMessage(o); } catch (e2) { fxError(e2); } };
+    MP.ws.onclose = function () { if (MP.ws !== myWs || !MP.enabled) return; if (role === 'host' && G && mode === 'play' && !G.over) { paused = true; try { note('Connection lost — game paused.'); } catch (e) {} } MP.guestConnected = false; mpStatus(role === 'host' ? 'Disconnected (host) — the room is closed' : 'Disconnected — rejoin with the same room code to resume'); if (role === 'guest' && MP.inGame) mpShowHome(true); lsMaybeReconnect(); };
   }
   /* ---------------- FRONT DOOR: screens, sign-in, queue, draft ---------------- */
   var FD_SCREENS = ['mpMain', 'mpGate', 'mpQueue', 'mpFound', 'mpDraft'];
@@ -1406,7 +1586,17 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     s.onerror = function () { FD.gisState = 'failed'; var w = FD.gisWaiters; FD.gisWaiters = []; for (var i = 0; i < w.length; i++) w[i](false); };
     document.head.appendChild(s);
   }
-  function fdOnGoogleCredential(resp) { if (resp && resp.credential) fdBeginAuth(resp.credential); }
+  function fdOnGoogleCredential(resp) {
+    if (resp && resp.credential) {
+      fdBeginAuth(resp.credential);
+      /* Fix A: wake anyone waiting for a FRESH credential (a Custom
+         host/join that found the stored one stale). fdBeginAuth runs
+         first, so the auth_ok it triggers cannot double-complete the
+         pending action — the waiter consumes pendingCustom itself. */
+      var ws = FD.credWaiters.splice(0, FD.credWaiters.length);
+      for (var i = 0; i < ws.length; i++) { try { ws[i](resp.credential); } catch (e) {} }
+    }
+  }
   /* One socket serves the whole front door (auth -> queue -> the
      match itself). Custom games keep their own mpConnect socket;
      both send the stored token first when they open, so the relay's
@@ -1422,7 +1612,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     try { ws = new WebSocket(wsUrl); } catch (e) { fdSetStatus('fdGateStatus', 'The connection to the game server could not be started.'); return false; }
     MP.ws = ws; MP.enabled = true;
     ws.onopen = function () { if (MP.ws !== ws) return; if (FD.token) mpSend({ type: 'auth', idToken: FD.token }); };
-    ws.onmessage = function (ev) { if (MP.ws !== ws) return; var o; try { o = JSON.parse(ev.data); } catch (e) { return; } mpOnMessage(o); };
+    ws.onmessage = function (ev) { if (MP.ws !== ws) return; var o; try { o = JSON.parse(ev.data); } catch (e) { return; } try { mpOnMessage(o); } catch (e2) { fxError(e2); } };
     ws.onerror = function () { if (MP.ws !== ws) return; fdSetStatus('fdGateStatus', 'Could not reach the game server — check your connection and try again.'); fdSetStatus('fdMainStatus', 'Could not reach the game server — check your connection and try again.'); };
     ws.onclose = function () { if (MP.ws !== ws) return; fdOnSocketClose(); };
     return true;
@@ -1435,6 +1625,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       MP.guestConnected = false;
       mpStatus(MP.role === 'host' ? 'Disconnected (host) — the room is closed' : 'Disconnected — the match connection was lost');
       if (MP.role === 'guest' && MP.inGame) mpShowHome(true);
+      lsMaybeReconnect();
       return;
     }
     if (FD.state === 'queued' || FD.state === 'found' || FD.state === 'draft') {
@@ -1524,11 +1715,33 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (o.type === 'auth_ok') {
       FD.authed = true; FD.name = o.name || 'Player'; FD.picture = o.picture || null;
       mpStatus('Signed in as ' + FD.name);
+      /* Fix A: a Custom action parked behind a sign-in refresh
+         completes now (gate sign-in after an expiry, usually). */
+      if (FD.pendingCustom) { var pc = FD.pendingCustom; FD.pendingCustom = null; FD.freshBypass = true; mpConnect(pc.role, pc.race, pc.code); return true; }
+      /* A custom socket re-authenticating must not yank the lobby to
+         the front-door main screen (the room flow owns the UI). */
+      if (FD.customAttempt) { FD.customAttempt = null; return true; }
       if (FD.wantQueue) { FD.wantQueue = false; fdQueueJoin(); }
       else fdShowMain();
       return true;
     }
     if (o.type === 'auth_fail') {
+      /* Fix A: an auth failure on a CUSTOM connection gets ONE
+         automatic fresh-sign-in + retry of the pending host/join
+         before giving up to the gate. The sign-in itself is not
+         torn down — the failure belongs to the custom attempt. */
+      if (FD.customAttempt) {
+        var ca = FD.customAttempt;
+        if (!ca.retried) {
+          ca.retried = 1;
+          FD.pendingCustom = { role: ca.role, race: ca.race, code: ca.code };
+          mpStatus('Sign-in expired — refreshing it and retrying…');
+          fdObtainFreshCredential(function (tok) { FD.pendingCustom = null; FD.freshBypass = true; mpConnect(ca.role, ca.race, ca.code); }, function () { fdGateForCustom('Your sign-in expired — sign in again to continue'); });
+        } else {
+          fdGateForCustom('Your sign-in expired — sign in again to continue');
+        }
+        return true;
+      }
       FD.authed = false;
       fdSetStatus('fdGateStatus', 'Sign-in failed: ' + (o.reason || 'the server could not verify it') + '.');
       mpStatus('Sign-in failed: ' + (o.reason || 'unknown'));
@@ -1641,7 +1854,238 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var fdFLB = document.getElementById('fdFoundLeaveBtn'); if (fdFLB) fdFLB.addEventListener('click', function () { fdLeaveQueue(); });
   var fdDLB = document.getElementById('fdDraftLeaveBtn'); if (fdDLB) fdDLB.addEventListener('click', function () { fdLeaveQueue(); });
   /* Expose a tiny test hook for the Node harness (not used by browsers) */
-  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
+  /* ================= BROTHER-SESSION FIX (A–I) =================
+     Built after the first live brother session (2026-11-02): Custom
+     games failed on stale Google credentials, and one match froze as
+     a still picture. Each fix is labelled with its letter from the
+     audit. Everything here is additive over the front-door build. */
+
+  /* ---- Fix C: error witness ------------------------------------
+     The first error (message + source + line) lands in a VISIBLE
+     banner so a frozen screen can be screenshotted and diagnosed.
+     The banner code itself can never throw. */
+  var FXERR = { first: null, count: 0 };
+  function fxError(e, src, line) {
+    try {
+      FXERR.count++;
+      var el = null;
+      try { el = document.getElementById('fxError'); } catch (e0) { el = null; }
+      if (!FXERR.first) {
+        var msg = (e && e.message) ? e.message : String(e);
+        FXERR.first = { msg: msg, src: src || '', line: line || 0 };
+        if (el) {
+          el.textContent = 'Something went wrong — please screenshot this: ' + msg + (src ? ' (' + src + (line ? ':' + line : '') + ')' : '');
+          el.hidden = false;
+        }
+      } else if (el) {
+        el.textContent = 'Something went wrong — please screenshot this: ' + FXERR.first.msg + ' (x' + FXERR.count + ' errors)';
+      }
+    } catch (e2) {}
+  }
+  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('error', function (ev) { try { fxError(ev && ev.error ? ev.error : (ev && ev.message), ev && ev.filename, ev && ev.lineno); } catch (e) {} });
+    window.addEventListener('unhandledrejection', function (ev) { try { fxError(ev && ev.reason); } catch (e) {} });
+  }
+
+  /* ---- Fix D: visible stall banner ------------------------------
+     Driven purely by lockstep state; refreshed by the watchdog and
+     at every transition. Pointer-events-none, hidden in normal play. */
+  function lsPauseName(team) {
+    if (team === MP.myTeam) return FD.name || 'you';
+    if (FD.players && FD.players[team]) return FD.players[team];
+    if (team === 0) return MP.hostName || 'the host';
+    if (team === 1) return MP.guestName || 'the guest';
+    return 'your opponent';
+  }
+  function fxStallRefresh() {
+    try {
+      var el = document.getElementById('fxStall'); if (!el) return;
+      var txt = '';
+      if (mpLsOn() && MP.inGame && mode === 'play' && G && !G.over) {
+        if (LS.reconnecting) txt = 'Connection lost — reconnecting…';
+        else if (LS.sharedPause) txt = 'Paused by ' + lsPauseName(LS.sharedPause.by);
+        else if (LS.state === 'desync' || LS.state === 'resync') txt = 'Re-syncing…';
+        else if (LS.waiting && LS.waitMs > 1000) txt = 'Waiting for opponent…';
+      }
+      LS.stallText = txt;
+      if (txt) { el.textContent = txt; el.hidden = false; } else el.hidden = true;
+    } catch (e) {}
+  }
+
+  /* ---- shared match-end overlay (fixes E/G give-up paths) ------ */
+  function fxShowEnd(title, text) {
+    try {
+      var ov = document.getElementById('fxEndOv'); if (!ov) return;
+      var t = document.getElementById('fxEndTitle'); if (t) t.textContent = title;
+      var x = document.getElementById('fxEndText'); if (x) x.textContent = text;
+      ov.hidden = false;
+    } catch (e) {}
+  }
+  function fxHideEnd() { try { var ov = document.getElementById('fxEndOv'); if (ov) ov.hidden = true; } catch (e) {} }
+  var fxEndB = document.getElementById('fxEndBtn');
+  if (fxEndB) fxEndB.addEventListener('click', function () {
+    fxHideEnd();
+    LS.reconnecting = false;
+    try { mpDisconnect(); } catch (e) {}
+    var m = document.getElementById('menu'); if (m) m.hidden = false;
+    mode = 'menu';
+    if (FD.authed) fdShowMain(); else if (FD.configured) fdShowGate(); else mpShowHome(false);
+  });
+
+  /* ---- Fix F: shared pause engage / resume ---------------------- */
+  function lsEngageSharedPause(by) {
+    LS.sharedPause = { by: by, atTick: LS.tick };
+    paused = true;
+    var pb = document.getElementById('pauseBtn'); if (pb) { pb.textContent = '▶ Resume'; pb.setAttribute('aria-pressed', 'true'); }
+    fxStallRefresh();
+  }
+  function lsOnResume(o) {
+    if (!LS.sharedPause) return;
+    LS.sharedPause = null;
+    paused = false;
+    var pb = document.getElementById('pauseBtn'); if (pb) { pb.textContent = '⏸ Pause'; pb.setAttribute('aria-pressed', 'false'); }
+    try { note(HINT); } catch (e) {}
+    fxStallRefresh();
+  }
+
+  /* ---- Fix G: resync retry ticker --------------------------------
+     Driven by the watchdog (1 s). Host: re-send the snapshot (new
+     epoch each time) up to 3 sends, then end visibly. Guest: ask
+     again up to 3 times, then end visibly. Nobody strands silently. */
+  var LS_RESYNC_RETRY_MS = 3000;
+  function lsResyncTick() {
+    if (LS.state !== 'desync') return;
+    var now = performance.now();
+    if (now - Math.max(LS.desyncSince, LS.lastSnapAt) < LS_RESYNC_RETRY_MS) return;
+    if (MP.role === 'host') {
+      if (LS.snapSends < 3) { LS.epoch++; lsSendSnap(LS.epoch); }
+      else if (!LS.endSent) { LS.endSent = true; mpSend({ type: 'lsDesyncFail', tick: LS.desyncTick }); lsEndMatchDesync(); }
+    } else {
+      if (LS.snapReqs < 3) { LS.snapReqs++; LS.desyncSince = now; mpSend({ type: 'lsSnapReq', epoch: LS.epoch }); }
+      else if (!LS.endSent) { LS.endSent = true; mpSend({ type: 'lsDesyncFail', tick: LS.desyncTick }); lsEndMatchDesync(); }
+    }
+  }
+
+  /* ---- Fix E: client auto-reconnect ------------------------------
+     Bounded attempts over ~30 s. The relay holds the seat for a
+     grace window; rejoining/resync rides the existing snapshot path
+     (guest: join -> start{rejoin} + snapshot; host: hello+code
+     reclaim -> pull the guest's snapshot). */
+  var LS_RECONNECT_DELAYS = [0, 1000, 2000, 4000, 8000, 15 * 1000];
+  function lsMaybeReconnect() {
+    if (!MP.inGame || !G || G.over) return;
+    if (LS.state !== 'run' && LS.state !== 'desync' && LS.state !== 'resync') return;
+    if (typeof WebSocket === 'undefined' || !location.host) return;
+    /* Reconnecting means re-AUTHENTICATING: without a credential
+       there is nothing to reclaim a held seat with, so tokenless
+       (local / placeholder) sessions keep the established manual
+       rejoin screen instead. Signed-in players always hold one. */
+    if (!FD.token) return;
+    if (LS.reconnecting) return;
+    LS.reconnecting = true; LS.reconnectTry = 0;
+    fxStallRefresh();
+    lsReconnectAttempt();
+  }
+  function lsReconnectAttempt() {
+    if (!LS.reconnecting) return;
+    if (LS.reconnectTry >= LS_RECONNECT_DELAYS.length) { lsReconnectGiveUp(); return; }
+    var gen = LS.reconnectGen;
+    var delay = LS_RECONNECT_DELAYS[LS.reconnectTry];
+    LS.reconnectTry++;
+    setTimeout(function () {
+      if (!LS.reconnecting || gen !== LS.reconnectGen) return;
+      if (MP.ws && MP.ws.readyState === 1) { LS.reconnecting = false; LS.reconnectTry = 0; fxStallRefresh(); return; }
+      LS.reconnectAttempt = true;
+      if (MP.role === 'host') { MP.reclaim = true; mpConnect('host', null); }
+      else mpConnect('guest', MP.myRace, MP.roomCode);
+      LS.reconnectAttempt = false;
+      lsReconnectAttempt();
+    }, delay);
+  }
+  function lsReconnectGiveUp() {
+    LS.reconnecting = false;
+    fxShowEnd('Connection lost', 'The connection to your opponent was lost and could not be restored — the match has ended.');
+    fxStallRefresh();
+  }
+
+  /* ---- Fix A: credential freshness -------------------------------
+     The stored credential is a JWT; read its exp. Stale = expired
+     or inside 5 minutes of expiry. Dev tokens carry no exp, so they
+     are never stale client-side — the relay's dev:EXPIRED hook
+     drives the auth_fail retry path in tests instead. */
+  function fdDecodeExp(token) {
+    try {
+      if (typeof token !== 'string') return null;
+      var parts = token.split('.');
+      if (parts.length !== 3) return null;
+      if (typeof atob !== 'function') return null;
+      var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (b64.length % 4) b64 += '=';
+      var payload = JSON.parse(atob(b64));
+      return (payload && typeof payload.exp === 'number') ? payload.exp : null;
+    } catch (e) { return null; }
+  }
+  function fdTokenStale() {
+    var exp = fdDecodeExp(FD.token);
+    if (!exp) return false;
+    return exp * 1000 < Date.now() + 5 * 60 * 1000;
+  }
+  /* Obtain a FRESH credential, then onOk(token). The credential
+     source is injectable for tests (FD.credProvider); in production
+     it is the GIS prompt — the Host/Join click is a user gesture, so
+     One Tap may show; if nothing arrives promptly, onFail routes to
+     the gate, whose sign-in button completes the pending action. */
+  function fdObtainFreshCredential(onOk, onFail) {
+    var done = false;
+    function finish(tok) {
+      if (done) return; done = true;
+      if (tok) { FD.token = tok; try { onOk(tok); } catch (e) {} }
+      else { try { onFail(); } catch (e) {} }
+    }
+    if (typeof FD.credProvider === 'function') { try { FD.credProvider(finish); } catch (e) { finish(null); } return; }
+    FD.credWaiters.push(finish);
+    fdLoadGis(function () {
+      try {
+        if (window.google && google.accounts && google.accounts.id) {
+          google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: fdOnGoogleCredential });
+          google.accounts.id.prompt();
+        }
+      } catch (e) {}
+    });
+    setTimeout(function () { finish(null); }, 2500);
+  }
+  function fdGateForCustom(msg) {
+    FD.customAttempt = null;
+    fdShowGate();
+    fdSetStatus('fdGateStatus', msg);
+    mpStatus(msg);
+  }
+
+  /* ---- Fix I: watchdog + visibility ------------------------------
+     A 1 s interval independent of requestAnimationFrame. Refreshes
+     the stall banner, drives the resync retry ticker, and nudges a
+     stalled match (re-advertise frame coverage) when the tick has
+     not advanced for a while in a state that should be running. */
+  setInterval(function () {
+    try { fxStallRefresh(); } catch (e) {}
+    try {
+      if (!mpLsOn() || !MP.inGame || mode !== 'play' || !G || G.over) return;
+      if (LS.state === 'desync') lsResyncTick();
+      else if (LS.state === 'run' && !LS.sharedPause && !LS.reconnecting) {
+        if (performance.now() - LS.lastAdvanceAt > 5 * 1000) lsSendFrame();
+      }
+    } catch (e) {}
+  }, 1000);
+  document.addEventListener('visibilitychange', function () {
+    try {
+      if (document.hidden) return;
+      if (mpLsOn()) lsSendFrame();
+      fxStallRefresh();
+    } catch (e) {}
+  });
+  /* ================= END BROTHER-SESSION FIX ==================== */
+
+  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
   var EL = 50 * Math.PI / 180, SE = Math.sin(EL), CE = Math.cos(EL);
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), ctx = cv.getContext('2d');
@@ -2627,6 +3071,22 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function clearSel() { G.planes.forEach(function (p) { p.sel = false; }); }
   // v71 #16: pause. Freezes update()/aiTickTeam()/updateFx() in frame(); UI stays live.
   function setPaused(v) {
+    /* Fix F: in a lockstep match, Pause is a shared, tick-stamped
+       order — both sims halt at the same tick, the banner names who
+       paused, and either player can resume (the resume itself needs
+       no order: a halted peer cannot step past the barrier anyway).
+       Single-player pause is untouched — mpLsOn() is false there. */
+    if (mpLsOn() && MP.inGame && mode === 'play' && LS.state === 'run' && G && !G.over) {
+      if (v && !LS.sharedPause) { lsIssueOrder({ kind: 'pause' }); try { note('Pausing…'); } catch (e) {} }
+      else if (!v && LS.sharedPause) {
+        LS.sharedPause = null; paused = false;
+        var pb0 = $('pauseBtn'); if (pb0) { pb0.textContent = '⏸ Pause'; pb0.setAttribute('aria-pressed', 'false'); }
+        mpSend({ type: 'lsResume', by: MP.myTeam });
+        try { note(HINT); } catch (e) {}
+        fxStallRefresh();
+      }
+      return;
+    }
     paused = !!v && mode === 'play';
     var pb = $('pauseBtn'); if (pb) { pb.textContent = paused ? '▶ Resume' : '⏸ Pause'; pb.setAttribute('aria-pressed', paused ? 'true' : 'false'); }
     var el = $('note'); if (el && paused) { el.className = ''; el.textContent = 'Paused — press P or the Resume button to continue.'; }
@@ -6059,7 +6519,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     else { for (var ati = 1; ati < G.teams.length; ati++) aiTickTeam(1 / 30, ati); }
     if (G.tut) tutTick();
   }
-  function frame(now) {
+  function frameImpl(now) {
     var elMs = now - last; last = now;
     if (!(elMs >= 0)) elMs = 0; if (elMs > 250) elMs = 250;
     var dt = Math.min(0.05, elMs / 1000);
@@ -6067,9 +6527,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       if (mode === 'play') {
         var sp = 760 / cam.z * dt, mx = (keysDown.arrowright ? 1 : 0) - (keysDown.arrowleft ? 1 : 0) + edge.x, my = (keysDown.arrowdown ? 1 : 0) - (keysDown.arrowup ? 1 : 0) + edge.y;
         if (mx || my) { cam.x += clamp(mx, -1, 1) * sp; cam.y += clamp(my, -1, 1) * sp * 0.8; clampCam(); }
-        if (!G.over && !paused) {
-          if (MP.enabled && LS.state !== 'off') lsFrameStep(elMs);
-          else if (!MP.inGame) {
+        if (!G.over) {
+          if (MP.enabled && LS.state !== 'off') { if (!paused || LS.sharedPause) lsFrameStep(elMs); }
+          else if (!paused && !MP.inGame) {
             SIM_ACC_NS += Math.round(elMs * 1000000);
             var guard = 0;
             while (SIM_ACC_NS >= LS_DT_NS && guard < 8) { SIM_ACC_NS -= LS_DT_NS; simTick(); guard++; if (G.over) { SIM_ACC_NS = 0; break; } }
@@ -6093,7 +6553,15 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       hudT -= dt; if (hudT <= 0) { hudT = 0.1; syncHud(); }
       draw();
     }
-    requestAnimationFrame(frame);
+  }
+  /* Fix B: the frame loop can never die. An exception inside a tick
+     used to stop requestAnimationFrame from being rescheduled — the
+     frozen still-picture of the brother session. Now the error is
+     witnessed (fix C) and the loop always continues. */
+  function frame(now) {
+    try { frameImpl(now); }
+    catch (e) { fxError(e); }
+    finally { requestAnimationFrame(frame); }
   }
   newGame(pickRace);
   requestAnimationFrame(frame);
