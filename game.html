@@ -111,6 +111,8 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 .lab-progress-track { height:10px; overflow:hidden; border-radius:99px; background:#d8e2eb; box-shadow: inset 0 1px 2px #0002; }
 .lab-progress-fill { width:0%; height:100%; border-radius:99px; background:linear-gradient(90deg,#e8b83e,#ffe58a); transition:width .12s linear; box-shadow:0 0 8px #f2c94c88; }
 .act kbd { font: 600 10px var(--font-body); color: var(--ink-soft); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: 1px; }
+/* Hotkey-fix: the option badge lives as a DIRECT CHILD of the button (.bn is display:none inside #clickMenuCard — see the click-menu rules below), pinned to the top-left corner — the .cbadge chip owns bottom-right. Above the icon (z 1) and the .cbadge (z 2) and the upgrade-progress overlays (z 0), so it stays readable mid-upgrade. */
+#clickMenuCard .act > kbd.hkkey { position: absolute; top: 1px; left: 1px; z-index: 3; margin-left: 0; background: rgba(255,255,255,.92); pointer-events: none; }
 .compass { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, auto); gap: 2px; }
 .stats { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
 .stats .statTitle { display:none; }
@@ -579,7 +581,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var MP = { enabled: false, role: null, myTeam: 0, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '38e354b64c';
+  var LS_BUILD_ID = '5e61c326c1';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -5954,7 +5956,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (btn.getAttribute('data-tup')) { name = TUP[btn.getAttribute('data-tup')].label; lv = bn ? ' ' + bn.textContent.trim() : ''; }
     else if (btn.getAttribute('data-bup')) { name = BUP[btn.getAttribute('data-bup')].label; lv = bn ? ' ' + bn.textContent.trim() : ''; }
     else if (btn.getAttribute('data-hup')) { name = bn ? bn.textContent.replace(/\s+/g, ' ').trim() : 'Production'; }
-    else if (bn) { name = bn.textContent.replace(kbd ? kbd.textContent : '', '').replace(/\s+/g, ' ').trim(); }
+    else if (bn) { var kbdInBn = kbd && bn.contains(kbd) ? kbd.textContent : ''; name = bn.textContent.replace(kbdInBn, '').replace(/\s+/g, ' ').trim(); }
     else name = btn.title || '';
     var cost = bc ? bc.textContent.trim() : '';
     if (/^\d+$/.test(cost)) cost = cost + ' clouds';
@@ -6213,9 +6215,14 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   // indistinguishable from a click: same handler, same single-player
   // effect, and in multiplayer the identical mpOrder stream — lockstep
   // cannot tell them apart. Each presented option wears its letter as
-  // a <kbd> badge in its name (same look as the build-card hotkey
-  // letters) whenever the card is up; hkPaintBadges keeps them in sync
-  // from syncHud.
+  // a <kbd> badge pinned to the button's top-left corner whenever the
+  // card is up; hkPaintBadges keeps them in sync from syncHud. The
+  // badge is a DIRECT CHILD of the button, never inside the name span:
+  // the click menu renders icon-only cells (#clickMenuCard .bn/.bd/.bc
+  // are display:none !important since v103), so a badge inside .bn is
+  // in the DOM but can never be seen — the original hotkeys build
+  // shipped exactly that bug (badges painted, dispatch fine, letters
+  // invisible in real browsers; jsdom DOM assertions could not tell).
   // COLLISION AUDIT (every pre-existing binding checked): Q/W/E/R/T
   // already arm builds (Cloud Pad / Factory / Turret / Hangar / Lab —
   // the v85 build hotkeys, a MAJOR job taught in the tutorial) and F
@@ -6257,25 +6264,29 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     return out;
   }
   function hkPaintBadges() {
-    /* Re-asserted on every syncHud (10x/s): syncHud itself rewrites
-       several option name spans via textContent (dismantle, the
-       unique choice names, the upgrade [data-*name] spans), which
-       would wipe an appended badge — painting last each cycle keeps
-       every presented option badged. Idempotent: a correct badge is
-       left untouched. */
+    /* Re-asserted on every syncHud (10x/s), painted LAST in the cycle:
+       syncHud rewrites several option name spans via textContent
+       (dismantle, the unique choice names, the upgrade [data-*name]
+       spans). The badge itself is a DIRECT CHILD of the button —
+       no per-frame writer touches the button's own child list, so it
+       survives every rewrite — and the sweep below guarantees no
+       badge ever lingers nested inside a span. It must never live in
+       .bn: in the click menu .bn is display:none !important (icon-
+       only cells, v103), which is why the first hotkeys build's
+       badges existed in the DOM yet were invisible in real browsers.
+       Idempotent: a correct badge is left untouched. */
     var tc = $('turretCard');
     if (!tc) return;
     var opts = hkPresentedOptions();
     var all = tc.querySelectorAll('.act');
     for (var i = 0; i < all.length; i++) {
       var b = all[i], idx = opts.indexOf(b), want = idx >= 0 && idx < HK_KEYS.length ? HK_KEYS[idx].toUpperCase() : null;
-      var bn = null, kids = b.children;
-      for (var j = 0; j < kids.length; j++) if (kids[j].classList && kids[j].classList.contains('bn')) { bn = kids[j]; break; }
-      if (!bn) continue;
       var badge = null;
-      for (var m = 0; m < bn.children.length; m++) if (bn.children[m].classList && bn.children[m].classList.contains('hkkey')) { badge = bn.children[m]; break; }
+      for (var m = 0; m < b.children.length; m++) if (b.children[m].classList && b.children[m].classList.contains('hkkey')) { badge = b.children[m]; break; }
+      var deep = b.querySelectorAll('kbd.hkkey');
+      for (var d = 0; d < deep.length; d++) if (deep[d] !== badge) deep[d].remove();
       if (want) {
-        if (!badge) { badge = document.createElement('kbd'); badge.className = 'hkkey'; bn.appendChild(badge); }
+        if (!badge) { badge = document.createElement('kbd'); badge.className = 'hkkey'; b.appendChild(badge); }
         if (badge.textContent !== want) badge.textContent = want;
       } else if (badge) badge.remove();
     }
