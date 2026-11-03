@@ -37,15 +37,28 @@
  *               and custom room-code games stay ungated, exactly as
  *               before this build.
  *   QUEUE       Authenticated clients may {type:'queue_join'}; the
- *               first MATCH_HUMANS in the pool get a ready check
- *               ({type:'game_found'} -> {type:'ready'} within
- *               READY_MS), then a relay-run animal draft (unique picks,
- *               PICK_MS per turn, timeout = random remaining animal),
- *               then the relay seats both players into a normal room
- *               and hands them {type:'queue_start', ...} — from the
- *               lockstep 'start' onward a queue match is byte-for-byte
- *               a custom-game match. SQ_READY_MS / SQ_PICK_MS /
- *               SQ_FILL_MS env vars shrink the timers for tests.
+ *               pool forms a ready check ({type:'game_found'} ->
+ *               {type:'ready'} within READY_MS), then a relay-run
+ *               animal draft (unique picks, PICK_MS per turn, timeout
+ *               = random remaining animal), then the relay seats the
+ *               players into a room and hands them
+ *               {type:'queue_start', ...} — from the lockstep 'start'
+ *               onward a queue match is byte-for-byte a custom-game
+ *               match. SQ_READY_MS / SQ_PICK_MS / SQ_FILL_MS env vars
+ *               shrink the timers for tests.
+ *
+ *   STAGE C     (4-player queue.) MATCH_HUMANS is 4: the queue launches
+ *               a ready check the moment 4 players are waiting, or —
+ *               once at least 2 have waited FILL_MS (20 s) — with the
+ *               2-3 who are there, AI backfilling the empty teams. A
+ *               2-human match keeps the EXACT Stage B seating (legacy
+ *               host+guest room). 3-4 humans get a seated room
+ *               (room.queueRoom): every seat's traffic fans out to the
+ *               other seats, drops are held per seat for the reconnect
+ *               grace, and a seat whose player never returns is
+ *               announced as {type:'lsConvert', seat, tick} so every
+ *               client converts that team to AI on the same tick.
+ *               Custom (room-code) games stay exactly 2-player.
  *
  * Run:  node server.js            (port: env PORT, default 8000)
  *       TLS_CERT=cert.pem TLS_KEY=key.pem node server.js
@@ -85,12 +98,14 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const AUTH_DEV_MODE = !GOOGLE_CLIENT_ID;
 const READY_MS = parseInt(process.env.SQ_READY_MS || '10000', 10);   /* ready-check window */
 const PICK_MS = parseInt(process.env.SQ_PICK_MS || '6000', 10);      /* per-turn draft clock */
-const FILL_MS = parseInt(process.env.SQ_FILL_MS || '30000', 10);     /* Stage C fill wait (see tryMatch) */
-/* Stage B scope: a queue match pairs TWO humans (teams 0-1); the other
-   two teams are Normal AI, as in custom games. Stage C raises this to
-   4 — the pool/matcher below is written against the constant, and the
-   room seating in finishDraft is the one place that still assumes 2. */
-const MATCH_HUMANS = 2;
+const FILL_MS = parseInt(process.env.SQ_FILL_MS || '20000', 10);    /* Stage C fill wait (see tryMatch) */
+/* Stage C scope (Taylor's calls, 2026-11-03): a queue match seats up
+   to FOUR humans (teams 0-3 in queue order); the queue waits FILL_MS
+   (20 s) for a 4th before launching with 3 or 2 humans + AI backfill.
+   The pool/matcher below is written against this constant; the room
+   seating in finishDraft branches on the actual group size (2 humans
+   keep the legacy host+guest room, 3-4 get a Stage C seated room). */
+const MATCH_HUMANS = 4;
 const ANIMALS = ['hamster', 'fox', 'bunny', 'otter', 'beaver', 'turtle']; /* race keys, game order */
 if (AUTH_DEV_MODE) console.log('[relay] *** AUTH DEV MODE: GOOGLE_CLIENT_ID not set — dev: tokens accepted ***');
 
@@ -191,6 +206,7 @@ function cleanupRoom(conn) {
   if (!conn.room) return;
   const room = rooms.get(conn.room);
   if (!room) { conn.room = null; return; }
+  if (room.queueRoom) { cleanupQueueSeat(conn, room); conn.room = null; conn.role = null; conn.seat = null; return; }
   /* Fix E grace: a started match with a live peer and an authenticated
      dropper -> hold the seat instead of the immediate teardown. */
   if (room.started && conn.identity && (conn.role === 'host' || conn.role === 'guest')) {
@@ -209,8 +225,105 @@ function cleanupRoom(conn) {
   conn.room = null; conn.role = null;
 }
 
-function killConn(conn, why) {
-  if (conn.dead) return;
+/* ---------------- Stage C: seated queue rooms (3-4 humans) ----------------
+ * A queue room with 3-4 humans is NOT a host+guest pair: room.seats[i]
+ * holds the connection playing team i (null while the seat is empty),
+ * and all in-match traffic fans out to every other seat. Seat 0 is
+ * the match host (it launches). Drops are held PER SEAT for the same
+ * REJOIN_GRACE_MS the 2-player fix established; reclaiming is by
+ * verified identity only (hello+code for seat 0, join+code for the
+ * others). A seat whose player never returns converts to AI: the
+ * relay announces {type:'lsConvert', seat, tick} to the remaining
+ * seats, where tick is derived from the frame coverage the dropped
+ * seat itself advertised — every client's present tick is bounded by
+ * that coverage (the lockstep barrier), so the announced tick is
+ * safely ahead of all of them and every sim switches on the same
+ * tick. Rooms with 2 humans never take this shape (finishDraft keeps
+ * the legacy seating), and custom rooms never do. */
+function broadcastRoom(room, exceptSeat, obj) {
+  for (let s = 0; s < room.seats.length; s++) {
+    if (s === exceptSeat) continue;
+    const c = room.seats[s];
+    if (c && !c.dead) sendTo(c, obj);
+  }
+}
+function clearSeatTimer(room, seat) {
+  if (room.seatTimers && room.seatTimers[seat]) { clearTimeout(room.seatTimers[seat]); room.seatTimers[seat] = null; }
+}
+function cleanupQueueSeat(conn, room) {
+  const seat = conn.seat;
+  if (seat == null || room.seats[seat] !== conn) return;
+  const code = conn.room;
+  room.seats[seat] = null;
+  const othersLive = room.seats.some((c) => c && !c.dead);
+  if (room.started && conn.identity && othersLive && !room.convSeats[seat]) {
+    /* Hold the seat for the reconnect grace, exactly like the
+       2-player rule — just per seat, with the others notified. */
+    room.awaySeats[seat] = { sub: conn.identity.sub, name: conn.identity.name };
+    broadcastRoom(room, seat, { type: 'peerAway', seat, role: seat === 0 ? 'host' : 'guest', name: conn.identity.name, graceMs: REJOIN_GRACE_MS });
+    clearSeatTimer(room, seat);
+    room.seatTimers[seat] = setTimeout(function () { convertSeat(code, room, seat); }, REJOIN_GRACE_MS);
+    if (room.seatTimers[seat].unref) room.seatTimers[seat].unref();
+    console.log('[relay] queue room ' + code + ': seat ' + seat + ' (' + conn.identity.name + ') dropped — held for the reconnect grace');
+  } else if (!othersLive && !Object.keys(room.awaySeats).length) {
+    for (const k of Object.keys(room.seatTimers)) clearSeatTimer(room, parseInt(k, 10));
+    rooms.delete(code);
+    console.log('[relay] queue room ' + code + ' closed (nobody left)');
+  }
+}
+function convertSeat(code, room, seat) {
+  room.seatTimers[seat] = null;
+  if (rooms.get(code) !== room) return;
+  if (!room.awaySeats[seat]) return; /* reclaimed in time after all */
+  delete room.awaySeats[seat];
+  room.convSeats[seat] = true;
+  /* tickHint[seat] is the dropped seat's last advertised frame
+     coverage (upto = its tick + input delay - 1). Every remaining
+     client's tick is <= hint + 1 by the barrier, so +150 ticks of
+     margin puts the conversion safely in everyone's future while
+     arriving soon enough to matter (5 s of game time). */
+  const hint = (typeof room.tickHint[seat] === 'number') ? room.tickHint[seat] : Math.max(-1, ...Object.values(room.tickHint));
+  const tick = hint + 151;
+  broadcastRoom(room, -1, { type: 'lsConvert', seat, tick });
+  console.log('[relay] queue room ' + code + ': seat ' + seat + ' did not return — its team converts to AI at tick ' + tick);
+  if (!room.seats.some((c) => c) && !Object.keys(room.awaySeats).length) rooms.delete(code);
+}
+function reclaimQueueSeat(conn, room, code, seat) {
+  clearSeatTimer(room, seat);
+  delete room.awaySeats[seat];
+  room.seats[seat] = conn;
+  conn.role = seat === 0 ? 'host' : 'guest';
+  conn.room = code;
+  conn.seat = seat;
+  sendTo(conn, { type: 'queue_start', role: conn.role, seat, seats: room.nSeats, room: code, lineup: room.lineup, rejoin: true });
+  broadcastRoom(room, seat, { type: 'peerRejoin', seat });
+  console.log('[relay] queue room ' + code + ': seat ' + seat + ' reclaimed by conn ' + conn.id + ' within the reconnect grace');
+}
+function forwardQueueRoom(conn, room, o, msg) {
+  /* Addressed heal traffic goes ONLY to its target seat. (The
+     clients also guard on `to`, but fanning a snapshot out to
+     every seat wastes the room's bandwidth and hands uninvolved
+     clients state they must never act on.) */
+  if ((o.type === 'lsSnap' || o.type === 'lsSnapChunk') && typeof o.to === 'number') {
+    const t = room.seats[o.to];
+    if (t && !t.dead && t.sock) { try { t.sock.write(wsFrame(msg)); } catch (e) { killConn(t, 'forward failed'); } }
+    return;
+  }
+  /* Track how far each seat has advertised (frame coverage / hash
+     checkpoints): convertSeat reads the dropped seat's own hint to
+     pick a conversion tick ahead of every client's present tick. */
+  if (conn.seat != null) {
+    if (o.type === 'lsFrame' && typeof o.upto === 'number') room.tickHint[conn.seat] = Math.max(room.tickHint[conn.seat] || -1, o.upto);
+    else if (o.type === 'lsHash' && typeof o.tick === 'number') room.tickHint[conn.seat] = Math.max(room.tickHint[conn.seat] || -1, o.tick);
+  }
+  for (let s = 0; s < room.seats.length; s++) {
+    if (s === conn.seat) continue;
+    const peer = room.seats[s];
+    if (peer && !peer.dead) { try { peer.sock.write(wsFrame(msg)); } catch (e) { killConn(peer, 'forward failed'); } }
+  }
+}
+
+function killConn(conn, why) {  if (conn.dead) return;
   conn.dead = true;
   cleanupMatchmaking(conn);
   cleanupRoom(conn);
@@ -290,11 +403,11 @@ function handleAuth(conn, token) {
 const queuePool = [];        /* conns waiting for a match, FIFO */
 const fdMatches = new Set(); /* live ready/draft matches */
 let nextMatchId = 1;
-let fillTimer = null;        /* Stage C only (MATCH_HUMANS > 2) */
+let fillTimer = null;        /* the partial-group fill window (Stage C) */
 
 function fdName(conn) { return (conn.identity && conn.identity.name) || 'Player'; }
 function fdInPool(conn) { return queuePool.indexOf(conn) >= 0; }
-function fdRemoveFromPool(conn) { const i = queuePool.indexOf(conn); if (i >= 0) queuePool.splice(i, 1); }
+function fdRemoveFromPool(conn) { const i = queuePool.indexOf(conn); if (i >= 0) queuePool.splice(i, 1); if (queuePool.length < 2 && fillTimer) { clearTimeout(fillTimer); fillTimer = null; } /* a dissolved group must not leave a stale deadline that matches the NEXT pair early */ }
 function fdRequeueFront(conns) {
   const alive = conns.filter((c) => c && !c.dead && !c.fdMatch && !fdInPool(c));
   if (alive.length) queuePool.unshift(...alive);
@@ -315,10 +428,11 @@ function queueLeave(conn) {
   if (conn.fdMatch) fdAbandonMatch(conn.fdMatch, conn);
 }
 
-/* Pair the first MATCH_HUMANS players in the pool into a ready check.
-   Players beyond them stay queued for the next match. With a future
-   MATCH_HUMANS of 4, a partial group (>= 2) that waits FILL_MS would
-   launch short-handed + extra AI — that branch is inert at 2. */
+/* Form a ready check from the pool: a full group of MATCH_HUMANS
+   launches at once; a partial group of >= 2 that has waited FILL_MS
+   launches short-handed (the remaining teams are AI). Players beyond
+   a formed group stay queued for the next match. A lone player never
+   starts the fill timer — they simply wait for company. */
 function tryMatch() {
   while (queuePool.length >= MATCH_HUMANS) {
     const players = queuePool.splice(0, MATCH_HUMANS);
@@ -334,6 +448,7 @@ function tryMatch() {
 }
 
 function startReadyCheck(players) {
+  if (fillTimer) { clearTimeout(fillTimer); fillTimer = null; } /* a formed match consumes the queue group the fill timer was counting for */
   const match = { id: nextMatchId++, players: players.slice(), phase: 'ready', readyBy: new Set(), timer: null, draft: null };
   fdMatches.add(match);
   for (const p of players) p.fdMatch = match;
@@ -433,8 +548,8 @@ function draftPick(conn, o) {
 /* All humans have picked: the remaining teams are Normal AI with
    unique animals from the leftover pool. The player who QUEUED FIRST
    (players[0], draft order is irrelevant) hosts. The relay pre-creates
-   the room and seats both connections, so from the client's 'start'
-   message onward this is an ordinary custom-game room. */
+   the room and seats the players into it, so from the client's 'start'
+   message onward this is an ordinary lockstep match. */
 function finishDraft(match) {
   fdMatches.delete(match);
   const players = match.players;
@@ -445,14 +560,29 @@ function finishDraft(match) {
   const aiTeams = [];
   for (let t = players.length; t < 4; t++) aiTeams.push(t);
   const lineup = { teamAnimals, aiTeams, aiDifficulty: 'Normal' };
-  /* Room seating assumes exactly 2 humans (Stage B / MATCH_HUMANS=2):
-     the lockstep room protocol is one host + one guest. */
   const code = newRoomCode();
-  rooms.set(code, { host: players[0], guest: players[1], started: true }); /* Fix E: a seated queue match is live — seat grace applies */
-  players[0].role = 'host'; players[0].room = code;
-  players[1].role = 'guest'; players[1].room = code;
-  sendTo(players[0], { type: 'queue_start', role: 'host', room: code, lineup });
-  sendTo(players[1], { type: 'queue_start', role: 'guest', room: code, lineup });
+  if (players.length === 2) {
+    /* Two humans keep the proven Stage B seating exactly: one host +
+       one guest in the legacy room shape, so every pre-Stage-C flow
+       (seat grace, rejoin, pairwise forwarding) behaves byte-for-byte
+       as before. The seat/seats fields in queue_start are additive —
+       older clients ignore them. */
+    rooms.set(code, { host: players[0], guest: players[1], started: true }); /* Fix E: a seated queue match is live — seat grace applies */
+    players[0].role = 'host'; players[0].room = code;
+    players[1].role = 'guest'; players[1].room = code;
+    sendTo(players[0], { type: 'queue_start', role: 'host', seat: 0, seats: 2, room: code, lineup });
+    sendTo(players[1], { type: 'queue_start', role: 'guest', seat: 1, seats: 2, room: code, lineup });
+  } else {
+    /* Stage C: 3-4 humans get a seated room (see the Stage C room
+       section above): seat i plays team i, traffic fans out, drops
+       are held per seat, a no-return seat converts to AI. */
+    const room = { queueRoom: true, seats: players.slice(), nSeats: players.length, started: true, awaySeats: {}, convSeats: {}, seatTimers: {}, tickHint: {}, lineup };
+    rooms.set(code, room);
+    players.forEach((p, i) => {
+      p.role = i === 0 ? 'host' : 'guest'; p.room = code; p.seat = i;
+      sendTo(p, { type: 'queue_start', role: p.role, seat: i, seats: players.length, room: code, lineup });
+    });
+  }
   console.log('[relay] match ' + match.id + ': queue match seated in room ' + code + ' — lineup ' + teamAnimals.join('/') + ', AI teams ' + aiTeams.join(','));
 }
 
@@ -469,7 +599,7 @@ function fdAbandonMatch(match, gone) {
   for (const p of match.players) {
     p.fdMatch = null;
     if (p === gone) continue;
-    sendTo(p, { type: 'draft_aborted', msg: 'The other player left — you are back in the queue.' });
+    sendTo(p, { type: 'draft_aborted', msg: match.players.length > 2 ? 'A player left — you are back in the queue.' : 'The other player left — you are back in the queue.' });
     rest.push(p);
   }
   console.log('[relay] match ' + match.id + ': draft aborted, a player left');
@@ -506,6 +636,16 @@ function routeMessage(conn, msg) {
       if (typeof o.code === 'string' && o.code) {
         const rcode = o.code.trim().toUpperCase();
         const rroom = rooms.get(rcode);
+        if (rroom && rroom.queueRoom) {
+          /* Stage C: seat 0 reclaims through hello+code, like the
+             legacy host reclaim but for a seated room. */
+          if (rroom.awaySeats[0] && conn.identity && conn.identity.sub === rroom.awaySeats[0].sub) {
+            reclaimQueueSeat(conn, rroom, rcode, 0);
+          } else {
+            sendTo(conn, { type: 'joinError', msg: 'That room is gone — it cannot be rejoined' });
+          }
+          return;
+        }
         if (rroom && rroom.awayHost && (!rroom.awayHost.sub || (conn.identity && conn.identity.sub === rroom.awayHost.sub))) {
           rroom.awayHost = null;
           clearAwayTimer(rroom);
@@ -527,6 +667,17 @@ function routeMessage(conn, msg) {
       if (!AUTH_DEV_MODE && !conn.identity) { sendTo(conn, { type: 'auth_required', msg: 'Please sign in first' }); return; }
       const code = typeof o.code === 'string' ? o.code.trim().toUpperCase() : '';
       const room = code ? rooms.get(code) : null;
+      if (room && room.queueRoom) {
+        /* Stage C: every seat of a queue room was filled at draft
+           time, so a join may ONLY reclaim a seat the relay is
+           holding for this verified identity (reconnect grace);
+           anything else is refused with the legacy full-room words. */
+        let seat = -1;
+        if (conn.identity) { for (const k of Object.keys(room.awaySeats)) { if (room.awaySeats[k].sub === conn.identity.sub) { seat = parseInt(k, 10); break; } } }
+        if (seat > 0) reclaimQueueSeat(conn, room, code, seat);
+        else sendTo(conn, { type: 'joinError', msg: 'That room already has a guest' });
+        return;
+      }
       if (!room || !room.host) { sendTo(conn, { type: 'joinError', msg: 'Room not found — check the code the host gave you' }); return; }
       if (room.guest) { sendTo(conn, { type: 'joinError', msg: 'That room already has a guest' }); return; }
       /* Fix E: the guest seat may be held for a dropped player
@@ -546,6 +697,7 @@ function routeMessage(conn, msg) {
   }
   const room = rooms.get(conn.room);
   if (!room) return;
+  if (room.queueRoom) { forwardQueueRoom(conn, room, o, msg); return; }
   if (conn.role === 'host' && o.type === 'start') room.started = true; /* Fix E: the match is live — seat grace applies from here */
   const peer = conn.role === 'host' ? room.guest : room.host;
   if (peer && !peer.dead) { try { peer.sock.write(wsFrame(msg)); } catch (e) { killConn(peer, 'forward failed'); } }
@@ -556,7 +708,7 @@ server.on('upgrade', (req, sock, head) => {
     const key = req.headers['sec-websocket-key'];
     if (!key) { sock.destroy(); return; }
     sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + wsAccept(key) + '\r\n\r\n');
-    const conn = { id: nextId++, sock, buf: Buffer.alloc(0), role: null, room: null, dead: false, lastSeen: Date.now(), rate: [], identity: null, authPending: false, deferred: null, fdMatch: null };
+    const conn = { id: nextId++, sock, buf: Buffer.alloc(0), role: null, room: null, seat: null, dead: false, lastSeen: Date.now(), rate: [], identity: null, authPending: false, deferred: null, fdMatch: null };
     conns.add(conn);
     sock.on('data', (chunk) => {
       if (conn.dead) return;

@@ -419,7 +419,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     <h2 class="big">Multiplayer</h2>
     <div id="mpHome">
       <button class="go" id="fdHomeBtn" type="button">Find Match — online queue</button>
-      <p style="margin:0">Sign in and queue up: we pair you with another player, run a ready check, and draft your animals before the match. Or use a private room code below — that is the <b>Custom Game</b>.</p>
+      <p style="margin:0">Sign in and queue up: we match you with up to three other players, run a ready check, and draft your animals before the match. Or use a private room code below — that is the <b>Custom Game</b>.</p>
       <p>Host a game and read the room code to your guest — or type in a host's code and join theirs. The other two teams are AI pilots. Both computers run the same match in lockstep (the StarCraft way): only your orders cross the network, so both players get the identical game at the identical speed.</p>
       <button class="go" id="mpHostBtn" type="button">Host game</button>
       <p style="margin:0"><b>Join a game</b> — enter the host's room code, pick your animal, then Join:</p>
@@ -578,10 +578,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      own orders are delayed and tick-stamped too — no zero-delay
      advantage for anyone). MP.guestSel is likewise just "the local
      player's selection id list" for either role. */
-  var MP = { enabled: false, role: null, myTeam: 0, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false };
+  var MP = { enabled: false, role: null, myTeam: 0, seat: null, seats: null, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '5e61c326c1';
+  var LS_BUILD_ID = 'f99b45fb6c';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -620,10 +620,37 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      | 'over' (match finished). peerUpto = highest tick the peer has
      asserted fully ordered; a side may step tick T only when
      peerUpto >= T (its own orders are local by construction). */
-  var LS = { state: 'off', tick: 0, delay: 5, seed: null, seedPending: null, lineup: null, accNs: 0, pending: {}, ownSeq: 0, peerUpto: -1, hashes: {}, peerHashes: {}, waiting: false, waitMs: 0, nagAt: 0, resyncs: 0, lastResyncAt: 0, desyncTick: -1, rejoinPending: false, epoch: 0, completedEpoch: -1, desyncSince: 0, lastSnapAt: 0, snapSends: 0, snapReqs: 0, endSent: false, sharedPause: null, pausePending: null, pauseNagMs: 0, reconnecting: false, reconnectGen: 0, reconnectTry: 0, reconnectAttempt: false, lastAdvanceAt: 0, testThrowAt: -1, chunkBytes: 102400, snapSeq: 0, snapRx: null, snapBytes: 0, snapChunks: 0, stallText: '' };
+  var LS = { state: 'off', tick: 0, delay: 5, seed: null, seedPending: null, lineup: null, accNs: 0, pending: {}, ownSeq: 0, peerUpto: -1, hashes: {}, peerHashes: {}, waiting: false, waitMs: 0, nagAt: 0, resyncs: 0, lastResyncAt: 0, desyncTick: -1, rejoinPending: false, epoch: 0, completedEpoch: -1, desyncSince: 0, lastSnapAt: 0, snapSends: 0, snapReqs: 0, endSent: false, sharedPause: null, pausePending: null, pauseNagMs: 0, reconnecting: false, reconnectGen: 0, reconnectTry: 0, reconnectAttempt: false, lastAdvanceAt: 0, testThrowAt: -1, chunkBytes: 102400, snapSeq: 0, snapRx: null, snapBytes: 0, snapChunks: 0, stallText: '',
+    /* Stage C (3-4 human queue matches; all inert in 2-player games):
+       upto/hashBy are the per-seat frame coverage and hash tables,
+       episode is an open majority-resync, healFrom is the seat a
+       snapshot may come from while healing/rejoining, conv/convAt are
+       completed/scheduled drop-to-AI conversions (seat -> tick),
+       awaySeats marks seats inside the relay's reconnect grace. */
+    upto: {}, hashBy: {}, evalTick: 0, episode: null, healFrom: -1, split: false, conv: {}, convAt: {}, awaySeats: {}, baseAiTeams: [2, 3], lastSnapHash: null, lastSnapTick: -1, lastReqAt: 0, rejoinServeSeat: -1 };
   var LS_DT_NS = 33333333; /* one 1/30 s tick, integer nanoseconds */
   var LS_LINEUP = null;    /* explicit 4-race lineup for newGame (build patch reads it) */
   function mpLsOn() { return MP.enabled && LS.state !== 'off'; }
+  /* Stage C: a match is "multi" when the queue seated 3-4 humans.
+     Two-human matches (custom games AND 2-human queue matches, which
+     the relay still seats in a legacy room) take every legacy path
+     below unchanged — MP.seats is null or [0, 1] there. */
+  function lsMulti() { return !!(MP.seats && MP.seats.length >= 3); }
+  function lsHumanSeats() { return MP.seats || [0, 1]; }
+  /* The seats the lockstep barrier currently waits on: every human
+     seat whose team has not converted to AI. Eliminated humans stay
+     in (their client is alive and keeps sending empty frames);
+     away seats stay in too (that IS the grace stall). */
+  function lsBarrierSeats() { var out = [], seats = lsHumanSeats(); for (var i = 0; i < seats.length; i++) if (LS.conv[seats[i]] === undefined) out.push(seats[i]); return out; }
+  /* Seats that could serve a snapshot right now: in the match, not
+     converted, not inside their own reconnect grace. */
+  function lsConnectedSeats() { var out = [], seats = lsHumanSeats(); for (var i = 0; i < seats.length; i++) { var s = seats[i]; if (LS.conv[s] === undefined && !LS.awaySeats[s]) out.push(s); } return out; }
+  /* The snapshot source for a seat that needs one: the lowest-seat
+     connected player other than the seat itself. Every client
+     computes the same answer from the same away/converted facts —
+     that is what makes majority healing and rejoin serving agree
+     without a leader election. */
+  function lsSourceFor(seat) { var conn = lsConnectedSeats(), best = -1; for (var i = 0; i < conn.length; i++) { if (conn[i] === seat) continue; if (best < 0 || conn[i] < best) best = conn[i]; } return best; }
   /* The team whose state the HUD displays: the guest sees its OWN team;
      host and single-player see team 0 exactly as before. */
   function mpHudTeam() { return (MP.enabled && MP.role === 'guest') ? MP.myTeam : 0; }
@@ -709,7 +736,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   function lsQueueOrder(o) { var q = LS.pending[o.execTick]; if (!q) q = LS.pending[o.execTick] = []; q.push(o); }
   function lsReceiveOrder(o) {
-    if (!o || (o.slot !== 0 && o.slot !== 1) || o.slot === MP.myTeam || o.team !== o.slot) return;
+    if (!o || lsHumanSeats().indexOf(o.slot) < 0 || o.slot === MP.myTeam || o.team !== o.slot) return;
+    if (LS.conv[o.slot] !== undefined) return; /* a converted seat's client is gone; any straggler frame from it is void */
     if (typeof o.execTick !== 'number' || typeof o.seq !== 'number') return;
     if (o.execTick < LS.tick || o.execTick > LS.tick + 600) return; /* past = straggler/violation; far future = garbage */
     lsQueueOrder(o);
@@ -726,7 +754,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lsApplyOrder(o) {
     if (!G || G.over) return null;
     var tm = o.team;
-    if (tm !== 0 && tm !== 1) return null;
+    if (tm !== 0 && tm !== 1 && tm !== 2 && tm !== 3) return null;
     if (G.teams[tm] && G.teams[tm].dead) return null;
     var res = null;
     function done(ok, msg) { res = { ok: !!ok, msg: msg || null }; }
@@ -779,13 +807,26 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   /* ---------------- lockstep engine ---------------- */
   function lsSendFrame() { mpSend({ type: 'lsFrame', slot: MP.myTeam, upto: LS.tick + LS.delay - 1 }); }
-  function lsOnFrame(o) { if (o && (o.slot === 0 || o.slot === 1) && o.slot !== MP.myTeam && typeof o.upto === 'number' && o.upto > LS.peerUpto) LS.peerUpto = o.upto; }
-  function lsCanStep() { return LS.state === 'run' && !G.over && !LS.sharedPause && LS.peerUpto >= LS.tick; }
+  function lsOnFrame(o) {
+    if (!o || typeof o.upto !== 'number' || o.slot === MP.myTeam) return;
+    if (lsMulti()) { if (lsHumanSeats().indexOf(o.slot) >= 0 && o.upto > (LS.upto[o.slot] || -1)) LS.upto[o.slot] = o.upto; return; }
+    if ((o.slot === 0 || o.slot === 1) && o.upto > LS.peerUpto) LS.peerUpto = o.upto;
+  }
+  function lsCanStep() {
+    if (LS.state !== 'run' || G.over || LS.sharedPause) return false;
+    if (lsMulti()) { var bs = lsBarrierSeats(); for (var i = 0; i < bs.length; i++) { if (bs[i] === MP.myTeam) continue; if ((LS.upto[bs[i]] || -1) >= LS.tick) continue; if (LS.convAt[bs[i]] !== undefined) continue; return false; } return true; } /* Stage C fix: a seat with a SCHEDULED AI conversion never blocks. The relay's announcement is identical on every client, so every client treats the seat's orders as empty from now until the announced tick, where lsStepTick applies the conversion before stepping — identically everywhere. (Blocking until the tick itself deadlocked: the tick is deliberately ahead of the dropped seat's last coverage, so it could never be reached while the seat stayed in the barrier.) A rejoin inside the grace cancels the schedule (lsOnPeerRejoin deletes convAt) and the returner resyncs to the present, so its old frames are never needed. */
+    return LS.peerUpto >= LS.tick;
+  }
   /* One tick: apply every order stamped for this tick in (slot, seq)
      order — identical on both machines — then step the sim exactly
      like single-player does (update + the two AI teams). */
   function lsStepTick() {
     if (LS.testThrowAt === LS.tick) { LS.testThrowAt = -1; throw new Error('injected tick fault (test hook)'); }
+    /* Stage C: a drop-to-AI conversion announced by the relay for
+       exactly this tick applies BEFORE the tick steps — the team is
+       AI-driven from this tick on, identically on every client,
+       because the tick itself came from the relay's announcement. */
+    for (var cSeat in LS.convAt) { if (LS.convAt[cSeat] === LS.tick) lsApplyConversion(parseInt(cSeat, 10)); }
     var T = LS.tick, due = (LS.pending[T] || []).slice().sort(function (a, b) { return (a.slot - b.slot) || (a.seq - b.seq); });
     delete LS.pending[T];
     for (var i = 0; i < due.length; i++) {
@@ -802,8 +843,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var h = lsHash();
       LS.hashes[LS.tick] = h;
       delete LS.hashes[LS.tick - 300]; delete LS.peerHashes[LS.tick - 300];
-      mpSend({ type: 'lsHash', tick: LS.tick, hash: h });
-      lsCompareHash(LS.tick);
+      if (lsMulti()) { for (var hbSeat in LS.hashBy) delete LS.hashBy[hbSeat][LS.tick - 300]; }
+      mpSend({ type: 'lsHash', tick: LS.tick, hash: h, slot: MP.myTeam });
+      if (lsMulti()) lsConsensusCheck(LS.tick); else lsCompareHash(LS.tick);
     }
   }
   /* The per-frame driver, called from frame() while a lockstep match
@@ -828,7 +870,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var steps = 0;
     while (LS.accNs >= LS_DT_NS && steps < 10 && !G.over && lsCanStep()) { LS.accNs -= LS_DT_NS; lsStepTick(); steps++; }
     if (steps > 0) { if (LS.waiting) { LS.waiting = false; mpStatus('Connected — lockstep match running'); } LS.waitMs = 0; LS.nagAt = 0; }
-    else if (!G.over && LS.peerUpto < LS.tick) {
+    else if (!G.over && (lsMulti() ? !lsCanStep() : LS.peerUpto < LS.tick)) {
       LS.waitMs += elMs;
       if (LS.waitMs > 500 && !LS.waiting) { LS.waiting = true; try { note('Waiting for opponent…'); } catch (e) {} mpStatus('Waiting for opponent…'); }
       /* While blocked, re-advertise our own coverage every ~500 ms.
@@ -840,6 +882,14 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   function lsOnHash(o) {
     if (!o || typeof o.tick !== 'number' || typeof o.hash !== 'string') return;
+    if (lsMulti()) {
+      if (typeof o.slot !== 'number' || o.slot === MP.myTeam || lsHumanSeats().indexOf(o.slot) < 0) return;
+      if (o.tick <= LS.evalTick) return;
+      var by = LS.hashBy[o.slot]; if (!by) by = LS.hashBy[o.slot] = {};
+      by[o.tick] = o.hash;
+      lsConsensusCheck(o.tick);
+      return;
+    }
     LS.peerHashes[o.tick] = o.hash;
     lsCompareHash(o.tick);
   }
@@ -847,6 +897,151 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (LS.state !== 'run') return;
     var mine = LS.hashes[t], theirs = LS.peerHashes[t];
     if (mine && theirs && mine !== theirs) lsEnterDesync(t);
+  }
+  /* ---------------- Stage C: hash consensus (3-4 humans) ------------
+     With three or four humans there is no single "peer": every client
+     collects every barrier seat's hash at each 30-tick checkpoint and,
+     given the same set, reaches the same verdict. A strict majority
+     agreeing settles it — the minority seats are the desynced ones and
+     heal from the majority's lowest seat (so a desynced host loses
+     source authority to the next player, exactly as the plan says).
+     No strict majority (2-2, 1-1-1, 2-1-1) cannot be settled fairly:
+     the match freezes and a human decides. A checkpoint is evaluated
+     once, when its set completes; while a seat sits in its reconnect
+     grace its hash may never arrive, so the verdict waits for its
+     return or its conversion (which shrinks the barrier and lets the
+     pending checkpoints evaluate without it). */
+  function lsConsensusCheck(t) {
+    if (!lsMulti() || LS.state !== 'run' || LS.split) return;
+    if (typeof t !== 'number' || t <= LS.evalTick) return;
+    var seats = lsBarrierSeats(), mine = LS.hashes[t];
+    if (!mine) return;
+    var byHash = {}, i, s, h;
+    byHash[mine] = [MP.myTeam];
+    for (i = 0; i < seats.length; i++) {
+      s = seats[i]; if (s === MP.myTeam) continue;
+      if (LS.awaySeats[s]) return; /* verdict waits: return or conversion */
+      h = LS.hashBy[s] && LS.hashBy[s][t];
+      if (!h) return; /* set incomplete */
+      if (!byHash[h]) byHash[h] = [];
+      byHash[h].push(s);
+    }
+    LS.evalTick = t;
+    var groups = Object.keys(byHash).map(function (k) { return { hash: k, seats: byHash[k] }; });
+    if (groups.length === 1) return; /* unanimous */
+    groups.sort(function (a, b) { return b.seats.length - a.seats.length; });
+    var top = groups[0];
+    if (top.seats.length * 2 > seats.length) {
+      var minority = [];
+      for (i = 0; i < groups.length; i++) if (groups[i] !== top) minority = minority.concat(groups[i].seats);
+      var source = Math.min.apply(null, top.seats);
+      if (minority.indexOf(MP.myTeam) >= 0) lsEnterHeal(t, source);
+      else lsOpenEpisode(t, source, minority);
+    } else {
+      LS.split = true; LS.state = 'desync'; LS.desyncTick = t; LS.desyncSince = performance.now(); LS.endSent = false;
+      try { note('Out of sync — the players disagree and no majority can settle it. The match is paused.', true); } catch (e) {}
+      mpStatus('Out of sync — no majority (split vote) — match paused');
+      if (MP.myTeam === 0) fxShowEnd('Out of sync', "The players' games disagree and no majority can settle which is right, so the match cannot safely continue. It has been paused — you can leave from the menu.");
+      fxStallRefresh();
+    }
+  }
+  /* I am in the minority: freeze and wait for the source's snapshot
+     (the watchdog re-asks it, bounded, exactly like the guest's half
+     of the 2-player resync). The anti-loop rule is the legacy one:
+     a second episode inside a minute ends the match visibly. */
+  function lsEnterHeal(t, source) {
+    if (LS.resyncs > 0 && performance.now() - LS.lastResyncAt < 60000) { lsEndMatchDesync(); return; }
+    LS.state = 'desync'; LS.desyncTick = t; LS.desyncSince = performance.now(); LS.snapSends = 0; LS.snapReqs = 0; LS.endSent = false; LS.healFrom = source; LS.lastReqAt = 0;
+    mpSend({ type: 'lsDesync', tick: t, epoch: LS.epoch, from: MP.myTeam });
+    try { note('Out of sync — resyncing…', true); } catch (e) {}
+    mpStatus('Out of sync — resyncing…');
+    fxStallRefresh();
+  }
+  /* I am in the majority: open the episode. The source (which may be
+     me) sends the snapshot; the barrier itself holds everyone else
+     still, because the minority's frames have stopped. */
+  function lsOpenEpisode(t, source, minority) {
+    if (LS.resyncs > 0 && performance.now() - LS.lastResyncAt < 60000) { lsEndMatchDesync(); return; }
+    LS.episode = { tick: t, source: source, minority: minority.slice(), ready: {} };
+    LS.snapSends = 0; LS.endSent = false;
+    if (source === MP.myTeam) { LS.epoch++; for (var i = 0; i < minority.length; i++) lsSendSnapTo(minority[i], LS.epoch); }
+    mpStatus('A player fell out of sync — resyncing them…');
+    fxStallRefresh();
+  }
+  /* A healed seat's lsReady, seen in a multi match. The snapshot
+     SOURCE verifies it against the hash it actually sent (its own
+     current hash may already have moved past that tick); the other
+     majority members just close their view of the episode — the
+     source's verdict is the authoritative one. A wrong hash makes
+     the source re-send under a fresh epoch (the audited deadlock
+     cannot recur: the healed seat accepts a newer epoch from 'run'). */
+  function lsOnReadyMulti(o) {
+    if (!o || typeof o.from !== 'number' || o.from === MP.myTeam) return;
+    if (LS.episode && LS.episode.minority.indexOf(o.from) >= 0) {
+      if (LS.episode.source === MP.myTeam) {
+        if (o.hash === LS.lastSnapHash) {
+          LS.episode.ready[o.from] = true;
+          var allReady = LS.episode.minority.every(function (s) { return LS.episode.ready[s]; });
+          if (allReady) { LS.episode = null; LS.lastResyncAt = performance.now(); mpStatus('Resynced — match continues'); fxStallRefresh(); } /* the source does NOT count the episode as its own resync: the anti-loop guards key on adoptions, and a source that later needs a heal itself must not be refused one */
+        } else { LS.epoch++; LS.desyncSince = performance.now(); lsSendSnapTo(o.from, LS.epoch); }
+      } else {
+        LS.episode.ready[o.from] = true;
+        if (LS.episode.minority.every(function (s) { return LS.episode.ready[s]; })) { LS.episode = null; LS.lastResyncAt = performance.now(); }
+      }
+      return;
+    }
+    if (LS.rejoinServeSeat === o.from) {
+      if (o.hash === LS.lastSnapHash) { LS.rejoinServeSeat = -1; mpStatus('Player reconnected — match resumed'); fxStallRefresh(); }
+      else { LS.epoch++; lsSendSnapTo(o.from, LS.epoch); }
+    }
+  }
+  /* Snapshot requests in a multi match: rejoin serving (the
+     designated source answers) and heal retries (only the episode's
+     source re-sends). Everyone else stays silent — one snapshot per
+     need, never a storm. */
+  function lsOnSnapReqMulti(o) {
+    if (!o || typeof o.from !== 'number' || o.from === MP.myTeam) return;
+    if (o.rejoin) {
+      if (LS.state !== 'run' || LS.split) return;
+      if (lsSourceFor(o.from) !== MP.myTeam) return;
+      LS.rejoinServeSeat = o.from; LS.epoch++;
+      lsSendRejoinStart(o.from);
+      lsSendSnapTo(o.from, LS.epoch);
+      mpStatus('A player reconnected — sending the current match state…');
+      fxStallRefresh();
+      return;
+    }
+    if (LS.episode && LS.episode.source === MP.myTeam && LS.episode.minority.indexOf(o.from) >= 0) {
+      if (o.bad) LS.epoch++;
+      LS.desyncSince = performance.now();
+      lsSendSnapTo(o.from, LS.epoch);
+    }
+  }
+  /* The rejoin twin of lsBroadcastStart, addressed to one seat: the
+     rejoiner rebuilds its entry from it exactly like the legacy
+     guest does from the host's rejoin start. */
+  function lsSendRejoinStart(seat) {
+    mpSend({ type: 'start', races: G.teams.map(function (tm) { return tm.race; }), difficulty: pickDifficulty, seed: LS.seed, delay: LS.delay, build: LS_BUILD_ID, rejoin: true, to: seat, from: MP.myTeam });
+  }
+  /* The relay announced that a dropped seat's grace expired: record
+     the conversion for its tick. The barrier already holds every
+     client at or below the dropped seat's last coverage, and the
+     announced tick is far ahead of that, so the record lands long
+     before any client can step the tick — identical everywhere. */
+  function lsOnConvert(o) {
+    if (!o || typeof o.seat !== 'number' || typeof o.tick !== 'number') return;
+    if (o.seat === MP.myTeam) return;
+    if (LS.conv[o.seat] !== undefined || LS.convAt[o.seat] !== undefined) return;
+    LS.convAt[o.seat] = o.tick;
+    delete LS.awaySeats[o.seat];
+    try { note(lsPauseName(o.seat) + ' did not return — their team is now AI-controlled.', true); } catch (e) {}
+    mpStatus('A player did not return — their team is now AI-controlled');
+    fxStallRefresh();
+  }
+  function lsApplyConversion(seat) {
+    LS.conv[seat] = LS.convAt[seat];
+    delete LS.convAt[seat];
+    if (MP.aiTeams.indexOf(seat) < 0) { MP.aiTeams.push(seat); MP.aiTeams.sort(function (a, b) { return a - b; }); }
   }
   /* ---------------- desync + resync ---------------- */
   function lsEnterDesync(t) {
@@ -888,9 +1083,16 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      messages, so no single WebSocket message can hit the relay cap
      and kill the sender's connection mid-resync (the audited
      late-game freeze). The size is logged either way. */
-  function lsSendSnap(epoch) {
+  function lsSendSnap(epoch) { lsSendSnapX(epoch, null); }
+  /* Stage C: a snapshot addressed to ONE seat (majority healing and
+     rejoin serving are point-to-point even though the relay fans
+     everything out — the other seats ignore it by address). */
+  function lsSendSnapTo(seat, epoch) { lsSendSnapX(epoch, seat); }
+  function lsSendSnapX(epoch, toSeat) {
     var h = lsHash();
     var msg = { type: 'lsSnap', tick: LS.tick, hash: h, epoch: epoch, snap: lsSnapshot() };
+    if (toSeat !== null && toSeat !== undefined) { msg.to = toSeat; msg.from = MP.myTeam; }
+    LS.lastSnapHash = h; LS.lastSnapTick = LS.tick;
     var whole = '';
     try { whole = JSON.stringify(msg); } catch (e) { whole = ''; }
     LS.lastSnapAt = performance.now(); LS.snapSends++;
@@ -907,24 +1109,39 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     LS.snapSeq++; LS.snapChunks = count;
     try { console.log('[ls] snapshot ' + whole.length + ' bytes in ' + count + ' chunks'); } catch (e) {}
     for (var ci = 0; ci < count; ci++) {
-      mpSend({ type: 'lsSnapChunk', id: LS.snapSeq, idx: ci, count: count, epoch: epoch, tick: LS.tick, hash: h, data: snapStr.slice(ci * per, (ci + 1) * per) });
+      var chunkMsg = { type: 'lsSnapChunk', id: LS.snapSeq, idx: ci, count: count, epoch: epoch, tick: LS.tick, hash: h, data: snapStr.slice(ci * per, (ci + 1) * per) };
+      if (toSeat !== null && toSeat !== undefined) { chunkMsg.to = toSeat; chunkMsg.from = MP.myTeam; }
+      mpSend(chunkMsg);
     }
   }
   function lsOnSnapChunk(o) {
     if (!o || typeof o.id !== 'number' || typeof o.idx !== 'number' || typeof o.count !== 'number' || typeof o.data !== 'string') return;
+    if (lsMulti() && o.to !== undefined && o.to !== null && o.to !== MP.myTeam) return; /* addressed to another seat */
     var rx = LS.snapRx;
-    if (!rx || rx.id !== o.id) { rx = LS.snapRx = { id: o.id, count: o.count, parts: [], got: 0, epoch: o.epoch, tick: o.tick, hash: o.hash }; }
+    if (!rx || rx.id !== o.id) { rx = LS.snapRx = { id: o.id, count: o.count, parts: [], got: 0, epoch: o.epoch, tick: o.tick, hash: o.hash, from: o.from }; }
     if (rx.parts[o.idx] === undefined) { rx.parts[o.idx] = o.data; rx.got++; }
     if (rx.got >= rx.count) {
       var str = rx.parts.join('');
       LS.snapRx = null;
       var snap = null;
       try { snap = JSON.parse(str); } catch (e) { snap = null; }
-      if (snap) lsOnSnap({ type: 'lsSnap', tick: rx.tick, hash: rx.hash, epoch: rx.epoch, snap: snap });
+      if (snap) lsOnSnap({ type: 'lsSnap', tick: rx.tick, hash: rx.hash, epoch: rx.epoch, snap: snap, from: rx.from, to: MP.myTeam });
     }
   }
   function lsOnSnap(o) {
     if (!o || !o.snap) return;
+    if (lsMulti()) {
+      /* Addressed to another seat: not mine to adopt. Addressed to
+         me: only from the seat I am allowed to heal/rejoin from —
+         a snapshot from the wrong history "verifies" against its
+         own hash, so provenance is the whole check here. */
+      if (o.to !== undefined && o.to !== null && o.to !== MP.myTeam) return;
+      if (typeof o.from === 'number') {
+        if (LS.state === 'desync' && LS.healFrom >= 0 && o.from !== LS.healFrom) return;
+        if (LS.state === 'resync' && LS.healFrom >= 0 && o.from !== LS.healFrom) return;
+        if (LS.state === 'run' && LS.episode && o.from !== LS.episode.source) return;
+      }
+    }
     var ep = (typeof o.epoch === 'number') ? o.epoch : null;
     /* Fix G: accept in 'desync'/'resync' (either role — a host that
        reclaimed its seat needs the guest's snapshot), and accept in
@@ -942,7 +1159,13 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       LS.snapReqs = 0; LS.endSent = false;
       if (!wasRejoin) { LS.resyncs++; LS.lastResyncAt = performance.now(); }
       if (LS.reconnecting) { LS.reconnecting = false; LS.reconnectTry = 0; }
-      mpSend({ type: 'lsReady', tick: LS.tick, hash: h, epoch: ep });
+      if (lsMulti()) {
+        LS.healFrom = -1;
+        if (LS.episode && LS.episode.minority.indexOf(MP.myTeam) >= 0) LS.episode = null;
+        mpSend({ type: 'lsReady', tick: LS.tick, hash: h, epoch: ep, from: MP.myTeam, to: (typeof o.from === 'number') ? o.from : undefined });
+      } else {
+        mpSend({ type: 'lsReady', tick: LS.tick, hash: h, epoch: ep });
+      }
       lsSendFrame();
       fxHideEnd();
       mpStatus(wasRejoin ? 'Rejoined — match synced' : 'Resynced — match continues');
@@ -950,12 +1173,13 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     } else if (LS.state === 'desync' || LS.state === 'resync') {
       /* The snapshot itself did not verify: ask for a fresh one a
          bounded number of times before giving up visibly. */
-      if (LS.snapReqs < 3) { LS.snapReqs++; LS.desyncSince = performance.now(); mpSend({ type: 'lsSnapReq', epoch: ep, bad: 1 }); }
+      if (LS.snapReqs < 3) { LS.snapReqs++; LS.desyncSince = performance.now(); if (lsMulti()) mpSend({ type: 'lsSnapReq', epoch: ep, bad: 1, from: MP.myTeam, to: (typeof o.from === 'number') ? o.from : undefined }); else mpSend({ type: 'lsSnapReq', epoch: ep, bad: 1 }); }
       else { mpSend({ type: 'lsDesyncFail', tick: o.tick }); lsEndMatchDesync(); }
     }
   }
   function lsOnReady(o) {
     if (!o) return;
+    if (lsMulti()) { lsOnReadyMulti(o); return; }
     if (LS.rejoinPending) {
       LS.rejoinPending = false;
       if (o.hash === lsHash()) {
@@ -1046,7 +1270,13 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     return { tick: LS.tick, t: G.t, over: G.over, winner: G.winner, endT: G.endT, nid: G.nid, difficulty: G.difficulty,
       rng: SIMR.a >>> 0, rngCalls: SIMR.calls, fx: FXR.a >>> 0,
       teams: lsEnc(G.teams, []), planes: G.planes.map(lsCloneEntity), blds: G.blds.map(lsCloneEntity), pads: G.pads.map(lsCloneEntity),
-      tub: lsEnc(G.tub, []), ai: lsEnc(G.ai, []) };
+      tub: lsEnc(G.tub, []), ai: lsEnc(G.ai, []),
+      /* Stage C (also carried in 2-player snapshots, where both are
+         empty): orders the source has received but not yet stepped —
+         the adopter must hold the same future, not lose it — and the
+         drop-to-AI conversions in force, from which the adopter
+         rebuilds its AI team set and barrier. */
+      pending: lsEnc(LS.pending, []), conv: lsEnc(LS.conv, []), convAt: lsEnc(LS.convAt, []) };
   }
   function lsApplySnapshot(s) {
     if (!s || !G) return;
@@ -1058,7 +1288,22 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     G.st = G.teams.map(function (_, i) { return stats(i); });
     G.cols = G.teams.map(function (_, i) { return teamCols(i); });
     G.build = null; G.drag = null; G.selectedTurret = null;
-    LS.tick = s.tick; LS.pending = {}; LS.peerUpto = -1; LS.hashes = {}; LS.peerHashes = {}; LS.accNs = 0; LS.waiting = false; LS.waitMs = 0;
+    LS.tick = s.tick; LS.pending = s.pending ? lsDec(s.pending) : {}; LS.peerUpto = -1; LS.hashes = {}; LS.peerHashes = {}; LS.accNs = 0; LS.waiting = false; LS.waitMs = 0;
+    if (lsMulti()) {
+      /* Per-seat tables restart from the adopted tick: coverage and
+         checkpoint verdicts from the old history are meaningless,
+         and stale verdicts must never re-fire. Conversions ride the
+         snapshot (above) and rebuild the AI set from the match's
+         original AI teams. */
+      LS.upto = {}; LS.hashBy = {}; LS.evalTick = Math.max(LS.evalTick, s.tick); LS.episode = null; LS.split = false;
+      if (s.conv || s.convAt) {
+        LS.conv = lsDec(s.conv || {}); LS.convAt = lsDec(s.convAt || {});
+        var nai = (LS.baseAiTeams || [2, 3]).slice();
+        for (var csk in LS.conv) { var csv = parseInt(csk, 10); if (nai.indexOf(csv) < 0) nai.push(csv); }
+        nai.sort(function (a, b) { return a - b; });
+        MP.aiTeams = nai;
+      }
+    }
     var alive = {};
     G.planes.forEach(function (p) { if (p.team === MP.myTeam && p.hp > 0) alive[p.id] = 1; });
     MP.guestSel = keepSel.filter(function (id) { return !!alive[id]; });
@@ -1073,6 +1318,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     LS.pending = {}; LS.ownSeq = 0; LS.peerUpto = -1; LS.hashes = {}; LS.peerHashes = {};
     LS.accNs = 0; LS.waiting = false; LS.waitMs = 0; LS.nagAt = 0; LS.resyncs = 0; LS.lastResyncAt = 0; LS.desyncTick = -1; LS.rejoinPending = false;
     LS.epoch = 0; LS.completedEpoch = -1; LS.desyncSince = 0; LS.lastSnapAt = 0; LS.snapSends = 0; LS.snapReqs = 0; LS.endSent = false; LS.sharedPause = null; LS.pausePending = null; LS.pauseNagMs = 0; LS.reconnecting = false; LS.reconnectTry = 0; LS.lastAdvanceAt = performance.now(); LS.testThrowAt = -1; LS.snapRx = null; LS.snapBytes = 0; LS.snapChunks = 0; LS.stallText = '';
+    /* Stage C per-match state (MP.seats itself is owned by the
+       seating paths: queue_start, mpLaunch, the guest start guard). */
+    LS.upto = {}; LS.hashBy = {}; LS.evalTick = 0; LS.episode = null; LS.healFrom = -1; LS.split = false; LS.conv = {}; LS.convAt = {}; LS.awaySeats = {}; LS.baseAiTeams = MP.aiTeams.slice(); LS.lastSnapHash = null; LS.lastSnapTick = -1; LS.lastReqAt = 0; LS.rejoinServeSeat = -1;
   }
   /* Called from newGame's host hook (build patch) while Launch is
      armed: the world the host just built IS the lineup in the message,
@@ -1261,6 +1509,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function mpLaunch() {
     if (MP.role !== 'host' || !MP.guestConnected) return;
     if (MP.guestBuild && MP.guestBuild !== LS_BUILD_ID) { mpStatus('Your guest is running a different game build — you both need the same game.html file. Launch cancelled.'); try { note('Version mismatch — launch cancelled. You both need the same game.html.', true); } catch (e) {} return; }
+    /* Custom games are 2-player: clear any queue seating. */
+    MP.seats = null; MP.seat = 0; MP.aiTeams = [2, 3];
     pickRace = MP.hostRace || pickRace;
     var guestRace = MP.guestRace || 'fox';
     var others = RKEYS.filter(function (k) { return k !== pickRace && k !== guestRace; });
@@ -1276,7 +1526,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     mpStatus('Game launched — lockstep match running');
   }
   function mpDisconnect() {
-    MP.enabled = false; MP.role = null; MP.guestConnected = false; MP.guestBuild = null; MP.guestName = null; MP.hostName = null; MP.roomCode = null; MP.inGame = false; MP.launchArmed = false; MP.lastStatus = null;
+    MP.enabled = false; MP.role = null; MP.seat = null; MP.seats = null; MP.aiTeams = [2, 3]; MP.guestConnected = false; MP.guestBuild = null; MP.guestName = null; MP.hostName = null; MP.roomCode = null; MP.inGame = false; MP.launchArmed = false; MP.lastStatus = null;
     FD.state = 'idle'; FD.draft = null; FD.wantQueue = false; fdStopCountdown();
     FD.customAttempt = null; FD.pendingCustom = null;
     LS.state = 'off'; LS.pending = {}; LS.reconnecting = false; LS.sharedPause = null;
@@ -1413,6 +1663,45 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     /* Front-door messages are role-independent (they arrive before a
        room exists, or change the gate state) — handled first. */
     if (fdOnMessage(o)) return;
+    /* Stage C: in a 3-4 human match, the lockstep traffic is
+       seat-addressed and role-independent — the host/guest branches
+       below are the 2-player shapes and never see it. A fresh-match
+       'start' is the one message that still falls through to them. */
+    if (lsMulti() && MP.inGame) {
+      if (o.type === 'lsOrder') { lsReceiveOrder(o.order); return; }
+      if (o.type === 'lsFrame') { lsOnFrame(o); return; }
+      if (o.type === 'lsHash') { lsOnHash(o); return; }
+      if (o.type === 'lsDesync') { if (typeof o.tick === 'number') lsConsensusCheck(o.tick); return; }
+      if (o.type === 'lsSnap') { lsOnSnap(o); return; }
+      if (o.type === 'lsSnapChunk') { lsOnSnapChunk(o); return; }
+      if (o.type === 'lsReady') { lsOnReadyMulti(o); return; }
+      if (o.type === 'lsSnapReq') { lsOnSnapReqMulti(o); return; }
+      if (o.type === 'lsDesyncFail') { lsEndMatchDesync(); return; }
+      if (o.type === 'lsResume') { lsOnResume(o); return; }
+      if (o.type === 'lsConvert') { lsOnConvert(o); return; }
+      if (o.type === 'peerAway') {
+        if (typeof o.seat === 'number') { LS.awaySeats[o.seat] = true; if (G && mode === 'play' && !G.over) paused = true; mpStatus(lsPauseName(o.seat) + ' connection lost — waiting for them to reconnect…'); fxStallRefresh(); }
+        return;
+      }
+      if (o.type === 'peerRejoin') {
+        if (typeof o.seat === 'number') { delete LS.awaySeats[o.seat]; mpStatus(lsPauseName(o.seat) + ' reconnected — re-syncing…'); fxStallRefresh(); }
+        return;
+      }
+      if (o.type === 'peerBack') { mpStatus('A player reconnected — re-syncing…'); return; }
+      if (o.type === 'gameOver') { mpStatus('Game over — winner team ' + o.winner); return; }
+      if (o.type === 'start' && o.rejoin) {
+        /* A rejoin start addressed to one seat (from the snapshot
+           source). Mine: rebuild the entry and wait for the snapshot
+           that follows it. Anyone else's: not my match state. */
+        if (o.to === undefined || o.to === null || o.to === MP.myTeam) {
+          if (o.build && o.build !== LS_BUILD_ID) { mpStatus('Version mismatch: a player is running a different game build — you all need the same game.html file. This match was refused.'); return; }
+          LS.state = 'resync'; MP.inGame = true;
+          mpEnterPlay();
+          mpStatus('Rejoining — syncing the match…');
+        }
+        return;
+      }
+    }
     if (MP.role === 'host') {
       if (o.type === 'room') {
         MP.roomCode = o.code;
@@ -1461,7 +1750,12 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       else if (o.type === 'start') {
         if (o.build && o.build !== LS_BUILD_ID) { mpStatus('Version mismatch: the host is running a different game build — you both need the same game.html file. This match was refused.'); try { note('Version mismatch — match refused. You both need the same game.html.', true); } catch (e) {} return; }
         if (o.difficulty) pickDifficulty = o.difficulty;
-        if (o.races && o.races[1]) MP.myRace = o.races[1];
+        /* Stage C: a start that did not come out of a queue match is a
+           custom room's — any multi seating is cleared so the 2-player
+           shapes hold exactly. Queue guests keep queue_start's seats
+           (FD.state 'match' marks them). */
+        if (FD.state !== 'match') { MP.seats = null; MP.seat = MP.myTeam; MP.aiTeams = [2, 3]; }
+        if (o.races && o.races[MP.myTeam]) MP.myRace = o.races[MP.myTeam];
         MP.guestConnected = true;
         if (o.rejoin) {
           LS.state = 'resync'; MP.inGame = true;
@@ -1520,7 +1814,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       }
     }
     FD.freshBypass = false;
-    MP.enabled = true; MP.role = role; MP.myTeam = role === 'host' ? 0 : 1;
+    MP.enabled = true; MP.role = role;
+    /* Stage C: an auto-reconnect inside a seated match must not
+       stomp the seat — role alone only knows host/guest. */
+    if (LS.reconnecting && MP.seats && MP.seats.length >= 3 && typeof MP.seat === 'number') MP.myTeam = MP.seat;
+    else MP.myTeam = role === 'host' ? 0 : 1;
     if (role === 'host') MP.hostRace = MP.hostRace || pickRace;
     if (role === 'guest') { MP.myRace = race; if (code) MP.roomCode = code; } /* the code is recorded here, not only by the Join button — the auto-reconnect (fix E) rejoins by it after an unexpected drop */
     mpStatus(); /* re-render the lobby with the role set — the click handlers show it BEFORE connecting, so a failure can never be invisible */
@@ -1646,9 +1944,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (!fdSocketReady()) { FD.wantQueue = true; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'Connecting…'); fdOpenSocket(); return; }
     fdQueueJoin();
   }
-  function fdQueueJoin() { FD.state = 'queued'; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'Searching for another player…'); mpSend({ type: 'queue_join' }); }
+  function fdQueueJoin() { FD.state = 'queued'; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'Searching for players…'); mpSend({ type: 'queue_join' }); }
   function fdLeaveQueue() { mpSend({ type: 'queue_leave' }); FD.state = 'idle'; FD.draft = null; fdStopCountdown(); if (FD.authed) fdShowMain(); else fdShowGate(); }
-  function fdReadySend() { mpSend({ type: 'ready' }); var b = document.getElementById('fdReadyBtn'); if (b) b.disabled = true; fdSetStatus('fdFoundStatus', 'Ready — waiting for the other player…'); }
+  function fdReadySend() { mpSend({ type: 'ready' }); var b = document.getElementById('fdReadyBtn'); if (b) b.disabled = true; fdSetStatus('fdFoundStatus', 'Ready — waiting for the other players…'); }
   function fdPick(i) { if (FD.state !== 'draft' || !FD.draft || FD.draft.turnPlayer !== FD.myIndex) return; mpSend({ type: 'draft_pick', animal: i }); }
   function fdStartCountdown(elId) {
     FD.countEl = elId;
@@ -1768,7 +2066,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       FD.deadline = Date.now() + (typeof o.readyMs === 'number' ? o.readyMs : 10000);
       var fp = document.getElementById('fdFoundPlayers'); if (fp) fp.textContent = FD.players.join('  vs  ');
       var rb = document.getElementById('fdReadyBtn'); if (rb) rb.disabled = false;
-      fdSetStatus('fdFoundStatus', 'Both players must click Ready before the timer runs out.');
+      fdSetStatus('fdFoundStatus', 'Everyone must click Ready before the timer runs out.');
       fdShowScreen('mpFound');
       fdStartCountdown('fdFoundCount');
       try { Aud.ui('start'); } catch (e) {}
@@ -1776,7 +2074,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     }
     if (o.type === 'ready_failed') {
       fdStopCountdown(); FD.draft = null;
-      if (o.requeued) { FD.state = 'queued'; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'The other player did not ready up — you are back in the queue.'); }
+      if (o.requeued) { FD.state = 'queued'; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', FD.players.length > 2 ? 'A player did not ready up — you are back in the queue.' : 'The other player did not ready up — you are back in the queue.'); }
       else { FD.state = 'idle'; if (FD.authed) { fdShowMain(); fdSetStatus('fdMainStatus', 'The ready check failed — you are out of the queue. Find Match to try again.'); } }
       return true;
     }
@@ -1807,13 +2105,34 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       fdStopCountdown(); FD.state = 'match'; FD.draft = null;
       MP.enabled = true; MP.roomCode = o.room; MP.guestConnected = true;
       MP.aiTeams = (o.lineup.aiTeams || [2, 3]).slice();
+      /* Stage C: the relay seats every queue player — seat i plays
+         team i. Older 2-player queue starts carried no seat field;
+         the role implies it there. */
+      MP.seat = (typeof o.seat === 'number') ? o.seat : (o.role === 'host' ? 0 : 1);
+      var qsN = (typeof o.seats === 'number' && o.seats >= 2) ? o.seats : 2;
+      MP.seats = []; for (var qsi = 0; qsi < qsN; qsi++) MP.seats.push(qsi);
+      if (o.rejoin && MP.inGame && LS.state !== 'off' && G && !G.over) {
+        /* Reclaiming my seat mid-match (Stage C grace): the match on
+           this client is stale-frozen at the barrier; re-enter play
+           and pull a fresh snapshot from my designated source — the
+           lowest connected seat that is not me. The request is
+           briefly delayed so the relay's peerRejoin has landed and
+           every client agrees on who the source is; the watchdog
+           re-asks if it is somehow missed. */
+        MP.role = MP.seat === 0 ? 'host' : 'guest'; MP.myTeam = MP.seat;
+        LS.state = 'resync'; LS.healFrom = lsSourceFor(MP.myTeam); LS.lastReqAt = 0;
+        mpEnterPlay();
+        mpStatus('Reconnected — syncing the match…');
+        (function (seat0) { setTimeout(function () { if (LS.state === 'resync' && MP.myTeam === seat0) { LS.epoch++; LS.lastReqAt = performance.now(); mpSend({ type: 'lsSnapReq', epoch: LS.epoch, rejoin: 1, from: MP.myTeam }); } }, 250); })(MP.myTeam);
+        return true;
+      }
       if (o.role === 'host') {
         MP.role = 'host'; MP.myTeam = 0;
         MP.guestBuild = LS_BUILD_ID; /* a queue match is seated by the relay between two copies of this build; the guest still self-checks the start handshake */
         fdLaunchQueueMatch(o);
       } else {
-        MP.role = 'guest'; MP.myTeam = 1;
-        MP.hostRace = o.lineup.teamAnimals[0]; MP.myRace = o.lineup.teamAnimals[1];
+        MP.role = 'guest'; MP.myTeam = MP.seat;
+        MP.hostRace = o.lineup.teamAnimals[0]; MP.myRace = o.lineup.teamAnimals[MP.myTeam];
         MP.hostDifficulty = String(o.lineup.aiDifficulty || 'Normal').toLowerCase();
         fdSetStatus('fdDraftStatus', 'Match starting…');
         mpStatus('Queue match — the host is starting the game…');
@@ -1899,6 +2218,13 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (team === 1) return MP.guestName || 'the guest';
     return 'your opponent';
   }
+  /* Stage C: name the seat the barrier is actually blocked on
+     (lowest uncovered barrier seat that is not me). */
+  function lsWaitingName() {
+    var bs = lsBarrierSeats();
+    for (var i = 0; i < bs.length; i++) { if (bs[i] !== MP.myTeam && (LS.upto[bs[i]] || -1) < LS.tick) return lsPauseName(bs[i]); }
+    return null;
+  }
   function fxStallRefresh() {
     try {
       var el = document.getElementById('fxStall'); if (!el) return;
@@ -1906,13 +2232,17 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       if (mpLsOn() && MP.inGame && mode === 'play' && G && !G.over) {
         if (LS.reconnecting) txt = 'Connection lost — reconnecting…';
         else if (LS.sharedPause) txt = 'Paused by ' + lsPauseName(LS.sharedPause.by);
+        else if (lsMulti() && LS.split) txt = 'Out of sync — match paused';
+        else if (lsMulti() && LS.state === 'run' && LS.episode) txt = 'Re-syncing a player…';
         else if (LS.state === 'desync' || LS.state === 'resync') txt = 'Re-syncing…';
+        else if (lsMulti() && LS.state === 'run') { var aws = lsFirstAwaySeat(); if (aws >= 0) txt = 'Waiting for ' + lsPauseName(aws) + '…'; else if (LS.waiting && LS.waitMs > 1000) { var wn = lsWaitingName(); txt = wn ? ('Waiting for ' + wn + '…') : 'Waiting for players…'; } }
         else if (LS.waiting && LS.waitMs > 1000) txt = 'Waiting for opponent…';
       }
       LS.stallText = txt;
       if (txt) { el.textContent = txt; el.hidden = false; } else el.hidden = true;
     } catch (e) {}
   }
+  function lsFirstAwaySeat() { var bs = lsBarrierSeats(); for (var i = 0; i < bs.length; i++) if (LS.awaySeats[bs[i]]) return bs[i]; return -1; }
 
   /* ---- shared match-end overlay (fixes E/G give-up paths) ------ */
   function fxShowEnd(title, text) {
@@ -1956,6 +2286,35 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      again up to 3 times, then end visibly. Nobody strands silently. */
   var LS_RESYNC_RETRY_MS = 3000;
   function lsResyncTick() {
+    if (lsMulti()) {
+      /* Stage C watchdog duties: a rejoiner re-asks its source for a
+         snapshot; a minority healer re-asks, bounded, then gives up
+         VISIBLY (never a silent freeze); an episode source re-sends
+         to any minority seat that has not confirmed, epoch++ each
+         time so a late duplicate snapshot can never loop. */
+      var mnow = performance.now();
+      if (LS.state === 'resync') {
+        var src = lsSourceFor(MP.myTeam);
+        if (src >= 0) LS.healFrom = src;
+        if (mnow - LS.lastReqAt >= LS_RESYNC_RETRY_MS) { LS.lastReqAt = mnow; LS.epoch++; mpSend({ type: 'lsSnapReq', epoch: LS.epoch, rejoin: 1, from: MP.myTeam }); }
+        return;
+      }
+      if (LS.state === 'desync' && !LS.split && LS.healFrom >= 0) {
+        if (mnow - Math.max(LS.desyncSince, LS.lastSnapAt) < LS_RESYNC_RETRY_MS) return;
+        if (LS.snapReqs < 3) { LS.snapReqs++; LS.desyncSince = mnow; mpSend({ type: 'lsSnapReq', epoch: LS.epoch, from: MP.myTeam, to: LS.healFrom }); }
+        else if (!LS.endSent) { LS.endSent = true; mpSend({ type: 'lsDesyncFail', tick: LS.desyncTick }); lsEndMatchDesync(); }
+        return;
+      }
+      if (LS.episode && LS.episode.source === MP.myTeam) {
+        if (mnow - Math.max(LS.desyncSince, LS.lastSnapAt) < LS_RESYNC_RETRY_MS) return;
+        LS.desyncSince = mnow;
+        var unready = LS.episode.minority.filter(function (s) { return !LS.episode.ready[s]; });
+        if (!unready.length) { LS.episode = null; return; }
+        if (LS.snapSends < 3) { LS.snapSends++; LS.epoch++; for (var ui = 0; ui < unready.length; ui++) lsSendSnapTo(unready[ui], LS.epoch); }
+        else if (!LS.endSent) { LS.endSent = true; mpSend({ type: 'lsDesyncFail', tick: LS.episode.tick }); lsEndMatchDesync(); }
+      }
+      return;
+    }
     if (LS.state !== 'desync') return;
     var now = performance.now();
     if (now - Math.max(LS.desyncSince, LS.lastSnapAt) < LS_RESYNC_RETRY_MS) return;
@@ -2072,7 +2431,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     try { fxStallRefresh(); } catch (e) {}
     try {
       if (!mpLsOn() || !MP.inGame || mode !== 'play' || !G || G.over) return;
-      if (LS.state === 'desync') lsResyncTick();
+      if (LS.state === 'desync' || (lsMulti() && LS.episode) || (lsMulti() && LS.state === 'resync')) lsResyncTick();
       else if (LS.state === 'run' && !LS.sharedPause && !LS.reconnecting) {
         if (performance.now() - LS.lastAdvanceAt > 5 * 1000) lsSendFrame();
       }
@@ -3122,7 +3481,17 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       // production and AI stop. Losing the player's HQ ends the game; otherwise
       // the player wins once all three rival HQs are down.
       eliminateTeam(tgt.team, tgt);
-      if (tgt.team === 0) finish(team);
+      if (MP.enabled && MP.seats && MP.seats.length >= 3) {
+        /* Stage C: a 3-4 human match ends only when ONE team is left
+           standing — any team's fall is just an elimination until
+           then (the fallen human spectates). MP.seats is seating
+           data, identical on every client, so the verdict is too. */
+        var aliveC = 0, lastC = -1;
+        for (var ci2 = 0; ci2 < 4; ci2++) if (!G.teams[ci2].dead) { aliveC++; lastC = ci2; }
+        if (aliveC === 1) finish(lastC);
+        else if (aliveC === 0) finish(team);
+      }
+      else if (tgt.team === 0) finish(team);
       else if (allRivalBasesDown()) finish(0);
     }
   }
