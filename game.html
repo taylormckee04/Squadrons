@@ -579,7 +579,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var MP = { enabled: false, role: null, myTeam: 0, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '530e36b01f';
+  var LS_BUILD_ID = '38e354b64c';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -2085,7 +2085,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   });
   /* ================= END BROTHER-SESSION FIX ==================== */
 
-  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
+  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, hkOptions: function () { return hkPresentedOptions().map(function (b, i) { return { key: i < HK_KEYS.length ? HK_KEYS[i] : null, id: b.id || '', tup: b.getAttribute('data-tup'), bup: b.getAttribute('data-bup'), lup: b.getAttribute('data-lup'), hup: b.getAttribute('data-hup'), build: b.getAttribute('data-build'), disabled: !!b.disabled }; }); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
   var EL = 50 * Math.PI / 180, SE = Math.sin(EL), CE = Math.cos(EL);
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), ctx = cv.getContext('2d');
@@ -5687,6 +5687,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       btnLabUp[i].disabled = !(friendlySelb && friendlySelb.type === 'lab' && friendlySelb.complete && friendlySelb.hp > 0) || llv >= lcfg.max || t.clouds < lcfg.costs[llv] || !!friendlySelb.res;
     }
     try { fillClickSlots(); } catch (e) {}
+    try { hkPaintBadges(); } catch (e) {}
 
   }
 
@@ -6199,12 +6200,102 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   Array.prototype.forEach.call(document.querySelectorAll('[data-go]'), function (b) {
     b.addEventListener('click', function () { if (mode === 'play') { if (MP.enabled && (MP.role === 'guest' || mpLsOn())) mpGuestCompass(b.getAttribute('data-go')); else compass(b.getAttribute('data-go')); syncHud(); } });
   });
+  // ---------- contextual upgrade hotkeys (Taylor, 2026-11-03) ----------
+  // While a building is selected and its option card is presented, the
+  // letters Q W E R T F trigger the presented options BY SLOT POSITION
+  // (1st option = Q, 2nd = W, ... 6th = F; options past the sixth get
+  // no key). "Presented" = the option buttons of #turretCard that are
+  // actually visible right now — the button itself and every section
+  // wrapping it unhidden — in DOM order: exactly the list the player
+  // sees, top to bottom. Disabled options keep their slot (a press is
+  // then a click on a disabled button: a no-op, positions never shift
+  // mid-game). A press routes through btn.click(), so a hotkey is
+  // indistinguishable from a click: same handler, same single-player
+  // effect, and in multiplayer the identical mpOrder stream — lockstep
+  // cannot tell them apart. Each presented option wears its letter as
+  // a <kbd> badge in its name (same look as the build-card hotkey
+  // letters) whenever the card is up; hkPaintBadges keeps them in sync
+  // from syncHud.
+  // COLLISION AUDIT (every pre-existing binding checked): Q/W/E/R/T
+  // already arm builds (Cloud Pad / Factory / Turret / Hangar / Lab —
+  // the v85 build hotkeys, a MAJOR job taught in the tutorial) and F
+  // arms the race special building (wall/field/dock/tube/burrow/
+  // accel). Resolution = contextual dispatch: the option meaning wins
+  // ONLY while a building's options are presented — a state the player
+  // can always see, because the bottom card visibly swaps from the
+  // build card to the building's card and every presented option is
+  // badged with its letter. At every other moment the letters keep
+  // their build meanings, byte for byte. While options are
+  // presented, all six letters belong to the card: a letter past the
+  // last presented option is swallowed (a no-op), never silently
+  // reinterpreted as a build — no surprise placements. The card is
+  // dismissed exactly as before (click empty ground), and Escape
+  // keeps its existing jobs; the two
+  // meanings are never live at once, so they cannot be confused; no
+  // old binding was moved or removed. All other keys are untouched:
+  // 1/2 plane select, 3/4 turret/hangar build aliases, 5 special-build
+  // alias, P pause, A select-all, H home camera, Z/C/S compass,
+  // arrows camera, M mute (separate capture listener), Escape.
+  // Guards: the handler already requires play mode (menus, lobby,
+  // queue and draft are other modes/states), a live game, and no
+  // Ctrl/Cmd/Alt (browser shortcuts are never hijacked); the target
+  // guard below additionally silences every game hotkey while typing
+  // in a text field (room code, dev/gamertag names, ...).
+  var HK_KEYS = ['q', 'w', 'e', 'r', 't', 'f'];
+  function hkPresentedOptions() {
+    var out = [];
+    try {
+      var tc = $('turretCard'), bc = $('buildCard');
+      if (!tc || tc.hidden || !bc || !bc.hidden) return out;
+      var btns = tc.querySelectorAll('.act');
+      for (var i = 0; i < btns.length; i++) {
+        var b = btns[i], el = b, vis = true;
+        while (el && el !== tc) { if (el.hidden) { vis = false; break; } el = el.parentNode; }
+        if (vis) out.push(b);
+      }
+    } catch (e) {}
+    return out;
+  }
+  function hkPaintBadges() {
+    /* Re-asserted on every syncHud (10x/s): syncHud itself rewrites
+       several option name spans via textContent (dismantle, the
+       unique choice names, the upgrade [data-*name] spans), which
+       would wipe an appended badge — painting last each cycle keeps
+       every presented option badged. Idempotent: a correct badge is
+       left untouched. */
+    var tc = $('turretCard');
+    if (!tc) return;
+    var opts = hkPresentedOptions();
+    var all = tc.querySelectorAll('.act');
+    for (var i = 0; i < all.length; i++) {
+      var b = all[i], idx = opts.indexOf(b), want = idx >= 0 && idx < HK_KEYS.length ? HK_KEYS[idx].toUpperCase() : null;
+      var bn = null, kids = b.children;
+      for (var j = 0; j < kids.length; j++) if (kids[j].classList && kids[j].classList.contains('bn')) { bn = kids[j]; break; }
+      if (!bn) continue;
+      var badge = null;
+      for (var m = 0; m < bn.children.length; m++) if (bn.children[m].classList && bn.children[m].classList.contains('hkkey')) { badge = bn.children[m]; break; }
+      if (want) {
+        if (!badge) { badge = document.createElement('kbd'); badge.className = 'hkkey'; bn.appendChild(badge); }
+        if (badge.textContent !== want) badge.textContent = want;
+      } else if (badge) badge.remove();
+    }
+  }
   var KEYS = { z: 'sw', c: 'se', s: 'mid' };
   var BUILD_KEYS = { q: 'pad', w: 'factory', e: 'turret', r: 'hangar', t: 'lab' };
   window.addEventListener('keydown', function (e) {
     if (mode !== 'play' || !G || e.ctrlKey || e.metaKey || e.altKey) return;
+    var hkTgt = e.target;
+    if (hkTgt && (hkTgt.tagName === 'INPUT' || hkTgt.tagName === 'TEXTAREA' || hkTgt.tagName === 'SELECT' || hkTgt.isContentEditable)) return;
     var k = e.key.toLowerCase();
     if (k.indexOf('arrow') === 0) { keysDown[k] = true; e.preventDefault(); return; }
+    if (HK_KEYS.indexOf(k) >= 0) {
+      var hkOpts = hkPresentedOptions();
+      if (hkOpts.length) {
+        var hkIdx = HK_KEYS.indexOf(k);
+        if (hkIdx < hkOpts.length) { hkOpts[hkIdx].click(); syncHud(); }
+        e.preventDefault(); return;
+      }
+    }
     if (BUILD_KEYS[k]) startBuild(BUILD_KEYS[k]);
     else if (k === '1') selectNormalPlanes();
     else if (k === '2') selectSpecialPlanes();
