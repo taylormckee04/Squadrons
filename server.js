@@ -87,6 +87,29 @@
  *               seat; the host leaving closes the room. No MMR or stats
  *               recording happens here — that stays queue-only.
  *
+ *   ACCOUNTS    (Step 2: Neon Postgres + gamertags.) With env
+ *               DATABASE_URL set, the relay loads the `pg` package
+ *               and each signed-in connection gets a persistent
+ *               profile keyed by its Google `sub`: a unique gamertag
+ *               (3-16 chars, letters/numbers/underscore, uniqueness
+ *               case-insensitive, first come first served). A player
+ *               with no tag yet must claim one before queueing or
+ *               entering a room ({type:'tag_required'}); claims and
+ *               changes go through {type:'tag_claim', tag} and are
+ *               answered with tag_ok / tag_error. Changing a tag
+ *               releases the old name into a 30-day lock
+ *               (tag_locks) during which NOBODY can claim it. Once
+ *               accounts are on, other players NEVER see a Google
+ *               display name: every name the relay broadcasts (queue,
+ *               draft, lobbies, peer-away banners) is the gamertag,
+ *               or "Player" for a player without one. FAIL SOFT: no
+ *               DATABASE_URL, a missing `pg` package, or an
+ *               unreachable database leaves the relay serving games
+ *               exactly as before — profiles just report
+ *               accountsDown and nobody is gated. The matches /
+ *               match_players tables are created now but only written
+ *               by step 3 (records + MMR).
+ *
  * Run:  node server.js            (port: env PORT, default 8000)
  *       TLS_CERT=cert.pem TLS_KEY=key.pem node server.js
  *
@@ -135,6 +158,124 @@ const FILL_MS = parseInt(process.env.SQ_FILL_MS || '20000', 10);    /* Stage C f
 const MATCH_HUMANS = 4;
 const ANIMALS = ['hamster', 'fox', 'bunny', 'otter', 'beaver', 'turtle']; /* race keys, game order */
 if (AUTH_DEV_MODE) console.log('[relay] *** AUTH DEV MODE: GOOGLE_CLIENT_ID not set — dev: tokens accepted ***');
+
+/* ---------------- accounts: Postgres + gamertags (step 2) ----------------
+ * The relay's first dependency: `pg`, loaded ONLY when DATABASE_URL
+ * is set, so a database-less deployment (including every test suite)
+ * never even requires it. Everything in this section is fail-soft by
+ * construction: the pool is built in a try/catch, schema creation is
+ * idempotent and retried lazily, and every query path answers
+ * {down:true} instead of throwing — auth, rooms and matches never
+ * wait on the database except for the one profile lookup that rides
+ * the (already async) sign-in, and even that settles either way.
+ * Accounts code lives entirely outside the lockstep simulation. */
+const DATABASE_URL = process.env.DATABASE_URL || '';
+let dbPool = null;
+let ACCOUNTS_ON = false;
+if (DATABASE_URL) {
+  let PgPoolCtor = null;
+  try { PgPoolCtor = require('pg').Pool; } catch (e) { console.log('[relay] *** DATABASE_URL is set but the "pg" package is not installed — accounts OFF (run npm install); games unaffected ***'); }
+  if (PgPoolCtor) {
+    /* Neon (and hosted Postgres generally) needs TLS; a local test
+       database does not. Honour sslmode in the URL, and treat a Neon
+       host as requiring it even if the parameter was forgotten. */
+    const needsSsl = /[?&]sslmode=(require|verify-ca|verify-full)/i.test(DATABASE_URL) || /(^|[.@])neon\.tech(?=[:/?]|$)/i.test(DATABASE_URL);
+    try {
+      const cfg = { connectionString: DATABASE_URL, max: 4, connectionTimeoutMillis: 5000, query_timeout: 5000 };
+      if (needsSsl) cfg.ssl = { rejectUnauthorized: false };
+      dbPool = new PgPoolCtor(cfg);
+      dbPool.on('error', (e) => console.log('[relay] accounts db pool error (ignored): ' + e.message));
+      ACCOUNTS_ON = true;
+    } catch (e) { console.log('[relay] *** accounts OFF: unusable DATABASE_URL (' + e.message + ') — games unaffected ***'); dbPool = null; }
+  }
+}
+const DB_SCHEMA = [
+  'CREATE TABLE IF NOT EXISTS players (sub TEXT PRIMARY KEY, gamertag TEXT, tag_lower TEXT UNIQUE, mmr INTEGER NOT NULL DEFAULT 1000, games_played INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now())',
+  'CREATE TABLE IF NOT EXISTS tag_locks (tag_lower TEXT PRIMARY KEY, released_by TEXT, locked_until TIMESTAMPTZ NOT NULL, released_at TIMESTAMPTZ NOT NULL DEFAULT now())',
+  /* Step 3 (records + MMR) writes these; creating them now means it
+     extends the schema instead of migrating it. */
+  'CREATE TABLE IF NOT EXISTS matches (id BIGSERIAL PRIMARY KEY, played_at TIMESTAMPTZ NOT NULL DEFAULT now(), kind TEXT NOT NULL, lineup JSONB)',
+  'CREATE TABLE IF NOT EXISTS match_players (match_id BIGINT NOT NULL REFERENCES matches(id), sub TEXT NOT NULL, placement INTEGER, stats JSONB, mmr_before INTEGER, mmr_after INTEGER, PRIMARY KEY (match_id, sub))'
+];
+let dbSchemaReady = false, dbInitPromise = null, dbLastAttempt = 0;
+function ensureSchema() {
+  if (!dbPool) return Promise.resolve(false);
+  if (dbSchemaReady) return Promise.resolve(true);
+  if (dbInitPromise) return dbInitPromise;
+  if (Date.now() - dbLastAttempt < 5000) return Promise.resolve(false); /* do not hammer a sick database */
+  dbLastAttempt = Date.now();
+  dbInitPromise = (async () => {
+    try {
+      for (const sql of DB_SCHEMA) await dbPool.query(sql);
+      dbSchemaReady = true;
+      console.log('[relay] accounts database ready (players / tag_locks / matches / match_players)');
+      return true;
+    } catch (e) {
+      console.log('[relay] accounts database unavailable: ' + e.message + ' — games continue without accounts');
+      return false;
+    } finally { dbInitPromise = null; }
+  })();
+  return dbInitPromise;
+}
+if (ACCOUNTS_ON) { console.log('[relay] accounts ON: gamertags via Postgres (DATABASE_URL set)'); ensureSchema(); }
+else if (!DATABASE_URL) console.log('[relay] accounts off (DATABASE_URL not set) — running without gamertags');
+
+/* Load one player's gamertag by Google sub. Never throws: a database
+   problem answers {down:true}, which the caller treats as "accounts
+   unavailable" (no gating, names fall back to 'Player'). */
+async function dbLoadProfile(sub) {
+  if (!dbPool || !(await ensureSchema())) return { down: true };
+  try {
+    const r = await dbPool.query('SELECT gamertag FROM players WHERE sub = $1', [sub]);
+    return { tag: r.rows.length ? r.rows[0].gamertag : null };
+  } catch (e) { console.log('[relay] profile lookup failed: ' + e.message); return { down: true }; }
+}
+
+const TAG_RE = /^[A-Za-z0-9_]{3,16}$/;
+function tagFormatError(tag) {
+  if (typeof tag !== 'string' || !tag.trim()) return 'Type a gamertag first.';
+  const t = tag.trim();
+  if (t.length < 3) return 'Gamertags are at least 3 characters.';
+  if (t.length > 16) return 'Gamertags are at most 16 characters.';
+  if (!TAG_RE.test(t)) return 'Gamertags use letters, numbers and underscores only.';
+  return null;
+}
+/* Claim (or change to) a gamertag. One transaction: a live 30-day
+   lock refuses everyone (the released name cannot be sniped — not
+   even by the player who gave it up); another player's tag refuses
+   as taken; claiming the tag you already hold is a friendly no-op.
+   A change first locks the released name, then moves the player's
+   row. The tag_lower UNIQUE constraint is the final arbiter of a
+   claim race (23505 -> taken). Never throws. */
+async function dbClaimTag(sub, tag) {
+  if (!dbPool || !(await ensureSchema())) return { ok: false, code: 'down' };
+  const lower = tag.toLowerCase();
+  let client = null;
+  try {
+    client = await dbPool.connect();
+    await client.query('BEGIN');
+    const lock = await client.query('SELECT locked_until FROM tag_locks WHERE tag_lower = $1', [lower]);
+    if (lock.rows.length && new Date(lock.rows[0].locked_until) > new Date()) { await client.query('ROLLBACK'); return { ok: false, code: 'locked' }; }
+    const owner = await client.query('SELECT sub, gamertag FROM players WHERE tag_lower = $1', [lower]);
+    if (owner.rows.length) {
+      if (owner.rows[0].sub !== sub) { await client.query('ROLLBACK'); return { ok: false, code: 'taken' }; }
+      await client.query('COMMIT');
+      return { ok: true, tag: owner.rows[0].gamertag, same: true };
+    }
+    const me = await client.query('SELECT tag_lower FROM players WHERE sub = $1', [sub]);
+    if (me.rows.length && me.rows[0].tag_lower && me.rows[0].tag_lower !== lower) {
+      await client.query("INSERT INTO tag_locks (tag_lower, released_by, locked_until) VALUES ($1, $2, now() + interval '30 days') ON CONFLICT (tag_lower) DO UPDATE SET released_by = EXCLUDED.released_by, locked_until = EXCLUDED.locked_until, released_at = now()", [me.rows[0].tag_lower, sub]);
+    }
+    await client.query('INSERT INTO players (sub, gamertag, tag_lower) VALUES ($1, $2, $3) ON CONFLICT (sub) DO UPDATE SET gamertag = EXCLUDED.gamertag, tag_lower = EXCLUDED.tag_lower, updated_at = now()', [sub, tag, lower]);
+    await client.query('COMMIT');
+    return { ok: true, tag };
+  } catch (e) {
+    try { if (client) await client.query('ROLLBACK'); } catch (e2) {}
+    if (e && e.code === '23505') return { ok: false, code: 'taken' };
+    console.log('[relay] gamertag claim failed: ' + e.message);
+    return { ok: false, code: 'down' };
+  } finally { if (client) client.release(); }
+}
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.md': 'text/plain; charset=utf-8' };
 
@@ -220,8 +361,8 @@ function graceExpire(code, room) {
 function graceHold(conn, room, code) {
   const role = conn.role;
   const peer = role === 'host' ? room.guest : room.host;
-  if (role === 'host') { room.awayHost = { sub: conn.identity.sub, name: conn.identity.name }; room.host = null; }
-  else { room.awayGuest = { sub: conn.identity.sub, name: conn.identity.name }; room.guest = null; }
+  if (role === 'host') { room.awayHost = { sub: conn.identity.sub, name: fdName(conn) }; room.host = null; }
+  else { room.awayGuest = { sub: conn.identity.sub, name: fdName(conn) }; room.guest = null; }
   conn.room = null;
   conn.role = null;
   sendTo(peer, { type: 'peerAway', role: role, graceMs: REJOIN_GRACE_MS });
@@ -287,8 +428,8 @@ function cleanupQueueSeat(conn, room) {
   if (room.started && conn.identity && othersLive && !room.convSeats[seat]) {
     /* Hold the seat for the reconnect grace, exactly like the
        2-player rule — just per seat, with the others notified. */
-    room.awaySeats[seat] = { sub: conn.identity.sub, name: conn.identity.name };
-    broadcastRoom(room, seat, { type: 'peerAway', seat, role: seat === 0 ? 'host' : 'guest', name: conn.identity.name, graceMs: REJOIN_GRACE_MS });
+    room.awaySeats[seat] = { sub: conn.identity.sub, name: fdName(conn) };
+    broadcastRoom(room, seat, { type: 'peerAway', seat, role: seat === 0 ? 'host' : 'guest', name: fdName(conn), graceMs: REJOIN_GRACE_MS });
     clearSeatTimer(room, seat);
     room.seatTimers[seat] = setTimeout(function () { convertSeat(code, room, seat); }, REJOIN_GRACE_MS);
     if (room.seatTimers[seat].unref) room.seatTimers[seat].unref();
@@ -506,8 +647,7 @@ function handleAuth(conn, token) {
       const name = token.slice(4).trim().slice(0, 40);
       if (!name) { sendTo(conn, { type: 'auth_fail', reason: 'dev token needs a display name (dev:<DisplayName>)' }); return; }
       conn.identity = { sub: 'dev:' + name, name, picture: null };
-      sendTo(conn, { type: 'auth_ok', name, picture: null });
-      console.log('[relay] conn ' + conn.id + ' signed in (dev) as ' + name);
+      finishAuth(conn);
     } else {
       sendTo(conn, { type: 'auth_fail', reason: 'unrecognised token — dev mode accepts dev:<DisplayName>' });
     }
@@ -515,18 +655,93 @@ function handleAuth(conn, token) {
   }
   conn.authPending = true;
   verifyGoogleToken(token, (info) => {
-    conn.authPending = false;
-    if (conn.dead) { conn.deferred = null; return; }
+    if (conn.dead) { conn.authPending = false; conn.deferred = null; return; }
     if (info) {
       conn.identity = info;
-      sendTo(conn, { type: 'auth_ok', name: info.name, picture: info.picture });
-      console.log('[relay] conn ' + conn.id + ' signed in as ' + info.name);
+      finishAuth(conn);
     } else {
+      conn.authPending = false;
       sendTo(conn, { type: 'auth_fail', reason: 'Google sign-in could not be verified' });
+      replayDeferred(conn);
     }
-    const deferred = conn.deferred || [];
-    conn.deferred = null;
-    for (const m of deferred) { if (conn.dead) break; try { routeMessage(conn, m); } catch (e) { console.log('[relay] route error (ignored): ' + e.message); } }
+  });
+}
+
+/* Replay the messages that arrived while an async sign-in (token
+   verification, then the profile lookup) was in flight — in order,
+   exactly as the pre-accounts relay did after verification. */
+function replayDeferred(conn) {
+  const deferred = conn.deferred || [];
+  conn.deferred = null;
+  for (const m of deferred) { if (conn.dead) break; try { routeMessage(conn, m); } catch (e) { console.log('[relay] route error (ignored): ' + e.message); } }
+}
+
+/* The post-auth sequence for both modes: with accounts on, the
+   player's gamertag profile is loaded BEFORE auth_ok goes out and
+   before any deferred message is replayed — the client sends its
+   first action (a queue join, a Custom hello/join) back-to-back
+   with auth, and the tag gate must already know the answer. The
+   connection stays authPending through the lookup so those messages
+   defer; the lookup settles either way (a database problem marks
+   the profile accountsDown and auth proceeds — sign-in never hangs
+   on the database). With accounts off this is the old synchronous
+   auth_ok, byte for byte. */
+function finishAuth(conn) {
+  const complete = () => {
+    conn.authPending = false;
+    sendTo(conn, { type: 'auth_ok', name: conn.identity.name, picture: conn.identity.picture });
+    if (ACCOUNTS_ON) sendProfile(conn);
+    console.log('[relay] conn ' + conn.id + ' signed in' + (AUTH_DEV_MODE ? ' (dev)' : '') + ' as ' + conn.identity.name + (ACCOUNTS_ON ? (conn.accountsDown ? ' (accounts unavailable — playing without a gamertag)' : (conn.tag ? ' — gamertag ' + conn.tag : ' (no gamertag yet)')) : ''));
+    replayDeferred(conn);
+  };
+  if (!ACCOUNTS_ON) { complete(); return; }
+  conn.authPending = true;
+  dbLoadProfile(conn.identity.sub).then((res) => {
+    if (conn.dead) { conn.authPending = false; conn.deferred = null; return; }
+    conn.profileKnown = true;
+    conn.accountsDown = !!res.down;
+    conn.tag = res.down ? null : (res.tag || null);
+    complete();
+  });
+}
+function sendProfile(conn) {
+  sendTo(conn, { type: 'profile', tag: conn.tag || null, needTag: !conn.accountsDown && !conn.tag, accountsDown: !!conn.accountsDown });
+}
+
+/* The tag gate: with accounts on and a healthy database, a signed-in
+   player with no gamertag claims one before queueing or entering a
+   room. Every degradation (no DATABASE_URL, database down, profile
+   never loaded) leaves the gate OPEN — games always run. */
+function needsTag(conn) { return ACCOUNTS_ON && !!conn.identity && conn.profileKnown && !conn.accountsDown && !conn.tag; }
+function tagGate(conn) {
+  if (!needsTag(conn)) return false;
+  sendTo(conn, { type: 'tag_required', msg: 'Choose a gamertag before playing multiplayer — it is the name other players will see.' });
+  return true;
+}
+
+/* {type:'tag_claim', tag}: first claim and later changes share this
+   one path (dbClaimTag handles the released-name lock on a change).
+   Relay-consumed, never forwarded; answers go to the claimer only. */
+function handleTagClaim(conn, o) {
+  if (!conn.identity) { sendTo(conn, { type: 'auth_required', msg: 'Please sign in first' }); return; }
+  if (!ACCOUNTS_ON) { sendTo(conn, { type: 'tag_error', msg: 'Accounts are not enabled on this server, so gamertags are unavailable.' }); return; }
+  if (conn.tagBusy) return; /* a double-click is one claim */
+  const tag = typeof o.tag === 'string' ? o.tag.trim() : '';
+  const ferr = tagFormatError(tag);
+  if (ferr) { sendTo(conn, { type: 'tag_error', msg: ferr }); return; }
+  conn.tagBusy = true;
+  dbClaimTag(conn.identity.sub, tag).then((res) => {
+    conn.tagBusy = false;
+    if (conn.dead) return;
+    if (res.ok) {
+      conn.tag = res.tag; conn.accountsDown = false; conn.profileKnown = true;
+      /* A second tab of the same player follows the change at once. */
+      for (const other of conns) if (other !== conn && other.identity && other.identity.sub === conn.identity.sub && other.tag !== res.tag) { other.tag = res.tag; sendProfile(other); }
+      sendTo(conn, { type: 'tag_ok', tag: res.tag });
+      console.log('[relay] conn ' + conn.id + ' is now gamertag ' + res.tag);
+    } else if (res.code === 'taken') sendTo(conn, { type: 'tag_error', msg: 'That gamertag is taken — try another.' });
+    else if (res.code === 'locked') sendTo(conn, { type: 'tag_error', msg: 'That name was recently given up by its owner and stays locked for a while, so nobody can snatch it — try another.' });
+    else sendTo(conn, { type: 'tag_error', msg: 'Accounts are unavailable right now — try again in a bit.' });
   });
 }
 
@@ -540,7 +755,12 @@ const fdMatches = new Set(); /* live ready/draft matches */
 let nextMatchId = 1;
 let fillTimer = null;        /* the partial-group fill window (Stage C) */
 
-function fdName(conn) { return (conn.identity && conn.identity.name) || 'Player'; }
+/* The name OTHER players see. Once accounts are on this is the
+   gamertag — or "Player" for someone without one (tag not claimed
+   yet, or the database is down): a Google display name is never
+   broadcast to another client again. With accounts off it is the
+   pre-accounts behaviour verbatim. */
+function fdName(conn) { if (ACCOUNTS_ON) return conn.tag || 'Player'; return (conn.identity && conn.identity.name) || 'Player'; }
 function fdInPool(conn) { return queuePool.indexOf(conn) >= 0; }
 function fdRemoveFromPool(conn) { const i = queuePool.indexOf(conn); if (i >= 0) queuePool.splice(i, 1); if (queuePool.length < 2 && fillTimer) { clearTimeout(fillTimer); fillTimer = null; } /* a dissolved group must not leave a stale deadline that matches the NEXT pair early */ }
 function fdRequeueFront(conns) {
@@ -550,6 +770,7 @@ function fdRequeueFront(conns) {
 
 function queueJoin(conn) {
   if (!conn.identity) { sendTo(conn, { type: 'auth_required', msg: 'Please sign in first' }); return; }
+  if (tagGate(conn)) return;
   if (conn.room || conn.role) { sendTo(conn, { type: 'queue_error', msg: 'Leave your current room before joining the queue' }); return; }
   if (conn.fdMatch) { sendTo(conn, { type: 'queue_error', msg: 'You are already in a match' }); return; }
   if (fdInPool(conn)) return; /* double-join is a no-op */
@@ -761,11 +982,16 @@ function routeMessage(conn, msg) {
   if (conn.authPending) { (conn.deferred = conn.deferred || []).push(msg); return; }
   if (o.type === 'queue_join') { queueJoin(conn); return; }
   if (o.type === 'queue_leave') { queueLeave(conn); return; }
+  if (o.type === 'tag_claim') { handleTagClaim(conn, o); return; }
   if (o.type === 'ready') { matchReady(conn); return; }
   if (o.type === 'draft_pick') { draftPick(conn, o); return; }
   if (!conn.role) {
     if (o.type === 'hello' && o.role === 'host') {
       if (!AUTH_DEV_MODE && !conn.identity) { sendTo(conn, { type: 'auth_required', msg: 'Please sign in first' }); return; }
+      /* Accounts: a FRESH room needs a gamertag first; a reclaim
+         (hello WITH a code) is never gated — it resumes a match the
+         player was already in. */
+      if (!(typeof o.code === 'string' && o.code) && tagGate(conn)) return;
       /* Fix E: hello WITH a code = a host reclaiming a seat held by
          the reconnect grace. Only the same identity may reclaim. */
       if (typeof o.code === 'string' && o.code) {
@@ -800,6 +1026,10 @@ function routeMessage(conn, msg) {
       console.log('[relay] room ' + code + ' created by conn ' + conn.id);
     } else if (o.type === 'join' && o.role === 'guest') {
       if (!AUTH_DEV_MODE && !conn.identity) { sendTo(conn, { type: 'auth_required', msg: 'Please sign in first' }); return; }
+      /* Accounts: a fresh join needs a gamertag first. A reclaim
+         join is unaffected in practice — the seat holder's tag is
+         already loaded on this connection, so the gate stays open. */
+      if (tagGate(conn)) return;
       const code = typeof o.code === 'string' ? o.code.trim().toUpperCase() : '';
       const room = code ? rooms.get(code) : null;
       if (room && room.customRoom) {
@@ -851,7 +1081,7 @@ function routeMessage(conn, msg) {
          later promotion already knows this seat's lobby state. */
       conn.seatRace = ANIMALS.indexOf(o.race) >= 0 ? o.race : 'fox';
       if (typeof o.build === 'string') conn.build = o.build;
-      if (conn.identity) o.name = conn.identity.name; /* the host's lobby slot shows who joined */
+      if (conn.identity) o.name = fdName(conn); /* the host's lobby slot shows the guest's display name (gamertag once accounts are on) */
       sendTo(room.host, o); /* host learns the guest's race from the original join */
       console.log('[relay] guest conn ' + conn.id + ' joined room ' + code);
     }
@@ -901,7 +1131,7 @@ server.on('upgrade', (req, sock, head) => {
     const key = req.headers['sec-websocket-key'];
     if (!key) { sock.destroy(); return; }
     sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + wsAccept(key) + '\r\n\r\n');
-    const conn = { id: nextId++, sock, buf: Buffer.alloc(0), role: null, room: null, seat: null, seatRace: null, build: null, dead: false, lastSeen: Date.now(), rate: [], identity: null, authPending: false, deferred: null, fdMatch: null };
+    const conn = { id: nextId++, sock, buf: Buffer.alloc(0), role: null, room: null, seat: null, seatRace: null, build: null, dead: false, lastSeen: Date.now(), rate: [], identity: null, authPending: false, deferred: null, fdMatch: null, tag: null, profileKnown: false, accountsDown: false, tagBusy: false };
     conns.add(conn);
     sock.on('data', (chunk) => {
       if (conn.dead) return;

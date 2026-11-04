@@ -417,11 +417,11 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 button.chip.mpGuestAct { cursor: pointer; font: inherit; color: inherit; text-align: left; }
 button.chip.mpGuestAct:hover { border-color: var(--you); }
 .diff:disabled { cursor: default; }
-#mpMain, #mpGate, #mpQueue, #mpFound, #mpDraft { display: grid; gap: 14px; }
+#mpMain, #mpGate, #mpQueue, #mpFound, #mpDraft, #mpTag { display: grid; gap: 14px; }
 .fdCount { font: 700 30px/1.2 var(--font-display); text-align: center; color: var(--ink); min-height: 36px; }
 .fdPickGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 #fdGisBtn { display: flex; justify-content: center; min-height: 44px; }
-#fdDevName { font: 600 16px var(--font-display); padding: 10px 12px; border: 2px solid var(--line); border-radius: 10px; width: 100%; box-sizing: border-box; background: #fff; color: var(--ink); }
+#fdDevName, #fdTagInput { font: 600 16px var(--font-display); padding: 10px 12px; border: 2px solid var(--line); border-radius: 10px; width: 100%; box-sizing: border-box; background: #fff; color: var(--ink); }
 </style>
 <div class="ov" id="mpOverlay" hidden>
   <div class="sheet">
@@ -466,6 +466,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     </div>
     <div id="mpMain" hidden>
       <p style="margin:0">Signed in as <b id="fdMainName">Player</b></p>
+      <p style="margin:0" id="fdTagRow" hidden>Gamertag: <b id="fdMainTag">—</b> — this is the name other players see. <button class="go" id="fdTagChangeBtn" type="button">Change gamertag</button></p>
+      <p style="margin:0" id="fdAcctDown" hidden>Accounts are unavailable right now — gamertags are paused, so for this session other players will see you as “Player”. Games play exactly as normal.</p>
       <button class="go" id="fdFindBtn" type="button">Find Match</button>
       <p style="margin:0">Queue up and we will pair you with another signed-in player: a ready check first, then you take turns drafting your animals, then the match launches.</p>
       <button class="go" id="fdCustomBtn" type="button">Custom Game (room code)</button>
@@ -510,6 +512,15 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       <p style="margin:0" id="fdDraftPicks"></p>
       <div class="mpStatusLine" id="fdDraftStatus"></div>
       <button class="go" id="fdDraftLeaveBtn" type="button">Leave</button>
+    </div>
+    <div id="mpTag" hidden>
+      <h3 style="margin:0">Choose your gamertag</h3>
+      <p style="margin:0">This is the name other players will know you by — in lobbies, the draft, matches and the results table. Your Google name is never shown to other players.</p>
+      <p style="margin:0">3–16 characters: letters, numbers and underscores. Gamertags are unique and first come, first served. You can change yours later, but a name you give up stays locked for 30 days so nobody can grab it.</p>
+      <input id="fdTagInput" size="16" maxlength="16" placeholder="e.g. FoxKing_7" autocomplete="off">
+      <button class="go" id="fdTagBtn" type="button">Claim gamertag</button>
+      <div class="mpStatusLine" id="fdTagStatus"></div>
+      <button class="go" id="fdTagBackBtn" type="button">← Back</button>
     </div>
   </div>
 </div>
@@ -595,7 +606,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '57d4454f40';
+  var LS_BUILD_ID = '8b4ae3a64e';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -609,7 +620,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      not configured and the gate offers the relay's dev sign-in for
      local testing instead. */
   var GOOGLE_CLIENT_ID = '31883324545-22qspho706oncqmjj44179urbvmb7pe0.apps.googleusercontent.com';
-  var FD = { configured: GOOGLE_CLIENT_ID !== 'REPLACE_WITH_GOOGLE_CLIENT_ID', token: null, authed: false, name: null, picture: null, state: 'idle', ui: null, players: [], myIndex: -1, deadline: 0, countInt: null, countEl: null, draft: null, wantQueue: false, gisState: 'idle', gisWaiters: [], credProvider: null, credWaiters: [], pendingCustom: null, customAttempt: null, freshBypass: false };
+  var FD = { configured: GOOGLE_CLIENT_ID !== 'REPLACE_WITH_GOOGLE_CLIENT_ID', token: null, authed: false, name: null, picture: null, state: 'idle', ui: null, players: [], myIndex: -1, deadline: 0, countInt: null, countEl: null, draft: null, wantQueue: false, gisState: 'idle', gisWaiters: [], credProvider: null, credWaiters: [], pendingCustom: null, customAttempt: null, freshBypass: false, tag: null, accountsKnown: false, accountsDown: false };
   /* ---------------- seeded RNG cage ----------------
      Two mulberry32 streams (the spike's implementation). SIMR is the
      simulation's ONLY source of randomness: its state and draw count
@@ -1434,8 +1445,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var wnC = document.getElementById('mpWaitNote'); if (wnC) wnC.hidden = isHost || !MP.enabled;
       return;
     }
-    var s0 = document.getElementById('mpSlot0'); if (s0) s0.textContent = isHost ? ((FD.authed && FD.name ? FD.name + ' (host)' : 'You (host)') + ' — ' + mpRaceName(MP.hostRace || pickRace)) : ((MP.hostName ? MP.hostName + ' (host)' : 'Host') + ' — ' + mpRaceName(MP.hostRace || 'fox'));
-    var s1 = document.getElementById('mpSlot1'); if (s1) s1.textContent = isHost ? (MP.guestConnected ? ((MP.guestName ? MP.guestName + ' (guest)' : 'Guest') + ' — ' + mpRaceName(MP.guestRace || 'fox') + ' · connected') : 'Waiting for guest…') : ((FD.authed && FD.name ? FD.name + ' (guest)' : 'You (guest)') + ' — ' + mpRaceName(MP.myRace || MP.joinRace || 'fox'));
+    var s0 = document.getElementById('mpSlot0'); if (s0) s0.textContent = isHost ? ((FD.authed ? fdDisplayName() + ' (host)' : 'You (host)') + ' — ' + mpRaceName(MP.hostRace || pickRace)) : ((MP.hostName ? MP.hostName + ' (host)' : 'Host') + ' — ' + mpRaceName(MP.hostRace || 'fox'));
+    var s1 = document.getElementById('mpSlot1'); if (s1) s1.textContent = isHost ? (MP.guestConnected ? ((MP.guestName ? MP.guestName + ' (guest)' : 'Guest') + ' — ' + mpRaceName(MP.guestRace || 'fox') + ' · connected') : 'Waiting for guest…') : ((FD.authed ? fdDisplayName() + ' (guest)' : 'You (guest)') + ' — ' + mpRaceName(MP.myRace || MP.joinRace || 'fox'));
     var aiTxt = 'AI · ' + mpDiffLabel(isHost ? pickDifficulty : (MP.hostDifficulty || 'normal')) + ' difficulty';
     var s2 = document.getElementById('mpSlot2'); if (s2) s2.textContent = aiTxt;
     var s3 = document.getElementById('mpSlot3'); if (s3) s3.textContent = aiTxt;
@@ -1838,7 +1849,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           mpSend({ type: 'start', races: G.teams.map(function (tm) { return tm.race; }), difficulty: pickDifficulty, seed: LS.seed, delay: LS.delay, build: LS_BUILD_ID, rejoin: true });
           lsSendSnap(LS.epoch);
           mpStatus('Guest reconnected — sending the current match state…');
-        } else { mpSend({ type: 'joined', team: 1, name: FD.authed ? FD.name : undefined }); mpSendLobby(); mpStatus('Guest joined as ' + o.race + ' — Launch game when you are both ready'); }
+        } else { mpSend({ type: 'joined', team: 1, name: FD.authed ? fdDisplayName() : undefined }); mpSendLobby(); mpStatus('Guest joined as ' + o.race + ' — Launch game when you are both ready'); }
       }
       else if (o.type === 'race') { MP.guestRace = o.race; mpStatus('Guest changed animal to ' + mpRaceName(o.race)); }
       else if (o.type === 'guestLeft') { MP.guestConnected = false; if (G && mode === 'play' && !G.over) { paused = true; try { note('Guest disconnected — game paused.'); } catch (e) {} } mpStatus('Guest disconnected' + (G && mode === 'play' ? ' — paused' : '')); if (G && mode === 'play' && !G.over && mpLsOn()) fxShowEnd('Your opponent left', 'Your opponent disconnected and did not come back — the match has ended.'); }
@@ -1952,7 +1963,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     MP.ws.onclose = function () { if (MP.ws !== myWs || !MP.enabled) return; if (role === 'host' && G && mode === 'play' && !G.over) { paused = true; try { note('Connection lost — game paused.'); } catch (e) {} } MP.guestConnected = false; mpStatus(role === 'host' ? 'Disconnected (host) — the room is closed' : 'Disconnected — rejoin with the same room code to resume'); if (role === 'guest' && MP.inGame) mpShowHome(true); lsMaybeReconnect(); };
   }
   /* ---------------- FRONT DOOR: screens, sign-in, queue, draft ---------------- */
-  var FD_SCREENS = ['mpMain', 'mpGate', 'mpQueue', 'mpFound', 'mpDraft'];
+  var FD_SCREENS = ['mpMain', 'mpGate', 'mpQueue', 'mpFound', 'mpDraft', 'mpTag'];
   function fdHideScreens() { for (var i = 0; i < FD_SCREENS.length; i++) { var el = document.getElementById(FD_SCREENS[i]); if (el) el.hidden = true; } }
   function fdShowScreen(id) {
     var ov = document.getElementById('mpOverlay'); if (ov) ov.hidden = false;
@@ -1962,7 +1973,40 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     FD.ui = id;
   }
   function fdSetStatus(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
-  function fdShowMain() { var nm = document.getElementById('fdMainName'); if (nm) nm.textContent = FD.name || 'Player'; fdShowScreen('mpMain'); }
+  function fdShowMain() { var nm = document.getElementById('fdMainName'); if (nm) nm.textContent = FD.tag || FD.name || 'Player'; fdRenderAccount(); fdShowScreen('mpMain'); }
+  /* ---- Accounts (step 2): gamertags ----
+     The relay is the source of truth: after sign-in it sends a
+     'profile' message with the player's gamertag (or that they need
+     one, or that accounts are down). Until a profile arrives the
+     client behaves exactly as the pre-accounts build — on a server
+     without accounts FD.accountsKnown simply stays false forever.
+     fdDisplayName() is the one name this client ever shows for
+     itself anywhere another player might see it (the host's
+     'joined' hello, own lobby slot, own stats row): the gamertag
+     once accounts are known, "Player" while tagless under accounts,
+     and the sign-in name only in the legacy no-accounts world. */
+  function fdDisplayName() { if (FD.tag) return FD.tag; if (FD.accountsKnown) return 'Player'; return FD.name || 'Player'; }
+  function fdRenderAccount() {
+    var row = document.getElementById('fdTagRow'); if (row) row.hidden = !FD.accountsKnown;
+    var tg = document.getElementById('fdMainTag'); if (tg) tg.textContent = FD.tag || '—';
+    var dn = document.getElementById('fdAcctDown'); if (dn) dn.hidden = !FD.accountsDown;
+    var nm = document.getElementById('fdMainName'); if (nm && FD.ui === 'mpMain') nm.textContent = FD.tag || FD.name || 'Player';
+  }
+  function fdShowTag(msg) {
+    fdShowScreen('mpTag');
+    var inp = document.getElementById('fdTagInput'); if (inp && FD.tag && !inp.value) inp.value = FD.tag;
+    var b = document.getElementById('fdTagBtn'); if (b) b.textContent = FD.tag ? 'Change gamertag' : 'Claim gamertag';
+    fdSetStatus('fdTagStatus', msg || (FD.tag ? 'Pick a new gamertag — the one you give up stays locked for 30 days, so nobody can grab it.' : 'Pick the name the other players will know you by.'));
+  }
+  function fdClaimTag(tag) {
+    var t = String(tag == null ? '' : tag).trim();
+    if (!t) { fdSetStatus('fdTagStatus', 'Type a gamertag first.'); return; }
+    if (t.length < 3) { fdSetStatus('fdTagStatus', 'Gamertags are at least 3 characters.'); return; }
+    if (t.length > 16) { fdSetStatus('fdTagStatus', 'Gamertags are at most 16 characters.'); return; }
+    if (!/^[A-Za-z0-9_]+$/.test(t)) { fdSetStatus('fdTagStatus', 'Gamertags use letters, numbers and underscores only.'); return; }
+    fdSetStatus('fdTagStatus', 'Checking “' + t + '”…');
+    mpSend({ type: 'tag_claim', tag: t });
+  }
   function fdShowGate() { fdShowScreen('mpGate'); fdRenderGate(); }
   /* The gate in two flavours: with a real client ID it renders the
      Google button (GIS is loaded lazily and dynamically — if Google
@@ -2056,7 +2100,14 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (!fdSocketReady()) { FD.wantQueue = true; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'Connecting…'); fdOpenSocket(); return; }
     fdQueueJoin();
   }
-  function fdQueueJoin() { FD.state = 'queued'; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'Searching for players…'); mpSend({ type: 'queue_join' }); }
+  function fdQueueJoin() {
+    /* Accounts: no gamertag, no queue — the claim screen comes
+       first (the relay enforces the same rule; this is the friendly
+       version of it). When accounts are down the queue stays open:
+       games always run. */
+    if (FD.accountsKnown && !FD.accountsDown && !FD.tag) { FD.wantQueue = true; fdShowTag('Choose a gamertag before your first match — it is the name other players will see.'); return; }
+    FD.state = 'queued'; fdShowScreen('mpQueue'); fdSetStatus('fdQueueStatus', 'Searching for players…'); mpSend({ type: 'queue_join' });
+  }
   function fdLeaveQueue() { mpSend({ type: 'queue_leave' }); FD.state = 'idle'; FD.draft = null; fdStopCountdown(); if (FD.authed) fdShowMain(); else fdShowGate(); }
   function fdReadySend() { mpSend({ type: 'ready' }); var b = document.getElementById('fdReadyBtn'); if (b) b.disabled = true; fdSetStatus('fdFoundStatus', 'Ready — waiting for the other players…'); }
   function fdPick(i) { if (FD.state !== 'draft' || !FD.draft || FD.draft.turnPlayer !== FD.myIndex) return; mpSend({ type: 'draft_pick', animal: i }); }
@@ -2168,6 +2219,35 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       }
       return true;
     }
+    if (o.type === 'profile') {
+      /* Accounts (step 2): the relay's word on this player's
+         gamertag. First sign-in without one lands on the claim
+         screen when the player is at the front door; accounts-down
+         just notes itself on the main screen and play goes on. */
+      FD.accountsKnown = true; FD.tag = o.tag || null; FD.accountsDown = !!o.accountsDown;
+      fdRenderAccount();
+      if (o.needTag && FD.authed && (FD.ui === 'mpMain' || FD.ui === 'mpGate')) fdShowTag('Welcome! Choose your gamertag to start playing multiplayer — other players will know you by it, never by your Google name.');
+      return true;
+    }
+    if (o.type === 'tag_ok') {
+      FD.tag = o.tag || FD.tag; FD.accountsDown = false;
+      fdRenderAccount();
+      if (FD.wantQueue) { FD.wantQueue = false; fdShowMain(); fdQueueJoin(); }
+      else { fdShowMain(); fdSetStatus('fdMainStatus', 'Gamertag set — other players now see you as ' + FD.tag + '.'); }
+      return true;
+    }
+    if (o.type === 'tag_error') {
+      if (FD.ui === 'mpTag') fdSetStatus('fdTagStatus', o.msg || 'That gamertag could not be claimed.');
+      else { fdShowMain(); fdSetStatus('fdMainStatus', o.msg || 'That gamertag could not be claimed.'); }
+      return true;
+    }
+    if (o.type === 'tag_required') {
+      /* The relay refused a queue/room action: no gamertag yet.
+         Wherever the player was headed, the claim screen is next. */
+      FD.state = 'idle'; FD.draft = null; fdStopCountdown();
+      fdShowTag(o.msg || 'Choose a gamertag first — it is the name other players will see.');
+      return true;
+    }
     if (o.type === 'queue_error') {
       if (FD.state === 'queued') { FD.state = 'idle'; fdShowMain(); fdSetStatus('fdMainStatus', o.msg || 'Could not join the queue.'); }
       else mpStatus(o.msg || 'Queue error');
@@ -2275,10 +2355,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var fdGateBackB = document.getElementById('fdGateBackBtn'); if (fdGateBackB) fdGateBackB.addEventListener('click', function () { mpCloseUI(); });
   var fdDevB = document.getElementById('fdDevBtn'); if (fdDevB) fdDevB.addEventListener('click', function () { var ni = document.getElementById('fdDevName'); var nm = ni ? String(ni.value || '').trim() : ''; if (!nm) { fdSetStatus('fdGateStatus', 'Type a display name first, then Dev sign-in.'); return; } fdBeginAuth('dev:' + nm); });
   var fdFindB = document.getElementById('fdFindBtn'); if (fdFindB) fdFindB.addEventListener('click', function () { try { Aud.ui('select'); } catch (e) {} fdFindMatch(); });
-  var fdCustomB = document.getElementById('fdCustomBtn'); if (fdCustomB) fdCustomB.addEventListener('click', function () { mpShowHome(false); mpStatus(); });
+  var fdCustomB = document.getElementById('fdCustomBtn'); if (fdCustomB) fdCustomB.addEventListener('click', function () { if (FD.accountsKnown && !FD.accountsDown && !FD.tag) { fdShowTag('Choose a gamertag before hosting or joining a custom game — it is the name the other players will see.'); return; } mpShowHome(false); mpStatus(); });
   var fdMainBackB = document.getElementById('fdMainBackBtn'); if (fdMainBackB) fdMainBackB.addEventListener('click', function () { mpCloseUI(); });
   var fdOutB = document.getElementById('fdOutBtn'); if (fdOutB) fdOutB.addEventListener('click', function () {
     FD.authed = false; FD.token = null; FD.name = null; FD.picture = null; FD.wantQueue = false;
+    FD.tag = null; FD.accountsKnown = false; FD.accountsDown = false;
     if (!MP.room && MP.ws) { try { MP.ws.close(); } catch (e) {} MP.ws = null; MP.enabled = false; MP.role = null; }
     fdShowGate(); fdSetStatus('fdGateStatus', 'Signed out.');
   });
@@ -2286,6 +2367,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var fdReadyB = document.getElementById('fdReadyBtn'); if (fdReadyB) fdReadyB.addEventListener('click', function () { fdReadySend(); });
   var fdFLB = document.getElementById('fdFoundLeaveBtn'); if (fdFLB) fdFLB.addEventListener('click', function () { fdLeaveQueue(); });
   var fdDLB = document.getElementById('fdDraftLeaveBtn'); if (fdDLB) fdDLB.addEventListener('click', function () { fdLeaveQueue(); });
+  /* Accounts: the gamertag claim/change screen's wiring. */
+  var fdTagB = document.getElementById('fdTagBtn'); if (fdTagB) fdTagB.addEventListener('click', function () { var inp = document.getElementById('fdTagInput'); fdClaimTag(inp ? inp.value : ''); });
+  var fdTagInp = document.getElementById('fdTagInput'); if (fdTagInp) fdTagInp.addEventListener('keydown', function (ev) { if (ev && (ev.key === 'Enter' || ev.keyCode === 13)) { try { ev.preventDefault(); } catch (e) {} fdClaimTag(fdTagInp.value); } });
+  var fdTagBackB = document.getElementById('fdTagBackBtn'); if (fdTagBackB) fdTagBackB.addEventListener('click', function () { FD.wantQueue = false; if (FD.authed) fdShowMain(); else fdShowGate(); });
+  var fdTagChB = document.getElementById('fdTagChangeBtn'); if (fdTagChB) fdTagChB.addEventListener('click', function () { fdShowTag(); });
   /* Expose a tiny test hook for the Node harness (not used by browsers) */
   /* ================= BROTHER-SESSION FIX (A–I) =================
      Built after the first live brother session (2026-11-02): Custom
@@ -2324,7 +2410,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      Driven purely by lockstep state; refreshed by the watchdog and
      at every transition. Pointer-events-none, hidden in normal play. */
   function lsPauseName(team) {
-    if (team === MP.myTeam) return FD.name || 'you';
+    if (team === MP.myTeam) return FD.tag || FD.name || 'you';
     if (FD.players && FD.players[team]) return FD.players[team];
     if (team === 0) return MP.hostName || 'the host';
     if (team === 1) return MP.guestName || 'the guest';
@@ -2558,7 +2644,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   });
   /* ================= END BROTHER-SESSION FIX ==================== */
 
-  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, hkOptions: function () { return hkPresentedOptions().map(function (b, i) { return { key: i < HK_KEYS.length ? HK_KEYS[i] : null, id: b.id || '', tup: b.getAttribute('data-tup'), bup: b.getAttribute('data-bup'), lup: b.getAttribute('data-lup'), hup: b.getAttribute('data-hup'), build: b.getAttribute('data-build'), disabled: !!b.disabled }; }); }, msTable: function () { return msRows().map(function (r) { return { team: r.team, place: r.place, race: r.race, dmg: r.dmg, cloudFactory: r.cloudFactory, cloudKill: r.cloudKill, bldBuilt: r.bldBuilt, bldDestroyed: r.bldDestroyed, planesProduced: r.planesProduced, planesLost: r.planesLost, dur: r.dur }; }); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
+  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, tag: FD.tag, accountsKnown: FD.accountsKnown, accountsDown: FD.accountsDown, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdClaimTag: function (t) { fdClaimTag(t); }, fdShowTag: function () { fdShowTag(); }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, hkOptions: function () { return hkPresentedOptions().map(function (b, i) { return { key: i < HK_KEYS.length ? HK_KEYS[i] : null, id: b.id || '', tup: b.getAttribute('data-tup'), bup: b.getAttribute('data-bup'), lup: b.getAttribute('data-lup'), hup: b.getAttribute('data-hup'), build: b.getAttribute('data-build'), disabled: !!b.disabled }; }); }, msTable: function () { return msRows().map(function (r) { return { team: r.team, place: r.place, race: r.race, dmg: r.dmg, cloudFactory: r.cloudFactory, cloudKill: r.cloudKill, bldBuilt: r.bldBuilt, bldDestroyed: r.bldDestroyed, planesProduced: r.planesProduced, planesLost: r.planesLost, dur: r.dur }; }); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
   var EL = 50 * Math.PI / 180, SE = Math.sin(EL), CE = Math.cos(EL);
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), ctx = cv.getContext('2d');
@@ -3592,7 +3678,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function msTeamLabel(team) {
     var animal = RACES[G.teams[team].race].name;
     if (!msIsHuman(team)) return animal + ' — AI · ' + mpDiffLabel(G.difficulty);
-    if (team === mpHudTeam()) return animal + ' — ' + (FD.name || 'You');
+    if (team === mpHudTeam()) return animal + ' — ' + (FD.tag || FD.name || 'You');
     if (FD.players && FD.players[team]) return animal + ' — ' + FD.players[team];
     if (team === 0) return animal + ' — ' + (MP.hostName || 'Host');
     if (team === 1) return animal + ' — ' + (MP.guestName || 'Guest');
