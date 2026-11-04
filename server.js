@@ -6,10 +6,13 @@
  * (the same hand-rolled framing as Phase 1), hardened for online use:
  *
  *   ROOMS       A host registers a room and gets a random 6-character
- *               room code. A guest must present that code to join.
- *               One host + one guest per room; extra joins are rejected
- *               with a clear joinError message. Rooms are isolated:
- *               traffic never crosses between rooms.
+ *               room code. Guests must present that code to join.
+ *               A room whose host runs the current client (it declares
+ *               4 seats at creation — see CUSTOM 4 below) seats up to
+ *               4 players; legacy rooms keep the classic one host +
+ *               one guest shape and extra joins are rejected with a
+ *               clear joinError message. Rooms are isolated: traffic
+ *               never crosses between rooms.
  *   HEARTBEAT   The relay pings every connection (WS ping frame) and
  *               drops any connection with no inbound traffic (message
  *               or pong) for MP_TIMEOUT_MS. The peer is notified with
@@ -58,7 +61,31 @@
  *               grace, and a seat whose player never returns is
  *               announced as {type:'lsConvert', seat, tick} so every
  *               client converts that team to AI on the same tick.
- *               Custom (room-code) games stay exactly 2-player.
+ *
+ *   CUSTOM 4    (4-player custom games.) The current client's host
+ *               declares {type:'customCapacity', seats:4} right after
+ *               creating a room, marking it multiSeat. The room keeps
+ *               the legacy host+guest shape while it holds 2 players;
+ *               when a THIRD join arrives pre-launch the relay promotes
+ *               it to a seated room (room.customRoom, riding the Stage
+ *               C seated machinery via room.queueRoom) with positional
+ *               seats 0-3 and relay-owned lobby state: each player
+ *               sends {type:'lobbyPick', race} for their own seat, the
+ *               host sends {type:'lobbyDiff', difficulty}, and the
+ *               relay broadcasts {type:'lobbyState', ...} after every
+ *               change. A 5th joiner is refused ('room is full'). The
+ *               host launches with {type:'customLaunch'} (2-4 humans);
+ *               the relay compacts the seats, builds the lineup (human
+ *               picks in seat order — duplicates allowed — then AI
+ *               backfill from the unused animals at the host's chosen
+ *               difficulty) and hands every seat the ordinary
+ *               {type:'queue_start', ..., custom:true}, so from the
+ *               start broadcast onward a custom match is
+ *               indistinguishable from a queue match to the lockstep
+ *               layer (fan-out, barrier, per-seat grace/reclaim, AI
+ *               conversion). Pre-launch, a guest leaving frees their
+ *               seat; the host leaving closes the room. No MMR or stats
+ *               recording happens here — that stays queue-only.
  *
  * Run:  node server.js            (port: env PORT, default 8000)
  *       TLS_CERT=cert.pem TLS_KEY=key.pem node server.js
@@ -206,6 +233,7 @@ function cleanupRoom(conn) {
   if (!conn.room) return;
   const room = rooms.get(conn.room);
   if (!room) { conn.room = null; return; }
+  if (room.customRoom) { cleanupCustomRoom(conn, room); conn.room = null; conn.role = null; conn.seat = null; return; }
   if (room.queueRoom) { cleanupQueueSeat(conn, room); conn.room = null; conn.role = null; conn.seat = null; return; }
   /* Fix E grace: a started match with a live peer and an authenticated
      dropper -> hold the seat instead of the immediate teardown. */
@@ -320,6 +348,113 @@ function forwardQueueRoom(conn, room, o, msg) {
     if (s === conn.seat) continue;
     const peer = room.seats[s];
     if (peer && !peer.dead) { try { peer.sock.write(wsFrame(msg)); } catch (e) { killConn(peer, 'forward failed'); } }
+  }
+}
+
+/* ---------------- Custom 4: 4-player room-code games ----------------
+ * See the header's CUSTOM 4 section. A custom room is legacy-shaped
+ * (room.host / room.guest) until a third player joins pre-launch;
+ * promotion converts it in place to the seated shape and sets BOTH
+ * room.customRoom (lobby ownership + cleanup semantics) and
+ * room.queueRoom (so forwardQueueRoom / cleanupQueueSeat /
+ * reclaimQueueSeat / convertSeat serve the started match verbatim).
+ * Seats are positional with holes while the lobby fills; the launch
+ * compacts them, so a started custom room is indistinguishable from
+ * a queue room. Lobby state is relay-owned (names from verified
+ * identities, picks/difficulty from the seat holders) and rebroadcast
+ * in full after every change — clients render it verbatim. */
+const CUSTOM_DIFFS = ['easy', 'normal', 'hard', 'nightmare'];
+
+function lobbyStateFor(room, you) {
+  const seats = [];
+  for (let s = 0; s < 4; s++) {
+    const c = room.seats[s];
+    seats.push(c ? { name: fdName(c), race: ANIMALS.indexOf(c.seatRace) >= 0 ? c.seatRace : 'fox', build: c.build || null } : null);
+  }
+  return { type: 'lobbyState', you, difficulty: CUSTOM_DIFFS.indexOf(room.difficulty) >= 0 ? room.difficulty : 'normal', seats };
+}
+function broadcastLobbyState(room) {
+  for (let s = 0; s < 4; s++) {
+    const c = room.seats[s];
+    if (c && !c.dead) sendTo(c, lobbyStateFor(room, s));
+  }
+}
+function promoteCustomRoom(room, code) {
+  const host = room.host, guest = room.guest;
+  room.customRoom = true;
+  room.queueRoom = true; /* the started match rides the Stage C seated machinery verbatim */
+  room.seats = [host, guest, null, null];
+  room.nSeats = 4; /* lobby capacity; launch rewrites it to the human count */
+  room.awaySeats = {}; room.convSeats = {}; room.seatTimers = {}; room.tickHint = {};
+  room.lineup = null;
+  if (CUSTOM_DIFFS.indexOf(room.difficulty) < 0) room.difficulty = 'normal';
+  host.seat = 0; guest.seat = 1;
+  room.host = null; room.guest = null; /* seating lives in room.seats from here */
+  /* Both occupants learn their seat numbers; their clients answer by
+     re-sending their current picks, which converges the relay's
+     lobby state (and repaints every lobby) within a round trip. */
+  sendTo(host, { type: 'roomSeats', seat: 0, room: code });
+  sendTo(guest, { type: 'roomSeats', seat: 1, room: code });
+  broadcastLobbyState(room);
+  console.log('[relay] custom room ' + code + ' promoted to 4 seats (a third player joined)');
+}
+function seatCustomGuest(conn, room, code, o) {
+  let seat = -1;
+  for (let s = 1; s < 4; s++) { if (!room.seats[s]) { seat = s; break; } }
+  if (seat < 0) { sendTo(conn, { type: 'joinError', msg: 'That room is full — a game seats at most 4 players' }); return; }
+  room.seats[seat] = conn;
+  conn.role = 'guest'; conn.room = code; conn.seat = seat;
+  conn.seatRace = ANIMALS.indexOf(o && o.race) >= 0 ? o.race : 'fox';
+  if (o && typeof o.build === 'string') conn.build = o.build;
+  sendTo(conn, { type: 'roomSeats', seat, room: code });
+  broadcastLobbyState(room);
+  console.log('[relay] guest conn ' + conn.id + ' took seat ' + seat + ' in custom room ' + code);
+}
+function launchCustomRoom(conn, room) {
+  if (room.started) return;
+  const code = conn.room;
+  const humans = [];
+  for (let s = 0; s < 4; s++) if (room.seats[s]) humans.push(room.seats[s]);
+  if (humans.length < 2) { sendTo(conn, { type: 'launchError', msg: 'You need at least one guest to launch — a custom game seats 2 to 4 players' }); return; }
+  /* Lineup: the humans' own picks in seat order (duplicates allowed —
+     team colours distinguish), then AI backfill from the animals no
+     human picked, at the host's chosen difficulty. */
+  const picks = humans.map((c) => ANIMALS.indexOf(c.seatRace) >= 0 ? c.seatRace : 'fox');
+  const leftovers = fdShuffled(ANIMALS.filter((a) => picks.indexOf(a) < 0));
+  const teamAnimals = picks.slice();
+  while (teamAnimals.length < 4) teamAnimals.push(leftovers[teamAnimals.length - humans.length]);
+  const aiTeams = [];
+  for (let t = humans.length; t < 4; t++) aiTeams.push(t);
+  const diffKey = CUSTOM_DIFFS.indexOf(room.difficulty) >= 0 ? room.difficulty : 'normal';
+  const lineup = { teamAnimals, aiTeams, aiDifficulty: diffKey.charAt(0).toUpperCase() + diffKey.slice(1) };
+  room.lineup = lineup;
+  room.started = true;
+  room.nSeats = humans.length;
+  room.seats = humans; /* compact: seat i now plays team i, no holes */
+  humans.forEach((c, i) => {
+    c.seat = i; c.role = i === 0 ? 'host' : 'guest';
+    sendTo(c, { type: 'queue_start', role: c.role, seat: i, seats: humans.length, room: code, lineup, custom: true });
+  });
+  console.log('[relay] custom room ' + code + ': launched with ' + humans.length + ' humans — lineup ' + teamAnimals.join('/') + ', AI teams ' + aiTeams.join(','));
+}
+function cleanupCustomRoom(conn, room) {
+  const code = conn.room;
+  if (room.started) { cleanupQueueSeat(conn, room); return; }
+  const seat = conn.seat;
+  if (seat == null || room.seats[seat] !== conn) return;
+  room.seats[seat] = null;
+  if (seat === 0) {
+    /* The host leaving pre-launch closes the room (legacy behaviour):
+       every remaining seat is told and detached. */
+    for (let s = 1; s < 4; s++) {
+      const c = room.seats[s];
+      if (c) { sendTo(c, { type: 'hostLeft' }); c.room = null; c.role = null; c.seat = null; room.seats[s] = null; }
+    }
+    rooms.delete(code);
+    console.log('[relay] custom room ' + code + ' closed (host left the lobby)');
+  } else {
+    broadcastLobbyState(room);
+    console.log('[relay] custom room ' + code + ': seat ' + seat + ' freed (guest left the lobby)');
   }
 }
 
@@ -667,6 +802,22 @@ function routeMessage(conn, msg) {
       if (!AUTH_DEV_MODE && !conn.identity) { sendTo(conn, { type: 'auth_required', msg: 'Please sign in first' }); return; }
       const code = typeof o.code === 'string' ? o.code.trim().toUpperCase() : '';
       const room = code ? rooms.get(code) : null;
+      if (room && room.customRoom) {
+        /* Custom 4 room: while the lobby is open, a join takes the
+           lowest free seat (or is refused — the room is full); once
+           the match has started, a join may ONLY reclaim a seat the
+           relay is holding for this verified identity (reconnect
+           grace), exactly as in a queue room. */
+        if (room.started) {
+          let seat = -1;
+          if (conn.identity) { for (const k of Object.keys(room.awaySeats)) { if (room.awaySeats[k].sub === conn.identity.sub) { seat = parseInt(k, 10); break; } } }
+          if (seat >= 0) reclaimQueueSeat(conn, room, code, seat);
+          else sendTo(conn, { type: 'joinError', msg: 'That room already has a guest' });
+        } else {
+          seatCustomGuest(conn, room, code, o);
+        }
+        return;
+      }
       if (room && room.queueRoom) {
         /* Stage C: every seat of a queue room was filled at draft
            time, so a join may ONLY reclaim a seat the relay is
@@ -679,7 +830,14 @@ function routeMessage(conn, msg) {
         return;
       }
       if (!room || !room.host) { sendTo(conn, { type: 'joinError', msg: 'Room not found — check the code the host gave you' }); return; }
-      if (room.guest) { sendTo(conn, { type: 'joinError', msg: 'That room already has a guest' }); return; }
+      if (room.guest) {
+        /* Custom 4: a room whose host declared 4 seats at creation
+           PROMOTES on the third join instead of refusing it. Rooms
+           whose host never asked keep the classic refusal exactly. */
+        if (!room.started && room.multiSeat) { promoteCustomRoom(room, code); seatCustomGuest(conn, room, code, o); }
+        else sendTo(conn, { type: 'joinError', msg: 'That room already has a guest' });
+        return;
+      }
       /* Fix E: the guest seat may be held for a dropped player
          (reconnect grace). Only the same identity may reclaim it. */
       if (room.awayGuest) {
@@ -689,6 +847,10 @@ function routeMessage(conn, msg) {
         if (room.host) sendTo(room.host, { type: 'peerBack', role: 'guest' });
       }
       room.guest = conn; conn.role = 'guest'; conn.room = code;
+      /* Custom 4: remember the pick + build on the connection, so a
+         later promotion already knows this seat's lobby state. */
+      conn.seatRace = ANIMALS.indexOf(o.race) >= 0 ? o.race : 'fox';
+      if (typeof o.build === 'string') conn.build = o.build;
       if (conn.identity) o.name = conn.identity.name; /* the host's lobby slot shows who joined */
       sendTo(room.host, o); /* host learns the guest's race from the original join */
       console.log('[relay] guest conn ' + conn.id + ' joined room ' + code);
@@ -697,8 +859,39 @@ function routeMessage(conn, msg) {
   }
   const room = rooms.get(conn.room);
   if (!room) return;
+  if (o.type === 'customCapacity') {
+    /* Custom 4: the host's client declares at room creation that
+       this room may seat up to 4 (see promoteCustomRoom). Legacy
+       clients never send it and their rooms stay exactly 2-player.
+       Relay-consumed; never forwarded. */
+    if (conn.role === 'host' && !room.started && !room.queueRoom && o.seats === 4) room.multiSeat = true;
+    return;
+  }
+  if (room.customRoom && !room.started) {
+    /* Custom 4 lobby: the relay owns lobby state. Picks/difficulty
+       update the sender's seat and rebroadcast; the legacy lobby
+       message shapes are accepted too (a click that raced the
+       promotion notice still lands). Nothing else fans out
+       pre-launch — in particular a raw 'start' cannot bypass the
+       seated launch. */
+    if (o.type === 'lobbyPick') { if (ANIMALS.indexOf(o.race) >= 0) { conn.seatRace = o.race; broadcastLobbyState(room); } return; }
+    if (o.type === 'lobbyDiff') { if (conn.seat === 0 && CUSTOM_DIFFS.indexOf(o.difficulty) >= 0) { room.difficulty = o.difficulty; broadcastLobbyState(room); } return; }
+    if (o.type === 'customLaunch') { if (conn.seat === 0) launchCustomRoom(conn, room); return; }
+    if (o.type === 'race' && conn.seat > 0) { if (ANIMALS.indexOf(o.race) >= 0) { conn.seatRace = o.race; broadcastLobbyState(room); } return; }
+    if (o.type === 'lobby' && conn.seat === 0) { if (ANIMALS.indexOf(o.hostRace) >= 0) conn.seatRace = o.hostRace; if (CUSTOM_DIFFS.indexOf(o.difficulty) >= 0) room.difficulty = o.difficulty; broadcastLobbyState(room); return; }
+    return;
+  }
   if (room.queueRoom) { forwardQueueRoom(conn, room, o, msg); return; }
   if (conn.role === 'host' && o.type === 'start') room.started = true; /* Fix E: the match is live — seat grace applies from here */
+  /* Custom 4: while a multiSeat room is still in its legacy shape,
+     keep the relay's copy of the lobby picks current (the host's
+     'lobby' sync and the guest's 'race' changes), so a promotion
+     starts from the picks everyone already sees. The messages
+     themselves still forward verbatim below, exactly as before. */
+  if (room.multiSeat) {
+    if (conn.role === 'host' && o.type === 'lobby') { if (ANIMALS.indexOf(o.hostRace) >= 0) conn.seatRace = o.hostRace; if (CUSTOM_DIFFS.indexOf(o.difficulty) >= 0) room.difficulty = o.difficulty; }
+    else if (conn.role === 'guest' && o.type === 'race' && ANIMALS.indexOf(o.race) >= 0) conn.seatRace = o.race;
+  }
   const peer = conn.role === 'host' ? room.guest : room.host;
   if (peer && !peer.dead) { try { peer.sock.write(wsFrame(msg)); } catch (e) { killConn(peer, 'forward failed'); } }
 }
@@ -708,7 +901,7 @@ server.on('upgrade', (req, sock, head) => {
     const key = req.headers['sec-websocket-key'];
     if (!key) { sock.destroy(); return; }
     sock.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + wsAccept(key) + '\r\n\r\n');
-    const conn = { id: nextId++, sock, buf: Buffer.alloc(0), role: null, room: null, seat: null, dead: false, lastSeen: Date.now(), rate: [], identity: null, authPending: false, deferred: null, fdMatch: null };
+    const conn = { id: nextId++, sock, buf: Buffer.alloc(0), role: null, room: null, seat: null, seatRace: null, build: null, dead: false, lastSeen: Date.now(), rate: [], identity: null, authPending: false, deferred: null, fdMatch: null };
     conns.add(conn);
     sock.on('data', (chunk) => {
       if (conn.dead) return;

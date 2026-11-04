@@ -373,6 +373,7 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
   <div class="sheet">
     <h2 class="big" id="endTitle">Victory</h2>
     <p id="endText"></p>
+    <div id="endStats" hidden></div>
     <button class="go" id="againBtn">Play again</button>
   </div>
 </div>
@@ -387,6 +388,14 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 
 <style>
 #mpMenuBtn { justify-self: stretch; width: 100%; text-align: center; padding: 16px 22px; font-size: 20px; }
+#end .sheet { max-width: 920px; }
+#endStats { overflow-x: auto; }
+.endStatsTbl { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--ink); }
+.endStatsTbl th, .endStatsTbl td { padding: 5px 7px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.endStatsTbl th { font: 600 11px var(--font-display); letter-spacing: .03em; color: var(--ink-soft); text-transform: uppercase; }
+.endStatsTbl td.teamCell, .endStatsTbl th:nth-child(2) { text-align: left; white-space: normal; }
+.endStatsTbl tbody tr.you { background: rgba(61, 142, 224, 0.16); font-weight: 700; }
+.endDur { margin: 8px 0 0; color: var(--ink-soft); font-size: 13px; }
 #mpOverlay { z-index: 40; }
 #mpElim { z-index: 30; }
 #mpElimBanner { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 30; background: #d63c52; color: #fff; font: 600 14px var(--font-display); letter-spacing: .02em; padding: 8px 18px; border-radius: 999px; box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: none; white-space: nowrap; }
@@ -578,10 +587,15 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      own orders are delayed and tick-stamped too — no zero-delay
      advantage for anyone). MP.guestSel is likewise just "the local
      player's selection id list" for either role. */
-  var MP = { enabled: false, role: null, myTeam: 0, seat: null, seats: null, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false };
+  var MP = { enabled: false, role: null, myTeam: 0, seat: null, seats: null, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false,
+    /* Custom 4: set once the relay promotes this room to 4 seats.
+       lobbySeats mirrors the relay's lobby state (4 entries, null =
+       an AI seat); lobbyDifficulty is the host's AI difficulty pick
+       as the relay reports it. Both are inert in legacy rooms. */
+    customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = 'f99b45fb6c';
+  var LS_BUILD_ID = '57d4454f40';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -1217,6 +1231,21 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lsOnSnapReq(o) {
     if (MP.role !== 'host') return;
     if (LS.rejoinPending) return;
+    /* Custom 4: in a seated room the relay consumes the rejoin (no
+       legacy 'join' ever reaches this host), so a rejoin pull can
+       arrive while the host is simply barrier-stalled in 'run'.
+       Serve it exactly like the legacy in-match 'join' rejoin: a
+       rejoin start + the current snapshot; the guest's lsReady
+       resumes both sides. MP.seats is the marker — legacy custom
+       rooms never set it, and 3-4 seat matches route their pulls to
+       lsOnSnapReqMulti before this branch is reached. */
+    if (o && o.rejoin && MP.seats && LS.state === 'run' && MP.inGame && G && !G.over) {
+      LS.rejoinPending = true;
+      mpSend({ type: 'start', races: G.teams.map(function (tm) { return tm.race; }), difficulty: pickDifficulty, seed: LS.seed, delay: LS.delay, build: LS_BUILD_ID, rejoin: true });
+      lsSendSnap(LS.epoch);
+      mpStatus('A player reconnected — sending the current match state…');
+      return;
+    }
     if (LS.state !== 'desync') return;
     if (o && o.bad) LS.epoch++;
     lsSendSnap(LS.epoch);
@@ -1267,7 +1296,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lsCloneEntity(e) { var c = {}; for (var k in e) c[k] = lsEnc(e[k], []); return c; }
   function lsSnapshot() {
     if (!G) return null;
-    return { tick: LS.tick, t: G.t, over: G.over, winner: G.winner, endT: G.endT, nid: G.nid, difficulty: G.difficulty,
+    return { tick: LS.tick, t: G.t, over: G.over, winner: G.winner, endT: G.endT, msDur: G.msDur, nid: G.nid, difficulty: G.difficulty,
       rng: SIMR.a >>> 0, rngCalls: SIMR.calls, fx: FXR.a >>> 0,
       teams: lsEnc(G.teams, []), planes: G.planes.map(lsCloneEntity), blds: G.blds.map(lsCloneEntity), pads: G.pads.map(lsCloneEntity),
       tub: lsEnc(G.tub, []), ai: lsEnc(G.ai, []),
@@ -1281,7 +1310,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lsApplySnapshot(s) {
     if (!s || !G) return;
     var keepSel = MP.guestSel.slice();
-    G.t = s.t; G.over = s.over; G.winner = s.winner; G.endT = s.endT; G.nid = s.nid; G.difficulty = s.difficulty;
+    G.t = s.t; G.over = s.over; G.winner = s.winner; G.endT = s.endT; G.msDur = (typeof s.msDur === 'number') ? s.msDur : -1; G.nid = s.nid; G.difficulty = s.difficulty;
     G.teams = s.teams; G.planes = s.planes; G.blds = s.blds; G.pads = s.pads; G.tub = s.tub; G.ai = s.ai;
     G.teams = lsDec(G.teams); G.planes = lsDec(G.planes); G.blds = lsDec(G.blds); G.pads = lsDec(G.pads); G.tub = lsDec(G.tub); G.ai = lsDec(G.ai);
     SIMR.a = s.rng >>> 0; SIMR.calls = s.rngCalls; FXR.a = s.fx >>> 0;
@@ -1362,7 +1391,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var s = 'MP: ' + (MP.enabled ? MP.role : 'off');
     if (MP.roomCode) s += ' | room ' + MP.roomCode;
     if (G && MP.enabled) { var tm = G.teams[MP.myTeam]; if (tm) s += ' | Team ' + MP.myTeam + ' (' + tm.race + ') clouds ' + Math.round(tm.clouds); var hb = baseOf(MP.myTeam); if (hb) s += ' | HQ ' + Math.round(hb.hp) + '/' + Math.round(hb.max); if (tm && tm.dead) s += ' | YOUR HQ FELL'; }
-    if (MP.role === 'host') s += ' | guest ' + (MP.guestConnected ? ('connected (' + (MP.guestRace || '?') + ')') : 'waiting...');
+    if (MP.role === 'host') { if (MP.customRoom && MP.lobbySeats) { var pcN = 0, pcI; for (pcI = 0; pcI < 4; pcI++) if (MP.lobbySeats[pcI]) pcN++; s += ' | players ' + pcN + '/4'; } else s += ' | guest ' + (MP.guestConnected ? ('connected (' + (MP.guestRace || '?') + ')') : 'waiting...'); }
     if (LS.state !== 'off') { s += ' | lockstep tick ' + LS.tick; if (LS.state === 'desync') s += ' — OUT OF SYNC'; else if (LS.state === 'resync') s += ' — SYNCING'; else if (LS.waiting) s += ' — WAITING FOR OPPONENT'; }
     if (MP.lastStatus) s += ' | ' + MP.lastStatus;
     var h = document.getElementById('mpHomeStatus'); if (h) h.textContent = s;
@@ -1385,6 +1414,26 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function mpRenderLobby() {
     var rc = document.getElementById('mpRoomCode'); if (rc) rc.textContent = MP.roomCode || '—';
     var isHost = MP.role === 'host';
+    /* Custom 4: a promoted room renders from the relay's lobby state
+       — four seat rows, names + own picks for the humans, AI rows at
+       the host's difficulty for the empty seats. */
+    if (MP.customRoom && MP.lobbySeats) {
+      var diff = MP.lobbyDifficulty || 'normal';
+      var occC = 0, si;
+      for (si = 0; si < 4; si++) {
+        var slotEl = document.getElementById('mpSlot' + si);
+        var row = MP.lobbySeats[si];
+        if (row) occC++;
+        if (slotEl) slotEl.textContent = row ? (row.name + (si === 0 ? ' (host)' : ' (guest)') + ' — ' + mpRaceName(row.race) + (si === MP.seat ? ' · you' : '')) : ('AI · ' + mpDiffLabel(diff) + ' difficulty');
+      }
+      var dnC = document.getElementById('mpDiffNote'); if (dnC) dnC.textContent = isHost ? 'applies to the AI teams. Everyone in the room sees changes live.' : ('set by the host — currently ' + mpDiffLabel(diff) + '.');
+      Array.prototype.forEach.call(mpDiffBtns, function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-mpdiff') === diff ? 'true' : 'false'); b.disabled = !isHost; });
+      mpMarkGrid(document.getElementById('mpLobbyRaces'), isHost ? (MP.hostRace || pickRace) : (MP.myRace || MP.joinRace));
+      mpMarkGrid(document.getElementById('mpJoinRaces'), MP.joinRace);
+      var lbC = document.getElementById('mpLaunchBtn'); if (lbC) { lbC.hidden = !isHost; lbC.disabled = !(isHost && occC >= 2); }
+      var wnC = document.getElementById('mpWaitNote'); if (wnC) wnC.hidden = isHost || !MP.enabled;
+      return;
+    }
     var s0 = document.getElementById('mpSlot0'); if (s0) s0.textContent = isHost ? ((FD.authed && FD.name ? FD.name + ' (host)' : 'You (host)') + ' — ' + mpRaceName(MP.hostRace || pickRace)) : ((MP.hostName ? MP.hostName + ' (host)' : 'Host') + ' — ' + mpRaceName(MP.hostRace || 'fox'));
     var s1 = document.getElementById('mpSlot1'); if (s1) s1.textContent = isHost ? (MP.guestConnected ? ((MP.guestName ? MP.guestName + ' (guest)' : 'Guest') + ' — ' + mpRaceName(MP.guestRace || 'fox') + ' · connected') : 'Waiting for guest…') : ((FD.authed && FD.name ? FD.name + ' (guest)' : 'You (guest)') + ' — ' + mpRaceName(MP.myRace || MP.joinRace || 'fox'));
     var aiTxt = 'AI · ' + mpDiffLabel(isHost ? pickDifficulty : (MP.hostDifficulty || 'normal')) + ' difficulty';
@@ -1418,8 +1467,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function mpEnsureGrids() {
     mpBuildRaceGrid(document.getElementById('mpJoinRaces'), function (key) { MP.joinRace = key; mpRenderLobby(); });
     mpBuildRaceGrid(document.getElementById('mpLobbyRaces'), function (key) {
-      if (MP.role === 'host') { MP.hostRace = key; mpSendLobby(); mpStatus('Your animal: ' + mpRaceName(key)); }
-      else if (MP.role === 'guest') { MP.myRace = key; mpSend({ type: 'race', race: key }); mpStatus('Your animal: ' + mpRaceName(key) + ' — the host sees it in the lobby'); }
+      if (MP.role === 'host') { MP.hostRace = key; if (MP.customRoom) mpSend({ type: 'lobbyPick', race: key }); else mpSendLobby(); mpStatus('Your animal: ' + mpRaceName(key)); }
+      else if (MP.role === 'guest') { MP.myRace = key; if (MP.customRoom) mpSend({ type: 'lobbyPick', race: key }); else mpSend({ type: 'race', race: key }); mpStatus('Your animal: ' + mpRaceName(key) + ' — everyone in the lobby sees it'); }
     });
   }
   function mpShowHome(overGame) {
@@ -1507,6 +1556,23 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      the guest needs. A guest on a different build refuses — and so
      does the host, up front, if the join already told it so. */
   function mpLaunch() {
+    /* Custom 4: in a promoted room the RELAY owns the launch — it
+       compacts the seats, builds the lineup (human picks in seat
+       order, AI backfill at the chosen difficulty) and hands every
+       seat the ordinary queue_start, so the match starts through
+       the exact queue-match path on every client. The host only
+       checks the room is launchable and that nobody is on a stale
+       build (the relay's lobby state carries each guest's build). */
+    if (MP.customRoom) {
+      if (MP.role !== 'host') return;
+      var occL = 0, badL = null, liL;
+      if (MP.lobbySeats) for (liL = 0; liL < 4; liL++) { var rowL = MP.lobbySeats[liL]; if (rowL) { occL++; if (rowL.build && rowL.build !== LS_BUILD_ID && !badL) badL = rowL; } }
+      if (occL < 2) { mpStatus('You need at least one guest to launch — a custom game seats 2 to 4 players'); return; }
+      if (badL) { mpStatus(badL.name + ' is running a different game build — you all need the same game.html file. Launch cancelled.'); try { note('Version mismatch — launch cancelled. You all need the same game.html.', true); } catch (e) {} return; }
+      mpSend({ type: 'customLaunch' });
+      mpStatus('Launching the match…');
+      return;
+    }
     if (MP.role !== 'host' || !MP.guestConnected) return;
     if (MP.guestBuild && MP.guestBuild !== LS_BUILD_ID) { mpStatus('Your guest is running a different game build — you both need the same game.html file. Launch cancelled.'); try { note('Version mismatch — launch cancelled. You both need the same game.html.', true); } catch (e) {} return; }
     /* Custom games are 2-player: clear any queue seating. */
@@ -1527,6 +1593,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   function mpDisconnect() {
     MP.enabled = false; MP.role = null; MP.seat = null; MP.seats = null; MP.aiTeams = [2, 3]; MP.guestConnected = false; MP.guestBuild = null; MP.guestName = null; MP.hostName = null; MP.roomCode = null; MP.inGame = false; MP.launchArmed = false; MP.lastStatus = null;
+    MP.customRoom = false; MP.lobbySeats = null; MP.lobbyDifficulty = null;
     FD.state = 'idle'; FD.draft = null; FD.wantQueue = false; fdStopCountdown();
     FD.customAttempt = null; FD.pendingCustom = null;
     LS.state = 'off'; LS.pending = {}; LS.reconnecting = false; LS.sharedPause = null;
@@ -1702,9 +1769,54 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         return;
       }
     }
+    /* Custom 4: relay-owned lobby traffic for a promoted room. It
+       arrives before any match starts (MP.inGame is false), so it is
+       handled role-independently ahead of the host/guest branches —
+       the legacy branches below never see these types. */
+    if (!MP.inGame) {
+      if (o.type === 'roomSeats') {
+        MP.customRoom = true; MP.seat = o.seat; if (o.room) MP.roomCode = o.room;
+        MP.guestConnected = true;
+        /* Answer with my current pick (and, for the host, the AI
+           difficulty) so the relay's lobby state converges after a
+           promotion: everyone ends up rendering the same seats. */
+        if (MP.role === 'host') { mpSend({ type: 'lobbyPick', race: MP.hostRace || pickRace }); mpSend({ type: 'lobbyDiff', difficulty: pickDifficulty }); }
+        else mpSend({ type: 'lobbyPick', race: MP.myRace || MP.joinRace || 'fox' });
+        mpShowLobby();
+        mpStatus('This room now seats up to 4 players — share the code, everyone picks their own animal, and the host launches');
+        return;
+      }
+      if (o.type === 'lobbyState') {
+        MP.customRoom = true;
+        if (typeof o.you === 'number') MP.seat = o.you;
+        MP.lobbySeats = o.seats || null;
+        MP.lobbyDifficulty = o.difficulty || 'normal';
+        if (MP.role !== 'host') MP.hostDifficulty = MP.lobbyDifficulty;
+        if (MP.lobbySeats) {
+          var occN = 0, li2;
+          for (li2 = 0; li2 < 4; li2++) if (MP.lobbySeats[li2]) occN++;
+          MP.guestConnected = occN >= 2;
+          if (MP.lobbySeats[0]) MP.hostName = MP.lobbySeats[0].name;
+          /* Seat names ride the same array the queue uses, so the
+             pause/stall banners and the stats table label every seat
+             identically on every client. */
+          FD.players = MP.lobbySeats.map(function (s) { return s ? s.name : null; });
+          var myRow = (typeof MP.seat === 'number') ? MP.lobbySeats[MP.seat] : null;
+          if (myRow) { if (MP.role === 'host') MP.hostRace = myRow.race; else MP.myRace = myRow.race; }
+        }
+        mpRenderLobby();
+        return;
+      }
+      if (o.type === 'launchError') { mpStatus(o.msg || 'Launch failed'); return; }
+    }
     if (MP.role === 'host') {
       if (o.type === 'room') {
         MP.roomCode = o.code;
+        /* Custom 4: this build's rooms seat up to 4 — declare it so
+           the relay promotes the room when a third player joins
+           with the code. (A reclaim 'room' re-send is ignored by the
+           relay: the match is already started.) */
+        mpSend({ type: 'customCapacity', seats: 4 });
         if (LS.reconnecting && MP.inGame && G && !G.over && LS.state !== 'off') {
           /* Fix E: the host reclaimed its held seat after a drop.
              The guest kept the world — pull its snapshot and adopt
@@ -1788,7 +1900,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   function mpConnect(role, race, code) {
     if (MP.ws) { try { MP.ws.close(); } catch (e) {} MP.ws = null; }
-    if (!LS.reconnectAttempt) LS.reconnectGen++; /* a manual connect supersedes any pending auto-reconnect (fix E) */
+    if (!LS.reconnectAttempt) { LS.reconnectGen++; MP.customRoom = false; MP.lobbySeats = null; MP.lobbyDifficulty = null; } /* a manual connect supersedes any pending auto-reconnect (fix E); a fresh room starts unpromoted */
     /* Fix A: a Custom host/join (or a manual rejoin) rides a NEW
        socket that re-sends the stored Google credential. If that
        credential is expired or nearly so, the relay refuses it and
@@ -2152,7 +2264,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var mpGuestB = document.getElementById('mpGuestBtn'); if (mpGuestB) mpGuestB.addEventListener('click', function () { var ci = document.getElementById('mpCode'); var code = ci ? String(ci.value || '').trim().toUpperCase() : ''; if (!code) { mpStatus('Type the host\'s room code first, then Join'); return; } MP.roomCode = code; mpShowLobby(); mpStatus('Joining room ' + code + '…'); mpConnect('guest', MP.joinRace, code); });
   var mpLaunchB = document.getElementById('mpLaunchBtn'); if (mpLaunchB) mpLaunchB.addEventListener('click', function () { mpLaunch(); });
   var mpLeaveB = document.getElementById('mpLeaveBtn'); if (mpLeaveB) mpLeaveB.addEventListener('click', function () { mpDisconnect(); mpCloseUI(); });
-  Array.prototype.forEach.call(mpDiffBtns, function (b) { b.addEventListener('click', function () { if (MP.role !== 'host') return; pickDifficulty = b.getAttribute('data-mpdiff'); try { Aud.ui('select'); } catch (e) {} mpSendLobby(); mpStatus('Difficulty: ' + mpDiffLabel(pickDifficulty)); }); });
+  Array.prototype.forEach.call(mpDiffBtns, function (b) { b.addEventListener('click', function () { if (MP.role !== 'host') return; pickDifficulty = b.getAttribute('data-mpdiff'); try { Aud.ui('select'); } catch (e) {} if (MP.customRoom) { MP.lobbyDifficulty = pickDifficulty; mpSend({ type: 'lobbyDiff', difficulty: pickDifficulty }); } else mpSendLobby(); mpStatus('Difficulty: ' + mpDiffLabel(pickDifficulty)); }); });
   var mpResB = document.getElementById('mpBtnResearch'); if (mpResB) mpResB.addEventListener('click', function () { mpOrder({ type: 'order', kind: 'research' }); });
   var mpProdB = document.getElementById('mpBtnHangarProd'); if (mpProdB) mpProdB.addEventListener('click', function () { mpOrder({ type: 'order', kind: 'hangarProd' }); });
   var mpElimW = document.getElementById('mpElimWatch'); if (mpElimW) mpElimW.addEventListener('click', function () { var el = document.getElementById('mpElim'); if (el) el.hidden = true; var bn = document.getElementById('mpElimBanner'); if (bn) bn.hidden = false; try { note('Spectating — your squadron is out, but you can keep watching the battle.', false); } catch (e) {} });
@@ -2446,7 +2558,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   });
   /* ================= END BROTHER-SESSION FIX ==================== */
 
-  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, hkOptions: function () { return hkPresentedOptions().map(function (b, i) { return { key: i < HK_KEYS.length ? HK_KEYS[i] : null, id: b.id || '', tup: b.getAttribute('data-tup'), bup: b.getAttribute('data-bup'), lup: b.getAttribute('data-lup'), hup: b.getAttribute('data-hup'), build: b.getAttribute('data-build'), disabled: !!b.disabled }; }); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
+  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, hkOptions: function () { return hkPresentedOptions().map(function (b, i) { return { key: i < HK_KEYS.length ? HK_KEYS[i] : null, id: b.id || '', tup: b.getAttribute('data-tup'), bup: b.getAttribute('data-bup'), lup: b.getAttribute('data-lup'), hup: b.getAttribute('data-hup'), build: b.getAttribute('data-build'), disabled: !!b.disabled }; }); }, msTable: function () { return msRows().map(function (r) { return { team: r.team, place: r.place, race: r.race, dmg: r.dmg, cloudFactory: r.cloudFactory, cloudKill: r.cloudKill, bldBuilt: r.bldBuilt, bldDestroyed: r.bldDestroyed, planesProduced: r.planesProduced, planesLost: r.planesLost, dur: r.dur }; }); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
   var EL = 50 * Math.PI / 180, SE = Math.sin(EL), CE = Math.cos(EL);
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), ctx = cv.getContext('2d');
@@ -3093,7 +3205,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
 
   // ---------- game setup ----------
-  function mkTeam(id, race) { return { id: id, race: race, dead: false, clouds: 100, upg: { guns: 0, armor: 0, engines: 0 }, lab: { damage: 0, speed: 0, range: 0, health: 0, walls: 0, heavy: 0, flying: 0, b2: 0, tank: 0, heli: 0, wraith: 0 }, spawnT: 0, income: 0, rr: 0, wave: 0 }; }
+  function mkTeam(id, race) { return { id: id, race: race, dead: false, clouds: 100, upg: { guns: 0, armor: 0, engines: 0 }, lab: { damage: 0, speed: 0, range: 0, health: 0, walls: 0, heavy: 0, flying: 0, b2: 0, tank: 0, heli: 0, wraith: 0 }, spawnT: 0, income: 0, rr: 0, wave: 0, ms: msZero(), elimT: 0 }; }
   function addBld(ti, type, x, y) {
     var hm = RACES[G.teams[ti].race].bhp || 1;
     var bmax = type === 'wall' ? 2000 : BLD[type].hp * hm; /* v90: Beaver Wall 3000 -> 2000 */
@@ -3108,6 +3220,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var py = (y === undefined ? base.y + 90 : y) + (simRandom() - 0.5) * 20;
     var isB2 = kind === 'b2', isTank = kind === 'tank', isHeli = kind === 'heli', isWraith = kind === 'wraith', hp0 = isB2 ? 400 : /* v90: B2 HP 600 -> 400 */ isTank ? TANK.hp : isHeli ? HELI.hp : isWraith ? WRAITH.hp : st.max;
     G.planes.push({ id: G.nid++, team: ti, x: px, y: py, a: ti === 0 ? -0.6 : 2.5, hp: hp0, max: hp0, dest: null, cd: simRandom() * 0.4, bombCd: 0.5, gunCd: 0.1, sel: false, alt: 2, bank: 0, orbit: null, kind: kind || null, tur: ti === 0 ? -0.6 : 2.5, recoil: 0, mgCd: 0, misCd: 0, mgFlash: 0, misSide: false, cloakT: 0, cloaked: false, cloakFade: 0, laserFlash: 0 });
+    msAdd(ti, 'planesProduced', 1);
   }
   /* v90: hangar production is per-race, NOT the old 3.8-interval formula. Lv0 bases: Hamster 4.5, Fox 3.5, Bunny 2.5, Otter 3.75, Beaver 4.0, Turtle 4.25. Lv1/Lv2/Lv3 = 5/6, 2/3, 1/2 of base. HQ fallback (RACES.spawn) equals the same Lv0 base for every race. */
   var HANGAR_PROD_BASE = { hamster: 4.5, fox: 3.5, bunny: 2.5, otter: 3.75, beaver: 4.0, turtle: 4.25 };
@@ -3150,7 +3263,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       if (MP.enabled && MP.role === 'host' && MP.guestRace) races[1] = MP.guestRace;
     }
     simSeedMatch();
-    G = { t: 0, over: false, winner: -1, endT: 1.1, planes: [], blds: [], pads: [], ruins: [], tr: [], parts: [], nid: 1,
+    G = { t: 0, over: false, winner: -1, endT: 1.1, msDur: -1, planes: [], blds: [], pads: [], ruins: [], tr: [], parts: [], nid: 1,
       teams: races.map(function (r, i) { return mkTeam(i, r); }), st: null, cols: null,
       build: null, selectedTurret: null, mouse: { x: 450, y: 300 }, drag: null, tub: [], ai: { t: [0,0,0,0], wave: [0,0,0,0] } };
     G.difficulty = pickDifficulty; // v86: difficulty lives on the game, so AI reads it every tick;
@@ -3162,6 +3275,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var h = addBld(ti, 'hangar', hp.x, hp.y); h.pad = hp; hp.bld = h.id;
       for (var i = 0; i < 3; i++) spawnPlane(ti);
     }
+    /* The three starting planes per team are the opening line-up, not
+       production: zero the counter spawnPlane just incremented. */
+    for (var msi = 0; msi < 4; msi++) G.teams[msi].ms.planesProduced = 0;
     cam.z = clamp(0.72, zoomMin(), 1.7); cam.x = SPAWNS[0].x + 330; cam.y = SPAWNS[0].y - 260; clampCam(); /* v107: initial zoom floor-clamped only if 0.72 is below the floor on a wide stage */
     syncHud(true); try { applyBldIcons(); } catch (e) {}
     if (MP.enabled && MP.role === 'host' && MP.launchArmed) { lsBroadcastStart(races); }
@@ -3455,6 +3571,77 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   function note(msg, warn) { if (warn) Aud.ui('err'); else if (/upgraded|purchased/.test(msg)) Aud.ui('upgrade'); var el = $('note'); el.textContent = msg; el.className = warn ? 'warn' : ''; noteT = 3.4; }
 
+  // ---------- post-game match stats (accounts phase, step 1) ----------
+  /* Per-team counters, incremented ONLY at the sim points where the
+     underlying events resolve (damage subtraction in hit() and its two
+     sibling paths, the reward() kill credit, the factory batch credit,
+     the construction-completion flip, spawnPlane, eliminateTeam), so
+     every client derives the identical table from the identical state
+     history. They are display data: lsProject() never reads them (the
+     lockstep hash is unchanged), they draw no RNG, and they ride the
+     snapshot inside G.teams, so a healed client ends with the same
+     totals as everyone else. Damage counts the full HP subtracted by
+     each hit, overkill on the killing blow included. */
+  function msZero() { return { dmg: 0, cloudFactory: 0, cloudKill: 0, bldBuilt: 0, bldDestroyed: 0, planesProduced: 0, planesLost: 0 }; }
+  function msAdd(ti, key, v) { var t = G && G.teams[ti]; if (t && t.ms) t.ms[key] += v; }
+  function msHit(team, tgt, hpBefore) { if (tgt.team !== team && hpBefore > tgt.hp) msAdd(team, 'dmg', hpBefore - tgt.hp); }
+  function msIsHuman(team) {
+    if (!MP.enabled) return team === 0;
+    return lsHumanSeats().indexOf(team) >= 0;
+  }
+  function msTeamLabel(team) {
+    var animal = RACES[G.teams[team].race].name;
+    if (!msIsHuman(team)) return animal + ' — AI · ' + mpDiffLabel(G.difficulty);
+    if (team === mpHudTeam()) return animal + ' — ' + (FD.name || 'You');
+    if (FD.players && FD.players[team]) return animal + ' — ' + FD.players[team];
+    if (team === 0) return animal + ' — ' + (MP.hostName || 'Host');
+    if (team === 1) return animal + ' — ' + (MP.guestName || 'Guest');
+    return animal + ' — Player';
+  }
+  /* Rows in placement order. Placement is derived, at display time,
+     from sim facts identical on every client: the winner first, then
+     surviving teams, then eliminated teams latest-first (elimT is the
+     sim time eliminateTeam recorded), team id as the final tiebreak. */
+  function msRows() {
+    if (!G) return [];
+    var hud = mpHudTeam();
+    var order = [0, 1, 2, 3].sort(function (a, b) {
+      var aw = a === G.winner ? 0 : 1, bw = b === G.winner ? 0 : 1;
+      if (aw !== bw) return aw - bw;
+      var ea = G.teams[a].dead ? (G.teams[a].elimT || 0) : Infinity;
+      var eb = G.teams[b].dead ? (G.teams[b].elimT || 0) : Infinity;
+      if (ea !== eb) return eb - ea;
+      return a - b;
+    });
+    var dur = (typeof G.msDur === 'number' && G.msDur >= 0) ? G.msDur : G.t;
+    return order.map(function (team, idx) {
+      var t = G.teams[team], m = t.ms || msZero();
+      return { team: team, place: idx + 1, race: t.race, label: msTeamLabel(team), ai: !msIsHuman(team), you: team === hud,
+        dmg: m.dmg, cloudFactory: m.cloudFactory, cloudKill: m.cloudKill, bldBuilt: m.bldBuilt, bldDestroyed: m.bldDestroyed,
+        planesProduced: m.planesProduced, planesLost: m.planesLost, dur: dur };
+    });
+  }
+  function msFmtDur(s) { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function renderEndStats() {
+    var box = document.getElementById('endStats'); if (!box || !G) return;
+    var rows = msRows();
+    box.innerHTML = '';
+    var tbl = document.createElement('table'); tbl.className = 'endStatsTbl';
+    var thead = document.createElement('thead'), htr = document.createElement('tr');
+    ['#', 'Team', 'Damage dealt', 'Factory clouds', 'Kill clouds', 'Buildings built', 'Buildings destroyed', 'Planes produced', 'Planes lost'].forEach(function (h) { var th = document.createElement('th'); th.textContent = h; htr.appendChild(th); });
+    thead.appendChild(htr); tbl.appendChild(thead);
+    var tbody = document.createElement('tbody');
+    rows.forEach(function (r) {
+      var tr = document.createElement('tr'); if (r.you) tr.className = 'you';
+      [String(r.place), r.label, String(Math.round(r.dmg)), String(Math.round(r.cloudFactory)), String(Math.round(r.cloudKill)), String(r.bldBuilt), String(r.bldDestroyed), String(r.planesProduced), String(r.planesLost)].forEach(function (v, ci) { var td = document.createElement('td'); if (ci === 1) td.className = 'teamCell'; td.textContent = v; tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody); box.appendChild(tbl);
+    var dp = document.createElement('p'); dp.className = 'endDur'; dp.textContent = 'Match length: ' + msFmtDur(rows.length ? rows[0].dur : 0);
+    box.appendChild(dp);
+    box.hidden = false;
+  }
+
   // ---------- combat ----------
   function burst(x, y, n) {
     for (var i = 0; i < n; i++) {
@@ -3472,6 +3659,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function reward(team, tgt) {
     var v = tgt.type ? (({ base: 0, factory: 20, turret: 25, hangar: 25, lab: 30, field: 25, dock: 25, wall: 0, tube: 25, exit: 10, b2hangar: 25, thangar: 25, burrow: 20, flyinghangar: 25, helihangar: 25, wraithhangar: 25, accel: 25 })[tgt.type] || 0) : 2; /* v96: accel was missing from this map (since v77), so destroying a Fox Accelerator gave clouds += undefined = NaN, breaking that team's economy forever in long games */
     G.teams[team].clouds += v;
+    msAdd(team, 'cloudKill', v);
+    if (tgt.type) { if (tgt.team !== team) msAdd(team, 'bldDestroyed', 1); }
+    else msAdd(tgt.team, 'planesLost', 1);
     if (tgt.type === 'base') Aud.ui('bigboom'); else Aud.at(tgt.type ? 'boom' : 'pop', tgt.x, tgt.y, tgt.team);
     burst(tgt.x, tgt.y, tgt.type ? 18 : 5);
     if (tgt.type === 'base') addRuin(tgt);
@@ -3480,7 +3670,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       // Losing an HQ eliminates that whole team: its planes and buildings fall,
       // production and AI stop. Losing the player's HQ ends the game; otherwise
       // the player wins once all three rival HQs are down.
-      eliminateTeam(tgt.team, tgt);
+      eliminateTeam(tgt.team, tgt, team);
       if (MP.enabled && MP.seats && MP.seats.length >= 3) {
         /* Stage C: a 3-4 human match ends only when ONE team is left
            standing — any team's fall is just an elimination until
@@ -3496,22 +3686,24 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     }
   }
   function addRuin(b) { G.ruins.push({ x: b.x, y: b.y, type: b.type, team: b.team, seed: (b.id * 7919) % 1000 / 1000 * TAU, age: 0 }); }
-  function eliminateTeam(ti, baseBld) {
+  function eliminateTeam(ti, baseBld, killer) {
     var T = G.teams[ti], i;
-    T.dead = true; T.clouds = 0; T.income = 0;
+    T.dead = true; T.clouds = 0; T.income = 0; T.elimT = G.t;
     for (i = 0; i < G.blds.length; i++) {
       var b = G.blds[i];
       if (b.team !== ti || b === baseBld || b.dead || b.hp <= 0) continue;
       b.hp = 0; b.dead = true; burst(b.x, b.y, 8);
+      if (killer !== undefined && killer !== ti) msAdd(killer, 'bldDestroyed', 1);
     }
     G.pads = G.pads.filter(function (pp) { return pp.team !== ti; });
     for (i = 0; i < G.planes.length; i++) {
       var p = G.planes[i];
       if (p.team !== ti || p.hp <= 0) continue;
       p.hp = 0; p.sel = false; burst(p.x, p.y, 3);
+      msAdd(ti, 'planesLost', 1);
     }
   }
-  function finish(team) { if (G.over) return; G.over = true; G.winner = team; G.endT = 1.1; if (MP.enabled && MP.role === 'host') { mpSend({ type: 'gameOver', winner: team }); } if (MP.enabled) lsOnGameOver(); }
+  function finish(team) { if (G.over) return; G.over = true; G.winner = team; G.endT = 1.1; G.msDur = G.t; if (MP.enabled && MP.role === 'host') { mpSend({ type: 'gameOver', winner: team }); } if (MP.enabled) lsOnGameOver(); }
   function zOf(e) { return e.type ? BLD[e.type].top * BLD[e.type].sc * 0.6 : e.alt + 5; }
   function hit(src, tgt, dmg, silent, noTracer) { /* v91: noTracer suppresses only the bullet tracer visual, not damage/wall logic */
     var accelBoosted = !!(src && !src.type && (src.accelT || 0) > 0 && accelEligible(src));
@@ -3520,8 +3712,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var wl = silent ? null : wallOnLine(src.x, src.y, tgt.x, tgt.y);
     if (wl) { if (!noTracer) G.parts.push({ kind: 'bullet', x: src.x, y: src.y, z: zOf(src), tx: wl.x, ty: wl.y, tz: 12, t: 0, life: Math.max(0.08, Math.hypot(wl.x - src.x, wl.y - src.y) / 520), team: src.team }); return; }
     if (tgt.type && tgt.type !== 'field' && tgt.type !== 'wall') { var fd = fieldFor(tgt, src); if (fd) tgt = fd; }
+    var msHpB = tgt.hp;
     if (tgt.type) { tgt.hp -= dmg; tgt.flash = 0.1; tgt.hurtT = 1.2; }
     else tgt.hp -= dmg / G.st[tgt.team].armor;
+    msHit(src.team, tgt, msHpB);
     if (!silent) {
       var bs = src.type === 'turret' ? turretStats(src).bulletSpeed : src.type === 'base' ? 1400 : 900;
       Aud.at(accelBoosted ? 'accelShot' : src.type === 'turret' ? 'tshot' : src.type === 'base' ? 'laser' : 'shot', src.x, src.y, src.team);
@@ -3551,8 +3745,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var mz = (p.alt || 24) + 6;
     var wl = wallOnLine(mx, my, tgt.x, tgt.y);
     if (wl) { var we = wallEntry(mx, my, wl.x, wl.y, wl); G.parts.push({ kind: 'bullet', x: mx, y: my, z: mz, tx: we.x, ty: we.y, tz: 12, t: 0, life: Math.max(0.08, Math.hypot(we.x - mx, we.y - my) / 900), team: p.team }); G.parts.push({ kind: 'muzzle', x: mx, y: my, z: mz, a: ta, sa: ta, t: 0, life: 0.18, team: p.team, small: true }); return; }
+    var msHpC = tgt.hp;
     if (tgt.type) { tgt.hp -= 3; tgt.flash = 0.1; tgt.hurtT = 1.2; }
     else tgt.hp -= 3 / G.st[tgt.team].armor;
+    msHit(p.team, tgt, msHpC);
     Aud.at('quadShot', p.x, p.y, p.team);
     var dist = Math.hypot(tgt.x - mx, tgt.y - my);
     G.parts.push({ kind: 'bullet', x: mx, y: my, z: mz, tx: tgt.x, ty: tgt.y, tz: zOf(tgt), t: 0, life: Math.max(0.08, dist / 900), team: p.team });
@@ -3793,8 +3989,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var qmz = zOf(b);
       var qwl = wallOnLine(qmx, qmy, target.x, target.y);
       if (qwl) { var qwe = wallEntry(qmx, qmy, qwl.x, qwl.y, qwl); G.parts.push({ kind: 'bullet', x: qmx, y: qmy, z: qmz, tx: qwe.x, ty: qwe.y, tz: 12, t: 0, life: Math.max(0.08, Math.hypot(qwe.x - qmx, qwe.y - qmy) / ts.bulletSpeed), team: b.team }); G.parts.push({ kind: 'muzzle', x: qmx, y: qmy, z: qmz, a: b.a, sa: b.a, t: 0, life: 0.18, team: b.team, small: true }); return; }
+      var msHpQ = target.hp;
       if (target.type) { target.hp -= ts.damage; target.flash = 0.1; target.hurtT = 1.2; }
       else target.hp -= ts.damage / G.st[target.team].armor;
+      msHit(b.team, target, msHpQ);
       var qdist = Math.hypot(target.x - qmx, target.y - qmy);
       G.parts.push({ kind: 'bullet', x: qmx, y: qmy, z: qmz, tx: target.x, ty: target.y, tz: zOf(target), t: 0, life: Math.max(0.08, qdist / ts.bulletSpeed), team: b.team });
       G.parts.push({ kind: 'muzzle', x: qmx, y: qmy, z: qmz, a: b.a, sa: b.a, t: 0, life: 0.18, team: b.team, small: true });
@@ -3859,7 +4057,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         b.hamT -= dt; if (b.hamT <= 0) { b.hamT = 0.55 + fxRandom() * 0.3; Aud.at('hammer', b.x, b.y, b.team); }
         // HP grows with construction progress but keeps any damage taken meanwhile.
         b.hp = Math.min(b.max, b.hp + b.max * dt / b.buildTotal);
-        if (b.buildT <= 0) { b.complete = true; b.hp = (b.type === 'wall' || b.type === 'exit') ? b.max : Math.max(b.hp, b.max * 0.5); burst(b.x, b.y, 10); Aud.at('done', b.x, b.y, b.team); } // v71 #14: Tube Exits complete at full HP, like walls
+        if (b.buildT <= 0) { b.complete = true; msAdd(b.team, 'bldBuilt', 1); b.hp = (b.type === 'wall' || b.type === 'exit') ? b.max : Math.max(b.hp, b.max * 0.5); burst(b.x, b.y, 10); Aud.at('done', b.x, b.y, b.team); } // v71 #14: Tube Exits complete at full HP, like walls
         continue;
       }
       if (b.upgradeJob) {
@@ -3986,6 +4184,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         if (b.cd >= 10) {
           b.cd = 0;
           G.teams[b.team].clouds += 10;
+          msAdd(b.team, 'cloudFactory', 10);
           // Ten little cloud tokens pop out of the factory as the batch is paid.
           for (var cloudNo = 0; cloudNo < 10; cloudNo++) {
             var spread = (cloudNo - 4.5) * 8;
@@ -7017,6 +7216,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           var won = G.winner === mpHudTeam(), rn = G.winner >= 0 ? RACES[G.teams[G.winner].race].name.toLowerCase() : 'rivals';
           $('endTitle').textContent = won ? 'Victory' : 'Defeat';
           $('endText').textContent = won ? 'The ' + rn + ' base has fallen. The sky is yours.' : 'Your base was destroyed by the ' + rn + '. Build more turrets and try again.';
+          try { renderEndStats(); } catch (e) {}
           $('end').hidden = false; Aud.ui(won ? 'win' : 'lose'); Aud.musicLevel(0.25);
         }
       }
