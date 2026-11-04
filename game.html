@@ -374,6 +374,7 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
     <h2 class="big" id="endTitle">Victory</h2>
     <p id="endText"></p>
     <div id="endStats" hidden></div>
+    <p id="endMmr" hidden></p>
     <button class="go" id="againBtn">Play again</button>
   </div>
 </div>
@@ -390,6 +391,7 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 #mpMenuBtn { justify-self: stretch; width: 100%; text-align: center; padding: 16px 22px; font-size: 20px; }
 #end .sheet { max-width: 920px; }
 #endStats { overflow-x: auto; }
+#endMmr { font: 600 14px var(--font-display); color: var(--ink); margin: 10px 0 0; }
 .endStatsTbl { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--ink); }
 .endStatsTbl th, .endStatsTbl td { padding: 5px 7px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
 .endStatsTbl th { font: 600 11px var(--font-display); letter-spacing: .03em; color: var(--ink-soft); text-transform: uppercase; }
@@ -468,10 +470,12 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       <p style="margin:0">Signed in as <b id="fdMainName">Player</b></p>
       <p style="margin:0" id="fdTagRow" hidden>Gamertag: <b id="fdMainTag">—</b> — this is the name other players see. <button class="go" id="fdTagChangeBtn" type="button">Change gamertag</button></p>
       <p style="margin:0" id="fdAcctDown" hidden>Accounts are unavailable right now — gamertags are paused, so for this session other players will see you as “Player”. Games play exactly as normal.</p>
+      <p style="margin:0" id="fdOnline" hidden></p>
       <button class="go" id="fdFindBtn" type="button">Find Match</button>
       <p style="margin:0">Queue up and we will pair you with another signed-in player: a ready check first, then you take turns drafting your animals, then the match launches.</p>
       <button class="go" id="fdCustomBtn" type="button">Custom Game (room code)</button>
       <p style="margin:0">Host a private room with a code, or join one — the classic way to play a specific person.</p>
+      <p style="margin:0"><a href="/leaderboard" target="_blank" rel="noopener">Leaderboard</a> — queue-match ratings: see who is on top.</p>
       <div class="mpStatusLine" id="fdMainStatus"></div>
       <div class="mpBtnRow">
         <button class="go" id="fdMainBackBtn" type="button">← Back to menu</button>
@@ -598,7 +602,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      own orders are delayed and tick-stamped too — no zero-delay
      advantage for anyone). MP.guestSel is likewise just "the local
      player's selection id list" for either role. */
-  var MP = { enabled: false, role: null, myTeam: 0, seat: null, seats: null, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false,
+  var MP = { enabled: false, role: null, myTeam: 0, seat: null, seats: null, humanTeams: [0, 1], aiTeams: [2, 3], ws: null, guestRace: null, guestBuild: null, guestName: null, hostName: null, guestConnected: false, seq: 0, guestSel: [], snapTimer: null, matchId: null, matchReported: false, mmrInfo: null, roomCode: null, hostRace: null, myRace: null, joinRace: 'fox', hostDifficulty: null, launchArmed: false, inGame: false, lastStatus: null, elimShown: false,
     /* Custom 4: set once the relay promotes this room to 4 seats.
        lobbySeats mirrors the relay's lobby state (4 entries, null =
        an AI seat); lobbyDifficulty is the host's AI difficulty pick
@@ -606,7 +610,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '8b4ae3a64e';
+  var LS_BUILD_ID = 'c60825dd83';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -620,7 +624,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      not configured and the gate offers the relay's dev sign-in for
      local testing instead. */
   var GOOGLE_CLIENT_ID = '31883324545-22qspho706oncqmjj44179urbvmb7pe0.apps.googleusercontent.com';
-  var FD = { configured: GOOGLE_CLIENT_ID !== 'REPLACE_WITH_GOOGLE_CLIENT_ID', token: null, authed: false, name: null, picture: null, state: 'idle', ui: null, players: [], myIndex: -1, deadline: 0, countInt: null, countEl: null, draft: null, wantQueue: false, gisState: 'idle', gisWaiters: [], credProvider: null, credWaiters: [], pendingCustom: null, customAttempt: null, freshBypass: false, tag: null, accountsKnown: false, accountsDown: false };
+  var FD = { configured: GOOGLE_CLIENT_ID !== 'REPLACE_WITH_GOOGLE_CLIENT_ID', token: null, authed: false, name: null, picture: null, state: 'idle', ui: null, players: [], myIndex: -1, deadline: 0, countInt: null, countEl: null, draft: null, wantQueue: false, gisState: 'idle', gisWaiters: [], credProvider: null, credWaiters: [], pendingCustom: null, customAttempt: null, freshBypass: false, tag: null, accountsKnown: false, accountsDown: false, online: null };
   /* ---------------- seeded RNG cage ----------------
      Two mulberry32 streams (the spike's implementation). SIMR is the
      simulation's ONLY source of randomness: its state and draw count
@@ -1066,6 +1070,12 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lsApplyConversion(seat) {
     LS.conv[seat] = LS.convAt[seat];
     delete LS.convAt[seat];
+    /* Step 3 (Option A): freeze the converted player's placement at
+       this exact tick — the number of teams still standing, their
+       own included. It rides the match report; the AI's eventual
+       finish never improves or worsens it. Pure bookkeeping: the
+       sim is not touched. */
+    if (G && G.teams) { var aliveCv = 0; for (var cvT = 0; cvT < 4; cvT++) if (G.teams[cvT] && !G.teams[cvT].dead) aliveCv++; LS.convPlace[seat] = Math.max(1, aliveCv); }
     if (MP.aiTeams.indexOf(seat) < 0) { MP.aiTeams.push(seat); MP.aiTeams.sort(function (a, b) { return a - b; }); }
   }
   /* ---------------- desync + resync ---------------- */
@@ -1360,7 +1370,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     LS.epoch = 0; LS.completedEpoch = -1; LS.desyncSince = 0; LS.lastSnapAt = 0; LS.snapSends = 0; LS.snapReqs = 0; LS.endSent = false; LS.sharedPause = null; LS.pausePending = null; LS.pauseNagMs = 0; LS.reconnecting = false; LS.reconnectTry = 0; LS.lastAdvanceAt = performance.now(); LS.testThrowAt = -1; LS.snapRx = null; LS.snapBytes = 0; LS.snapChunks = 0; LS.stallText = '';
     /* Stage C per-match state (MP.seats itself is owned by the
        seating paths: queue_start, mpLaunch, the guest start guard). */
-    LS.upto = {}; LS.hashBy = {}; LS.evalTick = 0; LS.episode = null; LS.healFrom = -1; LS.split = false; LS.conv = {}; LS.convAt = {}; LS.awaySeats = {}; LS.baseAiTeams = MP.aiTeams.slice(); LS.lastSnapHash = null; LS.lastSnapTick = -1; LS.lastReqAt = 0; LS.rejoinServeSeat = -1;
+    LS.upto = {}; LS.hashBy = {}; LS.evalTick = 0; LS.episode = null; LS.healFrom = -1; LS.split = false; LS.conv = {}; LS.convAt = {}; LS.convPlace = {}; MP.matchReported = false; MP.mmrInfo = null; LS.awaySeats = {}; LS.baseAiTeams = MP.aiTeams.slice(); LS.lastSnapHash = null; LS.lastSnapTick = -1; LS.lastReqAt = 0; LS.rejoinServeSeat = -1;
   }
   /* Called from newGame's host hook (build patch) while Launch is
      armed: the world the host just built IS the lineup in the message,
@@ -1370,6 +1380,41 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     LS.state = 'over';
     var eo = document.getElementById('mpElim'); if (eo) eo.hidden = true;
     var eb = document.getElementById('mpElimBanner'); if (eb) eb.hidden = true;
+    mmrReportResult();
+  }
+  /* ---- Step 3: end-of-match result report + rating display -------
+     A queue match's relay issued MP.matchId at seating; when the
+     match ends here, this client sends its result report once —
+     the finishing order and per-team stat lines off the SAME end
+     table the player sees (msRows), plus the frozen Option A
+     placements of any converted seats. The relay rates the match
+     only when the humans' reports agree (see server.js). Custom
+     and single-player matches carry no matchId and report nothing.
+     Reporting is a socket send only: nothing here touches the sim,
+     the lockstep hash, or the counters. */
+  function mmrReportResult() {
+    if (!MP.matchId || MP.matchReported || !G || !G.over) return;
+    MP.matchReported = true;
+    try {
+      var rows = msRows();
+      var stats = {};
+      rows.forEach(function (r) { stats[r.team] = { dmg: Math.round(r.dmg), cloudFactory: Math.round(r.cloudFactory), cloudKill: Math.round(r.cloudKill), bldBuilt: r.bldBuilt, bldDestroyed: r.bldDestroyed, planesProduced: r.planesProduced, planesLost: r.planesLost }; });
+      var conv = {};
+      if (LS.convPlace) for (var cs in LS.convPlace) conv[cs] = LS.convPlace[cs];
+      mpSend({ type: 'match_report', matchId: MP.matchId, places: rows.map(function (r) { return r.team; }), conv: conv, stats: stats, dur: rows.length ? Math.round(rows[0].dur) : 0 });
+    } catch (e) {}
+  }
+  /* The relay's answer (rated queue matches only) rendered as one
+     line under the stats table. No answer — accounts down, unrated
+     recording failed, or a Custom/SP game — simply means no line:
+     the end screen is complete without it. */
+  function mmrRenderLine() {
+    var el = document.getElementById('endMmr'); if (!el) return;
+    var info = MP.mmrInfo;
+    if (!info) { el.hidden = true; el.textContent = ''; return; }
+    if (info.rated) el.textContent = 'Rating: ' + info.before + ' → ' + info.after + ' (' + (info.delta >= 0 ? '+' : '') + info.delta + ')';
+    else el.textContent = 'This match was recorded unrated — the players\' reports did not agree, so no rating changed.';
+    el.hidden = false;
   }
   /* The local player's own team dying mid-match: in lockstep the
      local sim knows it directly (in the snapshot build this arrived
@@ -1603,7 +1648,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     mpStatus('Game launched — lockstep match running');
   }
   function mpDisconnect() {
-    MP.enabled = false; MP.role = null; MP.seat = null; MP.seats = null; MP.aiTeams = [2, 3]; MP.guestConnected = false; MP.guestBuild = null; MP.guestName = null; MP.hostName = null; MP.roomCode = null; MP.inGame = false; MP.launchArmed = false; MP.lastStatus = null;
+    MP.enabled = false; MP.role = null; MP.seat = null; MP.seats = null; MP.matchId = null; MP.matchReported = false; MP.mmrInfo = null; MP.aiTeams = [2, 3]; MP.guestConnected = false; MP.guestBuild = null; MP.guestName = null; MP.hostName = null; MP.roomCode = null; MP.inGame = false; MP.launchArmed = false; MP.lastStatus = null;
     MP.customRoom = false; MP.lobbySeats = null; MP.lobbyDifficulty = null;
     FD.state = 'idle'; FD.draft = null; FD.wantQueue = false; fdStopCountdown();
     FD.customAttempt = null; FD.pendingCustom = null;
@@ -1991,6 +2036,15 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var tg = document.getElementById('fdMainTag'); if (tg) tg.textContent = FD.tag || '—';
     var dn = document.getElementById('fdAcctDown'); if (dn) dn.hidden = !FD.accountsDown;
     var nm = document.getElementById('fdMainName'); if (nm && FD.ui === 'mpMain') nm.textContent = FD.tag || FD.name || 'Player';
+    fdRenderOnline();
+  }
+  /* Players online (amendment): the relay's distinct-signed-in-player
+     count — rides the profile message and the 'online' pushes. Shown
+     on the multiplayer home only; front-door chrome, never gameplay. */
+  function fdRenderOnline() {
+    var el = document.getElementById('fdOnline'); if (!el) return;
+    if (typeof FD.online === 'number') { el.textContent = 'Players online: ' + FD.online; el.hidden = false; }
+    else el.hidden = true;
   }
   function fdShowTag(msg) {
     fdShowScreen('mpTag');
@@ -2225,8 +2279,24 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
          screen when the player is at the front door; accounts-down
          just notes itself on the main screen and play goes on. */
       FD.accountsKnown = true; FD.tag = o.tag || null; FD.accountsDown = !!o.accountsDown;
+      if (typeof o.online === 'number') FD.online = o.online;
       fdRenderAccount();
       if (o.needTag && FD.authed && (FD.ui === 'mpMain' || FD.ui === 'mpGate')) fdShowTag('Welcome! Choose your gamertag to start playing multiplayer — other players will know you by it, never by your Google name.');
+      return true;
+    }
+    if (o.type === 'online') {
+      /* Players-online push (amendment): the count changed somewhere
+         on the relay; the front door just re-renders its line. */
+      if (typeof o.count === 'number') { FD.online = o.count; fdRenderOnline(); }
+      return true;
+    }
+    if (o.type === 'match_result') {
+      /* Step 3: the relay recorded this queue match. Rated: show
+         the rating move on the end screen. Unrated: the line says
+         so. Either way the end screen may already be up — render
+         immediately; renderEndStats re-renders if it lands first. */
+      MP.mmrInfo = { rated: !!o.rated, before: o.mmrBefore, after: o.mmrAfter, delta: o.delta };
+      try { mmrRenderLine(); } catch (e) {}
       return true;
     }
     if (o.type === 'tag_ok') {
@@ -2296,6 +2366,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (o.type === 'queue_start') {
       fdStopCountdown(); FD.state = 'match'; FD.draft = null;
       MP.enabled = true; MP.roomCode = o.room; MP.guestConnected = true;
+      /* Step 3: queue matches carry the relay-issued matchId the end
+         report will quote. Custom launches carry custom:true and no
+         matchId — they are never recorded. A rejoin start re-adopts
+         the same match's id. */
+      MP.matchId = (!o.custom && typeof o.matchId === 'string') ? o.matchId : null;
       MP.aiTeams = (o.lineup.aiTeams || [2, 3]).slice();
       /* Stage C: the relay seats every queue player — seat i plays
          team i. Older 2-player queue starts carried no seat field;
@@ -2644,7 +2719,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   });
   /* ================= END BROTHER-SESSION FIX ==================== */
 
-  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, tag: FD.tag, accountsKnown: FD.accountsKnown, accountsDown: FD.accountsDown, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdClaimTag: function (t) { fdClaimTag(t); }, fdShowTag: function () { fdShowTag(); }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, hkOptions: function () { return hkPresentedOptions().map(function (b, i) { return { key: i < HK_KEYS.length ? HK_KEYS[i] : null, id: b.id || '', tup: b.getAttribute('data-tup'), bup: b.getAttribute('data-bup'), lup: b.getAttribute('data-lup'), hup: b.getAttribute('data-hup'), build: b.getAttribute('data-build'), disabled: !!b.disabled }; }); }, msTable: function () { return msRows().map(function (r) { return { team: r.team, place: r.place, race: r.race, dmg: r.dmg, cloudFactory: r.cloudFactory, cloudKill: r.cloudKill, bldBuilt: r.bldBuilt, bldDestroyed: r.bldDestroyed, planesProduced: r.planesProduced, planesLost: r.planesLost, dur: r.dur }; }); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
+  if (typeof window !== 'undefined') { window.__MP = MP; window.__LS = LS; window.__MPF = { guestPointer: mpGuestPointer, guestDragEnd: mpGuestDragEnd, selectInRect: mpSelectInRect, hudTeam: mpHudTeam, connect: mpConnect, launch: mpLaunch, disconnect: mpDisconnect, enterPlay: mpEnterPlay, guestCard: mpGuestCard, lsReceive: mpOnMessage, lsIssue: function (o) { mpOrder(o); }, lsPump: function (ms) { lsFrameStep(ms == null ? 100 : ms); }, lsHash: function () { return lsHash(); }, lsSnapshot: lsSnapshot, lsApplySnapshot: lsApplySnapshot, lsState: function () { return { tick: LS.tick, state: LS.state, waiting: LS.waiting, peerUpto: LS.peerUpto, delay: LS.delay, seed: LS.seed, build: LS_BUILD_ID, simDraws: SIMR.calls, lastHash: LS.hashes[LS.tick] || null }; }, fdState: function () { return { authed: FD.authed, name: FD.name, tag: FD.tag, accountsKnown: FD.accountsKnown, accountsDown: FD.accountsDown, online: FD.online, configured: FD.configured, state: FD.state, ui: FD.ui, myIndex: FD.myIndex, players: FD.players.slice(), draft: FD.draft ? { animals: FD.draft.animals.slice(), order: FD.draft.order.slice(), picks: Object.assign({}, FD.draft.picks), turnPlayer: FD.draft.turnPlayer } : null }; }, fdClaimTag: function (t) { fdClaimTag(t); }, fdShowTag: function () { fdShowTag(); }, mmrState: function () { return { matchId: MP.matchId || null, reported: !!MP.matchReported, mmr: MP.mmrInfo ? { rated: !!MP.mmrInfo.rated, before: MP.mmrInfo.before, after: MP.mmrInfo.after, delta: MP.mmrInfo.delta } : null }; }, fdAuth: function (token) { FD.token = token; if (MP.ws && MP.ws.readyState === 1) mpSend({ type: 'auth', idToken: token }); }, fdQueueJoin: function () { fdQueueJoin(); }, fdReady: function () { fdReadySend(); }, fdPick: function (i) { fdPick(i); }, fdLeaveQueue: function () { fdLeaveQueue(); }, fdSetCredProvider: function (fn) { FD.credProvider = (typeof fn === 'function') ? fn : null; }, fdTokenStale: function () { return fdTokenStale(); }, fxState: function () { return { count: FXERR.count, first: FXERR.first ? FXERR.first.msg : null, stall: LS.stallText || '' }; }, fxStall: function () { fxStallRefresh(); return LS.stallText || ''; }, fxShowEnd: function (t, x) { fxShowEnd(t, x); }, lsResyncTick: function () { lsResyncTick(); }, lsSetThrowAt: function (t) { LS.testThrowAt = t; }, lsSetChunkBytes: function (n) { LS.chunkBytes = n; }, lsSnapStats: function () { return { bytes: LS.snapBytes, chunks: LS.snapChunks, seq: LS.snapSeq }; }, lsConnState: function () { return { state: LS.state, tick: LS.tick, epoch: LS.epoch, completedEpoch: LS.completedEpoch, sharedPause: LS.sharedPause ? { by: LS.sharedPause.by, atTick: LS.sharedPause.atTick } : null, reconnecting: LS.reconnecting, resyncs: LS.resyncs, snapSends: LS.snapSends, snapReqs: LS.snapReqs }; }, hkOptions: function () { return hkPresentedOptions().map(function (b, i) { return { key: i < HK_KEYS.length ? HK_KEYS[i] : null, id: b.id || '', tup: b.getAttribute('data-tup'), bup: b.getAttribute('data-bup'), lup: b.getAttribute('data-lup'), hup: b.getAttribute('data-hup'), build: b.getAttribute('data-build'), disabled: !!b.disabled }; }); }, msTable: function () { return msRows().map(function (r) { return { team: r.team, place: r.place, race: r.race, dmg: r.dmg, cloudFactory: r.cloudFactory, cloudKill: r.cloudKill, bldBuilt: r.bldBuilt, bldDestroyed: r.bldDestroyed, planesProduced: r.planesProduced, planesLost: r.planesLost, dur: r.dur }; }); }, getG: function () { return G; }, bldScreen: function (b) { return modelPt(b.x, b.y, 0, 0, 0, BLD[b.type].sc, 0, 0, BLD[b.type].top * .4); }, state: function () { return { mode: mode, paused: paused, pickRace: pickRace, pickDifficulty: pickDifficulty, enabled: MP.enabled, role: MP.role, guestConnected: MP.guestConnected, roomCode: MP.roomCode, inGame: MP.inGame, lsTick: LS.tick, lsState: LS.state, races: G ? G.teams.map(function (t) { return t.race; }) : null, difficulty: G ? G.difficulty : null, over: G ? G.over : null }; }, finishGame: function (t) { finish(t); }, planeScreen: function (p) { return planeScreen(p); } }; }
   var EL = 50 * Math.PI / 180, SE = Math.sin(EL), CE = Math.cos(EL);
   var $ = function (id) { return document.getElementById(id); };
   var cv = $('cv'), ctx = cv.getContext('2d');
@@ -3726,6 +3801,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var dp = document.createElement('p'); dp.className = 'endDur'; dp.textContent = 'Match length: ' + msFmtDur(rows.length ? rows[0].dur : 0);
     box.appendChild(dp);
     box.hidden = false;
+    try { mmrRenderLine(); } catch (e) {} /* step 3: if the rating answer beat the overlay, show it now too */
   }
 
   // ---------- combat ----------

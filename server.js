@@ -106,9 +106,47 @@
  *               DATABASE_URL, a missing `pg` package, or an
  *               unreachable database leaves the relay serving games
  *               exactly as before — profiles just report
- *               accountsDown and nobody is gated. The matches /
- *               match_players tables are created now but only written
- *               by step 3 (records + MMR).
+ *               accountsDown and nobody is gated. (In step 2 the
+ *               matches / match_players tables were created but
+ *               never written; step 3 below writes them.)
+ *
+ *   MMR         (Step 3: queue-match records + pairwise-Elo ratings
+ *               + the leaderboard.) QUEUE matches only: finishDraft
+ *               stamps each seated queue match with a relay-issued
+ *               matchId (rides queue_start) and remembers the human
+ *               seats' identities. At match end each human client
+ *               sends {type:'match_report', matchId, places, conv,
+ *               stats, dur} — places = the four teams in finishing
+ *               order off the deterministic end table, conv = the
+ *               Option A frozen placement of any human seat whose
+ *               player dropped and converted to AI, stats = the end
+ *               table's per-team lines. The relay records the match
+ *               when agreeing reports reach a majority of the human
+ *               seats (both in a 2-human match, 2 of 3, 3 of 4 —
+ *               floor(N/2)+1); disagreeing reports that can no longer
+ *               reach that bar are recorded UNRATED (stats kept, no
+ *               MMR movement, no games_played credit). A report is
+ *               only ever accepted from a connection whose verified
+ *               identity the relay itself seated in that match; the
+ *               first report per player counts, duplicates are
+ *               ignored, so a match is recorded at most once and MMR
+ *               applied at most once. RATED recording is a single
+ *               transaction: the match row, one match_players row
+ *               per human (AI seats are never participants), and the
+ *               MMR updates. MMR is pairwise Elo among the humans at
+ *               K=32 over RECORDED placements (a converted player's
+ *               frozen placement, everyone else's finishing place),
+ *               deltas summed over all human pairs and rounded once;
+ *               AI placements never enter the math. Each human then
+ *               gets {type:'match_result', ...} for their end screen.
+ *               Custom and single-player matches are never recorded.
+ *               GET /leaderboard serves a plain page of gamertag /
+ *               MMR / rated games / 1st places for players with at
+ *               least MIN_GAMES_LEADERBOARD rated games. FAIL SOFT
+ *               as accounts: no database (or one that dies before a
+ *               match ends) ⇒ the match plays out normally, nothing
+ *               is recorded, no rating is shown, nothing retro-fires
+ *               when the database returns.
  *
  * Run:  node server.js            (port: env PORT, default 8000)
  *       TLS_CERT=cert.pem TLS_KEY=key.pem node server.js
@@ -195,7 +233,15 @@ const DB_SCHEMA = [
   /* Step 3 (records + MMR) writes these; creating them now means it
      extends the schema instead of migrating it. */
   'CREATE TABLE IF NOT EXISTS matches (id BIGSERIAL PRIMARY KEY, played_at TIMESTAMPTZ NOT NULL DEFAULT now(), kind TEXT NOT NULL, lineup JSONB)',
-  'CREATE TABLE IF NOT EXISTS match_players (match_id BIGINT NOT NULL REFERENCES matches(id), sub TEXT NOT NULL, placement INTEGER, stats JSONB, mmr_before INTEGER, mmr_after INTEGER, PRIMARY KEY (match_id, sub))'
+  'CREATE TABLE IF NOT EXISTS match_players (match_id BIGINT NOT NULL REFERENCES matches(id), sub TEXT NOT NULL, placement INTEGER, stats JSONB, mmr_before INTEGER, mmr_after INTEGER, PRIMARY KEY (match_id, sub))',
+  /* Step 3: matches learn whether they were rated. ADD COLUMN IF NOT
+     EXISTS so a database the step-2 build already created (which has
+     the tables above without this column) gains it in place. */
+  'ALTER TABLE matches ADD COLUMN IF NOT EXISTS rated BOOLEAN NOT NULL DEFAULT true',
+  /* Amendment (Taylor, 2026-11-04): match_players learn each human's
+     animal, for the leaderboard's per-animal table. Animals come from
+     the relay's own lineup record — never from a client report. */
+  'ALTER TABLE match_players ADD COLUMN IF NOT EXISTS animal TEXT'
 ];
 let dbSchemaReady = false, dbInitPromise = null, dbLastAttempt = 0;
 function ensureSchema() {
@@ -292,12 +338,19 @@ function staticHandler(req, res) {
   } catch (e) { try { res.writeHead(500); res.end('error'); } catch (e2) {} }
 }
 
+function requestHandler(req, res) {
+  let urlPath = '';
+  try { urlPath = decodeURIComponent((req.url || '/').split('?')[0]); } catch (e) { urlPath = ''; }
+  if (urlPath === '/leaderboard') { leaderboardHandler(req, res).catch((e) => { try { res.writeHead(500); res.end('error'); } catch (e2) {} }); return; }
+  staticHandler(req, res);
+}
+
 const useTls = !!(process.env.TLS_CERT && process.env.TLS_KEY);
 let server;
 if (useTls) {
-  server = https.createServer({ cert: fs.readFileSync(process.env.TLS_CERT), key: fs.readFileSync(process.env.TLS_KEY) }, staticHandler);
+  server = https.createServer({ cert: fs.readFileSync(process.env.TLS_CERT), key: fs.readFileSync(process.env.TLS_KEY) }, requestHandler);
 } else {
-  server = http.createServer(staticHandler);
+  server = http.createServer(requestHandler);
 }
 
 /* ---------------- rooms ---------------- */
@@ -346,9 +399,11 @@ function graceExpire(code, room) {
   if (rooms.get(code) !== room) return;
   if (room.awayGuest) {
     room.awayGuest = null;
+    noteRatedSeatGone(code, 1); /* step 3: the dropped guest can no longer report */
     if (room.host) sendTo(room.host, { type: 'guestLeft' });
   } else if (room.awayHost) {
     room.awayHost = null;
+    noteRatedSeatGone(code, 0); /* step 3: the dropped host can no longer report */
     if (room.guest) {
       sendTo(room.guest, { type: 'hostLeft' });
       room.guest.room = null;
@@ -446,6 +501,7 @@ function convertSeat(code, room, seat) {
   if (!room.awaySeats[seat]) return; /* reclaimed in time after all */
   delete room.awaySeats[seat];
   room.convSeats[seat] = true;
+  noteRatedSeatGone(code, seat); /* step 3: a converted player can no longer report this match */
   /* tickHint[seat] is the dropped seat's last advertised frame
      coverage (upto = its tick + input delay - 1). Every remaining
      client's tick is <= hint + 1 by the barrier, so +150 ticks of
@@ -464,7 +520,8 @@ function reclaimQueueSeat(conn, room, code, seat) {
   conn.role = seat === 0 ? 'host' : 'guest';
   conn.room = code;
   conn.seat = seat;
-  sendTo(conn, { type: 'queue_start', role: conn.role, seat, seats: room.nSeats, room: code, lineup: room.lineup, rejoin: true });
+  const recMMR = ratedByRoom.get(code); /* step 3: a rejoining queue player still reports under the same matchId */
+  sendTo(conn, { type: 'queue_start', role: conn.role, seat, seats: room.nSeats, room: code, lineup: room.lineup, rejoin: true, ...(recMMR ? { matchId: recMMR.id } : {}) });
   broadcastRoom(room, seat, { type: 'peerRejoin', seat });
   console.log('[relay] queue room ' + code + ': seat ' + seat + ' reclaimed by conn ' + conn.id + ' within the reconnect grace');
 }
@@ -606,6 +663,7 @@ function killConn(conn, why) {  if (conn.dead) return;
   conns.delete(conn);
   try { conn.sock.destroy(); } catch (e) {}
   console.log('[relay] conn ' + conn.id + ' dropped (' + why + ')');
+  pushOnlineCount(); /* a departure may lower the distinct-player count */
 }
 
 /* ---------------- front door: identity ----------------
@@ -690,7 +748,7 @@ function finishAuth(conn) {
   const complete = () => {
     conn.authPending = false;
     sendTo(conn, { type: 'auth_ok', name: conn.identity.name, picture: conn.identity.picture });
-    if (ACCOUNTS_ON) sendProfile(conn);
+    if (ACCOUNTS_ON) { sendProfile(conn); pushOnlineCount(); }
     console.log('[relay] conn ' + conn.id + ' signed in' + (AUTH_DEV_MODE ? ' (dev)' : '') + ' as ' + conn.identity.name + (ACCOUNTS_ON ? (conn.accountsDown ? ' (accounts unavailable — playing without a gamertag)' : (conn.tag ? ' — gamertag ' + conn.tag : ' (no gamertag yet)')) : ''));
     replayDeferred(conn);
   };
@@ -705,7 +763,30 @@ function finishAuth(conn) {
   });
 }
 function sendProfile(conn) {
-  sendTo(conn, { type: 'profile', tag: conn.tag || null, needTag: !conn.accountsDown && !conn.tag, accountsDown: !!conn.accountsDown });
+  sendTo(conn, { type: 'profile', tag: conn.tag || null, needTag: !conn.accountsDown && !conn.tag, accountsDown: !!conn.accountsDown, online: onlineCount() });
+}
+
+/* Players online (amendment, Taylor 2026-11-04): DISTINCT signed-in
+   players currently connected — two sockets for one player (two
+   tabs, a reconnect overlap) count once, because the count is over
+   verified subs, not connections. The count rides the profile
+   message at sign-in and is re-pushed to every signed-in connection
+   whenever it CHANGES (sign-in settling, disconnect). Accounts-only:
+   with accounts off nothing is sent, keeping the no-database relay
+   byte-for-byte the step-2 behaviour. Pure relay bookkeeping —
+   never in the sim or lockstep path. */
+function onlineCount() {
+  const subs = new Set();
+  for (const c of conns) if (c.identity && !c.dead) subs.add(c.identity.sub);
+  return subs.size;
+}
+let lastOnlineSent = -1;
+function pushOnlineCount() {
+  if (!ACCOUNTS_ON) return;
+  const n = onlineCount();
+  if (n === lastOnlineSent) return;
+  lastOnlineSent = n;
+  for (const c of conns) if (c.identity && !c.dead) sendTo(c, { type: 'online', count: n });
 }
 
 /* The tag gate: with accounts on and a healthy database, a signed-in
@@ -744,6 +825,273 @@ function handleTagClaim(conn, o) {
     else sendTo(conn, { type: 'tag_error', msg: 'Accounts are unavailable right now — try again in a bit.' });
   });
 }
+
+/* ---------------- step 3: queue-match records + MMR + leaderboard ----
+ * Everything in this section runs OUTSIDE the simulation and the
+ * lockstep message path: reports travel client -> relay only, after
+ * the match has ended on the reporting client. With accounts off the
+ * section is inert — no matchIds are issued, no reports are solicited
+ * and any stray one is dropped — so the relay behaves like step 2.
+ *
+ * The agreement rule (spec section 4): honest clients compute the
+ * identical end table from the deterministic sim, so identical
+ * reports are the norm. A match is recorded RATED when one report
+ * shape collects at least floor(humans/2)+1 identical copies (both
+ * reports in a 2-human match, 2 of 3, 3 of 4). When every seat that
+ * can still report has either reported or been ruled out (its player
+ * converted to AI / the room ended) and no shape reached the bar —
+ * or when the settle timer below expires with at least one report in
+ * hand — the match is recorded UNRATED from the most-agreed report
+ * (ties: the first one received): stats kept, no MMR movement, no
+ * games_played credit. With zero reports there is nothing to record
+ * and the entry is simply dropped. */
+const MMR_K = 32;               /* flat K-factor for v1 (spec) */
+const MIN_GAMES_LEADERBOARD = 1; /* spec decision: 1 rated game to appear for now, 5 eventually (the step-3 brief calls this same constant LEADERBOARD_MIN_GAMES) */
+const REPORT_SETTLE_MS = parseInt(process.env.SQ_REPORT_SETTLE_MS || '20000', 10); /* backstop: finalise from whatever reports exist this long after the first */
+const ratedMatches = new Map(); /* matchId -> record (see registerRatedMatch) */
+const ratedByRoom = new Map();  /* room code -> record (seat-gone hooks find it) */
+let nextRatedId = 1;
+
+function registerRatedMatch(code, lineup, players) {
+  if (!ACCOUNTS_ON) return null;
+  const id = 'm' + (nextRatedId++) + '-' + crypto.randomBytes(4).toString('hex');
+  const rec = {
+    id, code,
+    lineup: { teamAnimals: lineup.teamAnimals.slice(), aiTeams: lineup.aiTeams.slice(), aiDifficulty: lineup.aiDifficulty || 'Normal' },
+    humans: players.map((p, seat) => ({ seat, sub: p.identity ? p.identity.sub : null, gone: false })),
+    reports: new Map(), /* sub -> { hash, report, at } */
+    finalized: false, settleTimer: null,
+  };
+  ratedMatches.set(id, rec);
+  ratedByRoom.set(code, rec);
+  return rec;
+}
+function dropRatedMatch(rec) {
+  if (rec.settleTimer) { clearTimeout(rec.settleTimer); rec.settleTimer = null; }
+  ratedMatches.delete(rec.id);
+  if (ratedByRoom.get(rec.code) === rec) ratedByRoom.delete(rec.code);
+}
+/* A seat whose player can no longer report (converted to AI at the
+   grace expiry, or a legacy seat whose grace ran out): rule it out
+   and re-evaluate — it may complete the "everyone who can report
+   has" condition for an unrated recording. */
+function noteRatedSeatGone(code, seat) {
+  const rec = ratedByRoom.get(code);
+  if (!rec || rec.finalized) return;
+  const h = rec.humans.find((x) => x.seat === seat);
+  if (h && !h.gone) { h.gone = true; evaluateRated(rec); }
+}
+function ratedMajority(rec) { return Math.floor(rec.humans.length / 2) + 1; }
+function ratedReportShape(report) {
+  /* Canonical shape for the agreement comparison: finishing order,
+     the frozen placements (seat keys in numeric order), and the
+     per-team stat lines. Values arrive already sanitised. */
+  const conv = {};
+  for (const k of Object.keys(report.conv).sort((a, b) => Number(a) - Number(b))) conv[k] = report.conv[k];
+  return JSON.stringify({ places: report.places, conv, stats: report.stats, dur: report.dur });
+}
+function sanitizeReport(o) {
+  if (!o || !Array.isArray(o.places) || o.places.length !== 4) return null;
+  const places = o.places.map((v) => (typeof v === 'number' && isFinite(v)) ? Math.round(v) : -1);
+  if (places.slice().sort((a, b) => a - b).join(',') !== '0,1,2,3') return null; /* must be a permutation of the four teams */
+  const num = (v) => (typeof v === 'number' && isFinite(v) && v >= 0) ? Math.min(Math.round(v), 1000000000) : 0;
+  const statsSrc = (o.stats && typeof o.stats === 'object') ? o.stats : {};
+  const stats = {};
+  for (let t = 0; t < 4; t++) {
+    const s = statsSrc[t] || statsSrc[String(t)] || {};
+    stats[t] = { dmg: num(s.dmg), cloudFactory: num(s.cloudFactory), cloudKill: num(s.cloudKill), bldBuilt: num(s.bldBuilt), bldDestroyed: num(s.bldDestroyed), planesProduced: num(s.planesProduced), planesLost: num(s.planesLost) };
+  }
+  const conv = {};
+  if (o.conv && typeof o.conv === 'object') {
+    for (const k of Object.keys(o.conv)) {
+      const seat = Number(k), place = (typeof o.conv[k] === 'number' && isFinite(o.conv[k])) ? Math.round(o.conv[k]) : 0;
+      if ((seat === 0 || seat === 1 || seat === 2 || seat === 3) && place >= 1 && place <= 4) conv[seat] = place;
+    }
+  }
+  return { places, conv, stats, dur: num(o.dur) };
+}
+/* {type:'match_report', matchId, places, conv, stats, dur}: relay-
+   consumed, never forwarded. Only a verified identity the relay
+   itself seated in this queue match may report it, and only its
+   FIRST report counts — duplicates (a second tab, a retry, a forged
+   echo on another connection with the same identity) are ignored,
+   which is what makes recording idempotent. */
+function handleMatchReport(conn, o) {
+  if (!ACCOUNTS_ON || !conn.identity || typeof o.matchId !== 'string') return;
+  const rec = ratedMatches.get(o.matchId);
+  if (!rec || rec.finalized) return;
+  const me = rec.humans.find((h) => h.sub === conn.identity.sub);
+  if (!me) return; /* not a participant the relay seated */
+  if (rec.reports.has(me.sub)) return; /* first report wins */
+  const report = sanitizeReport(o);
+  if (!report) return;
+  rec.reports.set(me.sub, { hash: ratedReportShape(report), report, at: Date.now() });
+  if (!rec.settleTimer) {
+    rec.settleTimer = setTimeout(() => { rec.settleTimer = null; evaluateRated(rec, true); }, REPORT_SETTLE_MS);
+    if (rec.settleTimer.unref) rec.settleTimer.unref();
+  }
+  evaluateRated(rec, false);
+}
+function evaluateRated(rec, fromTimer) {
+  if (rec.finalized || !ratedMatches.has(rec.id)) return;
+  const need = ratedMajority(rec);
+  const byHash = new Map();
+  for (const entry of rec.reports.values()) {
+    const cur = byHash.get(entry.hash);
+    if (cur) cur.count++;
+    else byHash.set(entry.hash, { count: 1, report: entry.report, at: entry.at });
+  }
+  let best = null;
+  for (const v of byHash.values()) if (!best || v.count > best.count || (v.count === best.count && v.at < best.at)) best = v;
+  if (best && best.count >= need) { finalizeRated(rec, best.report, true); return; }
+  const everyoneIn = rec.humans.every((h) => h.gone || rec.reports.has(h.sub));
+  if (everyoneIn || (fromTimer && rec.reports.size > 0)) {
+    if (rec.reports.size > 0) finalizeRated(rec, best.report, false);
+    else dropRatedMatch(rec);
+  }
+}
+/* Placements as recorded: a converted player's FROZEN placement
+   (Option A — the AI's eventual finish never changes it); everyone
+   else's finishing place from the agreed report. */
+function recordedPlacements(rec, report) {
+  const place = {};
+  for (const h of rec.humans) {
+    if (Object.prototype.hasOwnProperty.call(report.conv, h.seat)) place[h.sub] = report.conv[h.seat];
+    else place[h.sub] = report.places.indexOf(h.seat) + 1;
+  }
+  return place;
+}
+/* Pairwise Elo among the humans only. AI seats hold no rating and
+   never enter a pair, so where an AI finished cannot move a human's
+   number. Deltas are summed over all pairs and rounded once. */
+function mmrDeltas(rec, place, before) {
+  const deltas = {};
+  for (const h of rec.humans) deltas[h.sub] = 0;
+  for (let i = 0; i < rec.humans.length; i++) {
+    for (let j = i + 1; j < rec.humans.length; j++) {
+      const a = rec.humans[i], b = rec.humans[j];
+      const ea = 1 / (1 + Math.pow(10, (before[b.sub] - before[a.sub]) / 400));
+      const sa = place[a.sub] < place[b.sub] ? 1 : (place[a.sub] > place[b.sub] ? 0 : 0.5);
+      deltas[a.sub] += MMR_K * (sa - ea);
+      deltas[b.sub] += MMR_K * ((1 - sa) - (1 - ea));
+    }
+  }
+  for (const h of rec.humans) deltas[h.sub] = Math.round(deltas[h.sub]);
+  return deltas;
+}
+/* The single recording write. RATED: one transaction inserts the
+   match + one match_players row per human and applies the MMR
+   deltas + games_played together — it all lands or none of it does.
+   Any database failure (including "the database died before this
+   match ended") records NOTHING and is never retried: a match whose
+   database is down at the end simply goes unrecorded. On success the
+   humans still connected are told their result for the end screen. */
+async function finalizeRated(rec, report, rated) {
+  if (rec.finalized) return;
+  rec.finalized = true;
+  if (rec.settleTimer) { clearTimeout(rec.settleTimer); rec.settleTimer = null; }
+  ratedMatches.delete(rec.id);
+  if (ratedByRoom.get(rec.code) === rec) ratedByRoom.delete(rec.code);
+  if (!dbPool || !(await ensureSchema())) { console.log('[relay] match ' + rec.id + ': not recorded (accounts database unavailable)'); return; }
+  const place = recordedPlacements(rec, report);
+  let client = null;
+  try {
+    client = await dbPool.connect();
+    await client.query('BEGIN');
+    const ins = await client.query('INSERT INTO matches (kind, lineup, rated) VALUES ($1, $2, $3) RETURNING id', ['queue', JSON.stringify(rec.lineup), rated]);
+    const matchId = ins.rows[0].id;
+    const before = {};
+    for (const h of rec.humans) {
+      await client.query('INSERT INTO players (sub) VALUES ($1) ON CONFLICT (sub) DO NOTHING', [h.sub]);
+      const r = await client.query('SELECT mmr FROM players WHERE sub = $1 FOR UPDATE', [h.sub]);
+      before[h.sub] = r.rows.length ? r.rows[0].mmr : 1000;
+    }
+    const deltas = rated ? mmrDeltas(rec, place, before) : {};
+    for (const h of rec.humans) {
+      const after = rated ? before[h.sub] + deltas[h.sub] : before[h.sub];
+      if (rated) await client.query('UPDATE players SET mmr = $2, games_played = games_played + 1, updated_at = now() WHERE sub = $1', [h.sub, after]);
+      await client.query('INSERT INTO match_players (match_id, sub, placement, stats, mmr_before, mmr_after, animal) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [matchId, h.sub, place[h.sub], JSON.stringify({ ...(report.stats[h.seat] || {}), dur: report.dur }), before[h.sub], after, rec.lineup.teamAnimals[h.seat] || null]);
+    }
+    await client.query('COMMIT');
+    console.log('[relay] match ' + rec.id + ' recorded ' + (rated ? 'RATED' : 'UNRATED') + ' as match #' + matchId + ' (' + rec.humans.map((h) => 'seat ' + h.seat + ' -> ' + place[h.sub]).join(', ') + ')');
+    for (const h of rec.humans) {
+      for (const c of conns) {
+        if (c.identity && c.identity.sub === h.sub && !c.dead) {
+          if (rated) sendTo(c, { type: 'match_result', matchId: rec.id, rated: true, mmrBefore: before[h.sub], mmrAfter: before[h.sub] + deltas[h.sub], delta: deltas[h.sub] });
+          else sendTo(c, { type: 'match_result', matchId: rec.id, rated: false });
+        }
+      }
+    }
+  } catch (e) {
+    try { if (client) await client.query('ROLLBACK'); } catch (e2) {}
+    console.log('[relay] match ' + rec.id + ': recording failed (' + e.message + ') — nothing recorded');
+  } finally { if (client) client.release(); }
+}
+
+/* ---------------- leaderboard page (step 3) ----------------
+ * GET /leaderboard: a plain read-only page in privacy.html's style.
+ * Gamertags only — never a sub, an email, or a Google name (the
+ * query does not even select them). DB trouble answers 503 with the
+ * same plain page saying the board is unavailable right now; the
+ * choice of 503 (over a 200 with an apology) is deliberate: the page
+ * is a live view of the database, and a 503 tells search engines and
+ * monitors "temporarily unavailable" instead of caching an apology
+ * as if it were the board. */
+function lbEscape(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function lbPage(title, inner) {
+  return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>Squadrons — ' + lbEscape(title) + '</title>\n<style>\n  body { background:#0d1522; color:#dbe6f5; font-family: Georgia, \'Times New Roman\', serif;\n         margin:0; padding:40px 20px 80px; line-height:1.65; }\n  main { max-width: 680px; margin: 0 auto; }\n  h1 { font-size: 30px; margin: 0 0 4px; color:#fff; }\n  h2 { font-size: 19px; margin: 30px 0 6px; color:#9fc2ee; }\n  .date { color:#8fa6c4; font-size: 14px; margin-bottom: 28px; }\n  a { color:#9fc2ee; }\n  p, li { font-size: 16px; }\n  table { border-collapse: collapse; width: 100%; margin-top: 10px; }\n  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #24344d; font-size: 16px; }\n  th { color:#9fc2ee; font-weight: normal; }\n  td.n, th.n { text-align: right; }\n</style>\n</head>\n<body>\n<main>\n' + inner + '\n</main>\n</body>\n</html>\n';
+}
+async function leaderboardHandler(req, res) {
+  const unavailable = (why) => {
+    res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(lbPage('Leaderboard', '<h1>Squadrons — Leaderboard</h1>\n<div class="date">Queue-match ratings</div>\n<p>The leaderboard is unavailable right now (' + lbEscape(why) + '). The game itself is unaffected — ratings live in the accounts database, and matches are only recorded while it is reachable.</p>\n<p><a href="/game.html">Back to the game</a></p>'));
+  };
+  if (!dbPool || !(await ensureSchema())) { unavailable('accounts database unreachable'); return; }
+  try {
+    const r = await dbPool.query(
+      'SELECT p.gamertag AS tag, p.mmr AS mmr, p.games_played AS games, ' +
+      '(SELECT COUNT(*)::int FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE mp.sub = p.sub AND mp.placement = 1 AND m.rated) AS wins ' +
+      'FROM players p WHERE p.gamertag IS NOT NULL AND p.games_played >= $1 ' +
+      'ORDER BY p.mmr DESC, p.games_played DESC, p.tag_lower ASC', [MIN_GAMES_LEADERBOARD]);
+    /* Per-animal table (amendment): RATED queue matches, HUMAN
+       participants only — match_players only ever holds humans, and
+       the animal column is the one the relay seated them on. AI
+       seats have no rows and so can never enter these numbers.
+       Placements are the recorded ones, so a converted player
+       counts at their frozen Option A placement. */
+    const ra = await dbPool.query(
+      'SELECT mp.animal AS animal, COUNT(*)::int AS games, ' +
+      'SUM(CASE WHEN mp.placement = 1 THEN 1 ELSE 0 END)::int AS wins, ' +
+      'SUM(CASE WHEN mp.placement <= 2 THEN 1 ELSE 0 END)::int AS top2 ' +
+      'FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE m.rated AND mp.animal IS NOT NULL GROUP BY mp.animal');
+    const byAnimal = {};
+    let totalPlayerGames = 0;
+    for (const row of ra.rows) { byAnimal[row.animal] = row; totalPlayerGames += row.games; }
+    const pct = (num, den) => den > 0 ? (Math.round((num / den) * 1000) / 10).toFixed(1) + '%' : '—';
+    let inner = '<h1>Squadrons — Leaderboard</h1>\n<div class="date">Queue-match ratings — everyone starts at 1000</div>\n';
+    inner += '<p>Players online: ' + onlineCount() + '</p>\n';
+    if (!r.rows.length) {
+      inner += '<p>No rated players yet. Finish a queue match and the first names land here.</p>';
+    } else {
+      inner += '<table>\n<tr><th class="n">#</th><th>Player</th><th class="n">Rating</th><th class="n">Rated games</th><th class="n">1st places</th></tr>\n';
+      r.rows.forEach((row, i) => { inner += '<tr><td class="n">' + (i + 1) + '</td><td>' + lbEscape(row.tag) + '</td><td class="n">' + row.mmr + '</td><td class="n">' + row.games + '</td><td class="n">' + row.wins + '</td></tr>\n'; });
+      inner += '</table>\n<p>Ratings move only in queue matches. Custom games and single player are never recorded.</p>\n';
+    }
+    inner += '<h2>Animal stats</h2>\n<p>Rated queue matches only, human players only — the AI seats are draft leftovers, so their results say nothing about an animal. In a perfectly balanced field each animal would win about 25% of its games and finish in the top two about 50% of the time; judge every rate against the games played beside it.</p>\n';
+    inner += '<table>\n<tr><th>Animal</th><th class="n">Games</th><th class="n">Pick rate</th><th class="n">Win rate</th><th class="n">Top-2 rate</th></tr>\n';
+    for (const a of ANIMALS) {
+      const row = byAnimal[a] || { games: 0, wins: 0, top2: 0 };
+      const label = a.charAt(0).toUpperCase() + a.slice(1);
+      inner += '<tr><td>' + label + '</td><td class="n">' + row.games + '</td><td class="n">' + pct(row.games, totalPlayerGames) + '</td><td class="n">' + pct(row.wins, row.games) + '</td><td class="n">' + pct(row.top2, row.games) + '</td></tr>\n';
+    }
+    inner += '</table>\n';
+    inner += '<p><a href="/game.html">Back to the game</a></p>';
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(lbPage('Leaderboard', inner));
+  } catch (e) { console.log('[relay] leaderboard query failed: ' + e.message); unavailable('accounts database unreachable'); }
+}
+
 
 /* ---------------- front door: queue + ready check + draft ----------------
  * The matcher is a small state machine over authenticated connections:
@@ -917,6 +1265,12 @@ function finishDraft(match) {
   for (let t = players.length; t < 4; t++) aiTeams.push(t);
   const lineup = { teamAnimals, aiTeams, aiDifficulty: 'Normal' };
   const code = newRoomCode();
+  /* Step 3: a QUEUE match is a rated-match candidate. The relay
+     registers it (accounts on only) and its id rides queue_start, so
+     the end-of-match reports quote an id the relay itself issued —
+     never one a client invented. Custom launches never register. */
+  const ratedRec = registerRatedMatch(code, lineup, players);
+  const ratedField = ratedRec ? { matchId: ratedRec.id } : {};
   if (players.length === 2) {
     /* Two humans keep the proven Stage B seating exactly: one host +
        one guest in the legacy room shape, so every pre-Stage-C flow
@@ -926,8 +1280,8 @@ function finishDraft(match) {
     rooms.set(code, { host: players[0], guest: players[1], started: true }); /* Fix E: a seated queue match is live — seat grace applies */
     players[0].role = 'host'; players[0].room = code;
     players[1].role = 'guest'; players[1].room = code;
-    sendTo(players[0], { type: 'queue_start', role: 'host', seat: 0, seats: 2, room: code, lineup });
-    sendTo(players[1], { type: 'queue_start', role: 'guest', seat: 1, seats: 2, room: code, lineup });
+    sendTo(players[0], { type: 'queue_start', role: 'host', seat: 0, seats: 2, room: code, lineup, ...ratedField });
+    sendTo(players[1], { type: 'queue_start', role: 'guest', seat: 1, seats: 2, room: code, lineup, ...ratedField });
   } else {
     /* Stage C: 3-4 humans get a seated room (see the Stage C room
        section above): seat i plays team i, traffic fans out, drops
@@ -936,7 +1290,7 @@ function finishDraft(match) {
     rooms.set(code, room);
     players.forEach((p, i) => {
       p.role = i === 0 ? 'host' : 'guest'; p.room = code; p.seat = i;
-      sendTo(p, { type: 'queue_start', role: p.role, seat: i, seats: players.length, room: code, lineup });
+      sendTo(p, { type: 'queue_start', role: p.role, seat: i, seats: players.length, room: code, lineup, ...ratedField });
     });
   }
   console.log('[relay] match ' + match.id + ': queue match seated in room ' + code + ' — lineup ' + teamAnimals.join('/') + ', AI teams ' + aiTeams.join(','));
@@ -983,6 +1337,7 @@ function routeMessage(conn, msg) {
   if (o.type === 'queue_join') { queueJoin(conn); return; }
   if (o.type === 'queue_leave') { queueLeave(conn); return; }
   if (o.type === 'tag_claim') { handleTagClaim(conn, o); return; }
+  if (o.type === 'match_report') { handleMatchReport(conn, o); return; }
   if (o.type === 'ready') { matchReady(conn); return; }
   if (o.type === 'draft_pick') { draftPick(conn, o); return; }
   if (!conn.role) {
