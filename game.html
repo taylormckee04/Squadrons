@@ -309,12 +309,13 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
         <button class="act" data-lup="range" style="--upg-color:#e78bfa"><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="range">Range</span><span class="bd" aria-hidden="true"></span><span class="bc" data-lupcost="range">-</span></button>
         <button class="act" data-lup="health" style="--upg-color:#54c7ff"><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="health">Health</span><span class="bd" aria-hidden="true"></span><span class="bc" data-lupcost="health">-</span></button>
         <button class="act" data-lup="walls" style="--upg-color:#ffd166" data-only="beaver" hidden><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="walls">Walls</span><span class="bd">Unlocks four additional walls</span><span class="bc" data-lupcost="walls">-</span></button>
-        <button class="act" data-lup="b2" style="--upg-color:#ff936b" data-only="beaver" hidden><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="b2">B2 Bomber</span><span class="bd">Unlocks B2 Bomber hangar upgrade</span><span class="bc" data-lupcost="b2">200 • 15s</span></button>
-        <button class="act" data-lup="tank" style="--upg-color:#55dc91" data-only="turtle" hidden><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="tank">Turtle Tank</span><span class="bd">Unlocks the Turtle Launcher Hangar upgrade for standard Hangars</span><span class="bc" data-lupcost="tank">250 • 15s</span></button>
-        <button class="act" data-lup="heavy" style="--upg-color:#54c7ff" data-only="hamster" hidden><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="heavy">Heavy Airframes</span><span class="bd">Unlocks the Blimp Hangar upgrade on hangars</span><span class="bc" data-lupcost="heavy">-</span></button>
-        <button class="act" data-lup="flying" style="--upg-color:#e78bfa" data-only="bunny" hidden><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="flying">Carrier Hangar</span><span class="bd">Unlocks the Carrier Hangar option on standard Hangars</span><span class="bc" data-lupcost="flying">200 • 15s</span></button>
-        <button class="act" data-lup="heli" style="--upg-color:#55dc91" data-only="otter" hidden><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="heli">Ottercopter</span><span class="bd">Unlocks the Ottercopter Hangar.</span><span class="bc" data-lupcost="heli">200 • 15s</span></button>
-        <button class="act" data-lup="wraith" style="--upg-color:#e78bfa" data-only="fox" hidden><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-lupname="wraith">Wraithwing</span><span class="bd">Unlocks the Wraith Hangar.</span><span class="bc" data-lupcost="wraith">200 • 15s</span></button>
+        <button class="act" id="labTransformBtn"><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" id="labTransformName">Transform Lab</span><span class="bd" id="labTransformDesc">Transform this lab into your animal's unique lab</span><span class="bc" id="labTransformCost">150 • 20s</span></button>
+      </div>
+      <div id="ulabUpgrades" hidden>
+        <button class="act" data-uup="damage" style="--upg-color:#ff936b"><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-uupname="damage">Damage</span><span class="bd">+10% damage per level — your unique plane only</span><span class="bc" data-uupcost="damage">-</span></button>
+        <button class="act" data-uup="speed" style="--upg-color:#55dc91"><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-uupname="speed">Speed</span><span class="bd">+10% speed per level — your unique plane only</span><span class="bc" data-uupcost="speed">-</span></button>
+        <button class="act" data-uup="range" style="--upg-color:#e78bfa"><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-uupname="range">Range</span><span class="bd">+10% range per level — your unique plane only</span><span class="bc" data-uupcost="range">-</span></button>
+        <button class="act" data-uup="health" style="--upg-color:#54c7ff"><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" data-uupname="health">Health</span><span class="bd">+10% health per level — your unique plane only</span><span class="bc" data-uupcost="health">-</span></button>
       </div>
       
       <div id="wallActions" hidden><button class="act" id="dismantleBtn"><span class="cico"><img class="cimg" alt=""><span class="cbadge"></span></span><span class="bn" id="dismantleName">Dismantle building</span><span class="bd" id="dismantleDesc">Remove this building and free its cloud pad</span><span class="bc">free</span></button></div>
@@ -610,7 +611,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = 'c60825dd83';
+  var LS_BUILD_ID = '2baabedab0';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -734,7 +735,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lsProject() {
     var planes = G.planes.slice().sort(function (a, b) { return a.id - b.id; }).map(function (p) { return [p.id, p.team, p.kind || '', p.x, p.y, p.a, p.hp, p.alt || 0, p.cloaked ? 1 : 0, p.gone ? 1 : 0]; });
     var tub = G.tub.map(function (e) { return [e.team, e.p ? e.p.id : -1, e.t, e.tx, e.ty]; });
-    var teams = G.teams.map(function (t) { return { clouds: t.clouds, income: typeof t.income === 'number' ? t.income : 0, dead: t.dead ? 1 : 0, lab: t.lab, upg: t.upg }; });
+    var teams = G.teams.map(function (t) { return { clouds: t.clouds, income: typeof t.income === 'number' ? t.income : 0, dead: t.dead ? 1 : 0, lab: t.lab, ulab: t.ulab, upg: t.upg }; });
     var blds = G.blds.slice().sort(function (a, b) { return a.id - b.id; }).map(function (b) { return [b.id, b.type, b.team, b.x, b.y, b.hp, b.complete ? 1 : 0, b.buildT, b.upg && b.upg.choice ? b.upg.choice : '', b.stored ? b.stored.length : -1, b.dead ? 1 : 0]; });
     var pads = G.pads.slice().sort(function (a, b) { return a.id - b.id; }).map(function (p) { return [p.id, p.team, p.x, p.y, p.bld == null ? 0 : (typeof p.bld === 'object' ? p.bld.id : p.bld), p.t]; });
     return { tick: LS.tick, rng: SIMR.calls, t: G.t, nid: G.nid, planes: planes, tub: tub, teams: teams, blds: blds, pads: pads, ai: G.ai };
@@ -800,6 +801,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     else if (o.kind === 'hangarBasic') { var rH1 = chooseBasicHangar(mpFindBld(o.bldId), tm); done(!rH1, rH1); }
     else if (o.kind === 'hangarUp') { var rH2 = buyHangarUpgrade(mpFindBld(o.bldId), o.key, tm); done(!rH2, rH2); }
     else if (o.kind === 'labUp') { var rL = buyLabUpgrade(mpFindBld(o.bldId), o.key, tm); done(!rL, rL); }
+    else if (o.kind === 'ulabUp') { var rU = buyULabUpgrade(mpFindBld(o.bldId), o.key, tm); done(!rU, rU); }
+    else if (o.kind === 'labTransform') { var rTf = buyLabTransform(mpFindBld(o.bldId), tm); done(!rTf, rTf); }
     else if (o.kind === 'dismantle') {
       var db1 = mpFindBld(o.bldId);
       if (!db1 || db1.team !== tm || db1.type === 'base') done(false, 'Select one of your buildings first.');
@@ -1755,7 +1758,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           hitR = tb.type === 'base' ? 82 : (tb.type === 'hangar' || tb.type === 'thangar' || tb.type === 'flyinghangar' || tb.type === 'helihangar' || tb.type === 'wraithhangar' || tb.type === 'burrow') ? 70 : 58;
           if (td < hitR && td < cbd) { cbd = td; cb = tb; }
         }
-        if (cb) { G.selectedTurret = String(cb.id); note((cb.type === 'base' ? 'Main base' : cb.type === 'hangar' ? 'Hangar' : cb.type === 'lab' ? 'Innovation Lab' : 'Turret') + ' selected.'); }
+        if (cb) { G.selectedTurret = String(cb.id); note((cb.type === 'base' ? 'Main base' : cb.type === 'hangar' ? 'Hangar' : cb.type === 'lab' ? 'Innovation Lab' : cb.type === 'ulab' ? 'Unique Lab' : 'Turret') + ' selected.'); }
         else { G.selectedTurret = null; if (!d.shift) MP.guestSel = []; }
       }
       var sel = MP.guestSel, selMap2 = {};
@@ -2736,7 +2739,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   };
   var RKEYS = Object.keys(RACES);
   var BASECOST = { pad: 25, factory: 45, turret: 60, hangar: 90, lab: 120, wall: 40, field: 120, dock: 150, tube: 150, exit: 0, b2hangar: 150, thangar: 150, helihangar: 150, wraithhangar: 150, burrow: 150, accel: 150 };
-  var NAMES = { base: 'Squad Head Quarters', pad: 'Cloud Pad', factory: 'Cloud Factory', turret: 'Turret', hangar: 'Hangar', lab: 'Innovation Lab', wall: 'Beaver Wall', field: 'Force Field', dock: 'Repair Dock', tube: 'Tube Entrance', exit: 'Tube Exit', b2hangar: 'B2 Hangar', thangar: 'Turtle Launcher Hangar', flyinghangar: 'Carrier Hangar', helihangar: 'Ottercopter Hangar', wraithhangar: 'Wraith Hangar', burrow: 'Bunny Burrow', accel: 'Accelerator' };
+  var NAMES = { base: 'Squad Head Quarters', pad: 'Cloud Pad', factory: 'Cloud Factory', turret: 'Turret', hangar: 'Hangar', lab: 'Innovation Lab', ulab: 'Unique Lab', wall: 'Beaver Wall', field: 'Force Field', dock: 'Repair Dock', tube: 'Tube Entrance', exit: 'Tube Exit', b2hangar: 'B2 Hangar', thangar: 'Turtle Launcher Hangar', flyinghangar: 'Carrier Hangar', helihangar: 'Ottercopter Hangar', wraithhangar: 'Wraith Hangar', burrow: 'Bunny Burrow', accel: 'Accelerator' };
   var UP = { guns: { label: 'Guns', costs: [80, 160, 260] }, armor: { label: 'Armor', costs: [80, 160, 260] }, engines: { label: 'Engines', costs: [70, 140, 220] } };
   var TUP = { damage: { label: 'Damage', costs: [45, 75, 120], max: 3 }, range: { label: 'Range', costs: [45, 75, 120], max: 3 }, health: { label: 'Health', costs: [45, 75, 120], max: 3 }, weapon: { label: 'Guns', costs: [100, 180, 280], max: 3 } };
   // One animal-specific turret specialization per faction. These stats follow the Unique Items design sheet, with ranges/cooldowns tuned to the current game's scale.
@@ -2750,12 +2753,23 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   };
   var BUP = { armor: { label: 'Armor', costs: [80, 140, 220, 320, 450, 600], max: 6 }, regen: { label: 'Regeneration', costs: [70, 120, 190, 280, 390, 520], max: 6 }, turret: { label: 'Damage', costs: [90, 160, 240, 340, 460, 600], max: 6 }, range: { label: 'Range', costs: [90, 160, 240, 340, 460, 600], max: 6 } };
   var HUP = { production: { label: 'Production', costs: [70, 120, 190], max: 3 }, flying: { label: 'Carrier Hangar', costs: [150], max: 1 }, blimp: { label: 'Blimp Hangar', costs: [150], max: 1 }, b2: { label: 'B2 Hangar', costs: [150], max: 1 }, tank: { label: 'Turtle Launcher Hangar', costs: [150], max: 1 }, heli: { label: 'Ottercopter Hangar', costs: [150], max: 1 }, wraith: { label: 'Wraith Hangar', costs: [150], max: 1 } };
-  var LUP = { damage: { label: 'Damage', costs: [90, 150, 240], max: 3 }, speed: { label: 'Speed', costs: [80, 140, 220], max: 3 }, range: { label: 'Range', costs: [80, 140, 220], max: 3 }, health: { label: 'Health', costs: [90, 150, 240], max: 3 }, walls: { label: 'More Walls', costs: [100], max: 1 }, heavy: { label: 'Heavy Airframes', costs: [150], max: 1 }, flying: { label: 'Carrier Hangar', costs: [200], max: 1 }, b2: { label: 'B2 Bomber', costs: [200], max: 1 }, tank: { label: 'Turtle Tank', costs: [250], max: 1 }, heli: { label: 'Ottercopter', costs: [200], max: 1 }, wraith: { label: 'Wraithwing', costs: [200], max: 1 } };
-  var BLD = { base: { r: 80, hp: 1800, sc: 1.6, top: 60 }, factory: { r: 34, hp: 130, sc: 1.7, top: 30 }, turret: { r: 30, hp: 350, sc: 1.9, top: 14 }, hangar: { r: 40, hp: 350, sc: 1.6, top: 30 }, lab: { r: 42, hp: 200, sc: 1.55, top: 38 }, wall: { r: 70, hp: 2000, sc: 1.6, top: 26 }, field: { r: 34, hp: 600, sc: 1.7, top: 30 }, dock: { r: 36, hp: 300, sc: 1.6, top: 32 }, tube: { r: 34, hp: 200, sc: 1.7, top: 30 }, exit: { r: 30, hp: 200, sc: 1.7, top: 14 }, b2hangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, thangar: { r: 44, hp: 450, sc: 1.6, top: 34 }, flyinghangar: { r: 58, hp: 450, sc: 2.1, top: 35 }, helihangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, wraithhangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, burrow: { r: 42, hp: 450, sc: 1.55, top: 30 }, accel: { r: 36, hp: 450, sc: 1.6, top: 32 } };
+  var LUP = { damage: { label: 'Damage', costs: [90, 150, 240], max: 3 }, speed: { label: 'Speed', costs: [80, 140, 220], max: 3 }, range: { label: 'Range', costs: [80, 140, 220], max: 3 }, health: { label: 'Health', costs: [90, 150, 240], max: 3 }, walls: { label: 'More Walls', costs: [100], max: 1 } }; /* v132: Heavy Airframes REMOVED entirely (Taylor's ruling) — in v130 its only effect was gating the Blimp; v131 moved that gate to the living unique lab, leaving it a 150-cloud research that did nothing. */
+  /* v131 Lab redesign (LAB-REDESIGN-SPEC, decided by Taylor 2026-11-04): the five
+     unique-unlock researches are GONE. A plain Innovation Lab instead TRANSFORMS
+     (150 clouds, 20 s) into the team's unique lab; a living unique lab is the
+     gate for hangar unique transforms, and it hosts the unique stat lines below.
+     Levels are team knowledge on team.ulab; each level is +10% of the unique
+     plane's base stat, for that animal's unique plane only. */
+  var ULAB = { damage: { label: 'Damage', costs: [110, 180, 280], max: 3 }, health: { label: 'Health', costs: [110, 180, 280], max: 3 }, speed: { label: 'Speed', costs: [100, 170, 260], max: 3 }, range: { label: 'Range', costs: [100, 170, 260], max: 3 } };
+  var ULAB_NAME = { beaver: 'B2 Bomber Lab', fox: 'WraithLab', bunny: 'Carrier Lab', turtle: 'Tank Lab', otter: 'Ottercopter Lab', hamster: 'Blimp Lab' };
+  var LAB_TRANSFORM_COST = 150, LAB_TRANSFORM_TIME = 20;
+  function uMul(ti, key) { var t = G && G.teams[ti]; return 1 + 0.1 * ((t && t.ulab && t.ulab[key]) || 0); }
+  function hasULab(ti) { if (!G) return false; for (var i = 0; i < G.blds.length; i++) { var b = G.blds[i]; if (b.team === ti && b.type === 'ulab' && b.hp > 0 && b.complete) return true; } return false; }
+  var BLD = { base: { r: 80, hp: 1800, sc: 1.6, top: 60 }, factory: { r: 34, hp: 130, sc: 1.7, top: 30 }, turret: { r: 30, hp: 350, sc: 1.9, top: 14 }, hangar: { r: 40, hp: 350, sc: 1.6, top: 30 }, lab: { r: 42, hp: 200, sc: 1.55, top: 38 }, ulab: { r: 42, hp: 350, sc: 1.55, top: 40 }, wall: { r: 70, hp: 2000, sc: 1.6, top: 26 }, field: { r: 34, hp: 600, sc: 1.7, top: 30 }, dock: { r: 36, hp: 300, sc: 1.6, top: 32 }, tube: { r: 34, hp: 200, sc: 1.7, top: 30 }, exit: { r: 30, hp: 200, sc: 1.7, top: 14 }, b2hangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, thangar: { r: 44, hp: 450, sc: 1.6, top: 34 }, flyinghangar: { r: 58, hp: 450, sc: 2.1, top: 35 }, helihangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, wraithhangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, burrow: { r: 42, hp: 450, sc: 1.55, top: 30 }, accel: { r: 36, hp: 450, sc: 1.6, top: 32 } };
   var BTIME = { factory: 10, turret: 10, hangar: 20, lab: 20, wall: 10, field: 10, dock: 10, tube: 20, exit: 5, /* v90: Tube Exit 7 -> 5 s, per agreed sheet */ b2hangar: 20, helihangar: 20, wraithhangar: 20, burrow: 15, accel: 10 }, WALL_MAX = 4, ONLY = { wall: 'beaver', field: 'turtle', dock: 'otter', tube: 'hamster', exit: 'hamster', b2hangar: 'beaver', burrow: 'bunny', accel: 'fox' };
   var MU = 1.25, CAP = 80, RANGE = 130, AGGRO = 300, CRUISE = 24;
   // Turtle Tank (unique Turtle plane). spd is the 0.2 speed multiplier applied to the 150 base plane speed. cd is seconds between shots.
-  var TANK = { hp: 200, spd: 150 * 0.2, dmg: 50, cd: 4, range: 400, radius: 60, pop: 4, prod: 20, /* v90: prod 12 -> 20 s, Lv3 10 s */ sc: 1.7, barrel: 37 };
+  var TANK = { hp: 200, spd: 150 * 0.2, dmg: 50, cd: 1 / 0.35, /* v133: attack speed 0.25/s -> 0.35/s (a 50-dmg shell every ~2.857 s; 12.5 -> 17.5 DPS) — Taylor */ range: 400, radius: 60, pop: 4, prod: 20, /* v90: prod 12 -> 20 s, Lv3 10 s */ sc: 1.7, barrel: 37 };
   // Otter Ottercopter (unique Otter plane, v73; renamed v74). Fixed stats like the other specials:
   // minigun 2 dmg at 10/s inside 100; missiles 40 dmg splash (radius 50) at 0.4/s (v74, was
   // 0.5/s) inside 250 (v74, was 150), flown as visible projectiles at misSpeed units/s. prod = seconds per helicopter from a
@@ -3229,6 +3243,170 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     box(-22, -16, 20, 20.7, 3, 8, 'tank'), box(-10, -4, 20, 20.7, 3, 8, 'tank'), box(4, 10, 20, 20.7, 3, 8, 'tank'), box(16, 22, 20, 20.7, 3, 8, 'tank'),
     box(-33, -28, -8, 8, 0, 7, 'dark'), box(28, 33, -8, 8, 0, 7, 'dark')
   );
+  /* v131 unique lab — variant C "Dish Array" (Taylor's pick from
+     preview-unique-lab-v2.html): ONE shared silhouette for all six animals —
+     the lab hall on a flat metal deck, a wide comms dish that ROTATES (7 s
+     sweep, drawing-only: the angle comes from render time, never sim state),
+     two team-colour antenna fins, and a side annex wing whose sign panel
+     carries the animal's FLAT emblem (never a 3D plane model). Only the
+     emblem and the building name differ per animal. */
+  function css(c) { return 'rgb(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ')'; }
+  function cone(cx, cy, z0, z1, r0, r1, n, t) {
+    var out = [], i;
+    for (i = 0; i < n; i++) {
+      var a0 = i / n * TAU, a1 = (i + 1) / n * TAU;
+      out.push({ v: [[cx + r0 * Math.cos(a0), cy + r0 * Math.sin(a0), z0], [cx + r0 * Math.cos(a1), cy + r0 * Math.sin(a1), z0], [cx + r1 * Math.cos(a1), cy + r1 * Math.sin(a1), z1], [cx + r1 * Math.cos(a0), cy + r1 * Math.sin(a0), z1]], t: t });
+    }
+    return out;
+  }
+  var LAB_DISH = [].concat(
+    box(-28, 28, -20, 20, 0, 11, 'wall'), box(-30, 30, -22, 22, 11, 13, 'team'),
+    box(-22, -16, 20, 20.7, 3, 8, 'tank'), box(-10, -4, 20, 20.7, 3, 8, 'tank'), box(4, 10, 20, 20.7, 3, 8, 'tank'), box(16, 22, 20, 20.7, 3, 8, 'tank'),
+    box(-33, -28, -8, 8, 0, 7, 'dark'),
+    box(-26, 26, -18, 18, 13, 14.5, 'metal'),
+    prism(-10, -4, 5, 14.5, 20, 8, 'metal'),
+    box(17, 19.5, -15, -5, 13, 27, 'team'), box(17, 19.5, 5, 15, 13, 27, 'team'),
+    box(28, 42, -12, 12, 0, 8, 'wall'), box(26.5, 43.5, -13.5, 13.5, 8, 9.8, 'team'),
+    box(29.5, 30.9, 11.3, 12.3, 9.8, 12, 'dark'), box(39.1, 40.5, 11.3, 12.3, 9.8, 12, 'dark'),
+    box(26.8, 43.2, 11.0, 11.6, 11.4, 23.6, 'team'),
+    box(27.4, 42.6, 11.6, 12.7, 12, 23, 'dark')
+  );
+  // The rotating dish assembly, in dish-local units: origin on the rotation
+  // axis at the pedestal top (lab z 20). Bowl + glass rim + centre post + a
+  // feed arm with a team-colour tip, so the sweep is unmistakable as it turns.
+  var DISH_ROT = [].concat(
+    prism(0, 0, 5, 0, 1.2, 8, 'metal'),
+    cone(0, 0, 1.2, 6.5, 3.4, 16.5, 16, 'tank'),
+    prism(0, 0, 16.5, 6.5, 7.1, 24, 'glass'),
+    box(-0.9, 0.9, -0.9, 0.9, 6.5, 13, 'dark'),
+    box(0, 15.5, -0.75, 0.75, 11.2, 12.6, 'dark'),
+    box(13.8, 16.4, -1.05, 1.05, 10.9, 12.9, 'team'),
+    box(-1.7, 1.7, -1.7, 1.7, 13, 14.8, 'metal')
+  );
+  // ---- the six flat emblems (preview artwork, verbatim in substance) ----
+  function drawWraithGlyph(cx, cy, s, teamHex) {
+    function P(x, y) { return [cx + x * s, cy + y * s * SE]; }
+    function poly(pts, fill) {
+      ctx.fillStyle = fill; ctx.beginPath();
+      pts.forEach(function (p, i) { var q = P(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fill();
+    }
+    function oval(x, y, rx, ry, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.ellipse(cx + x * s, cy + y * s * SE, rx * s, ry * s * SE, 0, 0, TAU); ctx.fill(); }
+    var ti2;
+    for (ti2 = 0; ti2 < 3; ti2++) oval(-26 - ti2 * 9, 0, 7 - ti2 * 1.6, 3.4 - ti2 * 0.7, 'rgba(120,230,255,' + (0.26 - ti2 * 0.08) + ')');
+    poly([[6, -4], [-14, -21], [-20, -19], [-8, -3]], '#42525f');
+    poly([[6, 4], [-14, 21], [-20, 19], [-8, 3]], '#42525f');
+    poly([[-12, -20], [-20, -19], [-15, -13]], teamHex);
+    poly([[-12, 20], [-20, 19], [-15, 13]], teamHex);
+    poly([[-24, -9.5], [-10, -9.5], [-10, -6.1], [-24, -6.1]], '#2e3a44');
+    poly([[-24, 6.1], [-10, 6.1], [-10, 9.5], [-24, 9.5]], '#2e3a44');
+    oval(-24.5, -7.8, 2.1, 2.1, '#b46bff'); oval(-24.5, 7.8, 2.1, 2.1, '#b46bff');
+    poly([[27, 0], [8, -5.6], [-12, -4.6], [-16, 0], [-12, 4.6], [8, 5.6]], '#39434d');
+    oval(0, 0, 13, 3, teamHex);
+    oval(13, 0, 7.5, 4.6, '#bfe6f7');
+    oval(15.5, -1.4, 3, 1.6, 'rgba(255,255,255,.85)');
+    var ep = P(-17, 0), eg = ctx.createRadialGradient(ep[0], ep[1], 0, ep[0], ep[1], 9 * s);
+    eg.addColorStop(0, 'rgba(230,255,255,0.95)'); eg.addColorStop(0.4, 'rgba(120,230,255,0.75)'); eg.addColorStop(1, 'rgba(60,140,255,0)');
+    ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(ep[0], ep[1], 9 * s, 0, TAU); ctx.fill();
+  }
+  function drawB2Glyph(cx, cy, s, cols, teamHex) {
+    function P(x, y) { return [cx + x * s, cy + y * s * SE]; }
+    function poly(pts, fill) {
+      ctx.fillStyle = fill; ctx.beginPath();
+      pts.forEach(function (p, i) { var q = P(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fill();
+    }
+    function oval(x, y, rx, ry, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.ellipse(cx + x * s, cy + y * s * SE, rx * s, ry * s * SE, 0, 0, TAU); ctx.fill(); }
+    poly([[19, 0], [3, -6], [3, -34], [-5, -34], [-5, -7], [-16, -5.5], [-21, -5], [-26, -3], [-26, 3], [-21, 5], [-16, 5.5], [-5, 7], [-5, 34], [3, 34], [3, 6]], css(cols.wing));
+    poly([[3, -34], [-5, -34], [-5, -24], [3, -24]], teamHex);
+    poly([[3, 24], [-5, 24], [-5, 34], [3, 34]], teamHex);
+    poly([[19, 0], [2, -5.2], [-14, -4.6], [-21, -3], [-23, 0], [-21, 3], [-14, 4.6], [2, 5.2]], css(cols.body2));
+    oval(-13, 0, 4.5, 3.2, '#2e3a44');
+  }
+  function drawTankGlyph(cx, cy, s, cols) {
+    function P(x, y) { return [cx + x * s, cy + y * s * CE]; }
+    function poly(pts, fill) {
+      ctx.fillStyle = fill; ctx.beginPath();
+      pts.forEach(function (p, i) { var q = P(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fill();
+    }
+    function rect(x0, x1, y0, y1, fill) { poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], fill); }
+    function oval(x, y, rx, ry, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.ellipse(cx + x * s, cy + y * s * CE, rx * s, ry * s * CE, 0, 0, TAU); ctx.fill(); }
+    var body = css(cols.body), body2 = css(cols.body2), wing = css(cols.wing),
+      team = css(cols.team), dark = css(cols.dark), barrel = css(cols.barrel), metal = css(cols.metal);
+    rect(-9, 7, -25.5, -18, wing); rect(-9, 7, 18, 25.5, wing);
+    rect(-9, 7, -25.5, -22.5, team); rect(-9, 7, 22.5, 25.5, team);
+    poly([[-14, -3], [-31, -1.2], [-31, 1.2], [-14, 3]], team);
+    poly([[17, -5], [21, 0], [17, 5], [9, 11], [0, 13.5], [-11, 12], [-20, 7], [-24, 2.5], [-24, -2.5], [-20, -7], [-11, -12], [0, -13.5], [9, -11]], body);
+    poly([[17, -5], [21, 0], [17, 5], [9, 11], [0, 13.5], [-11, 12], [-20, 7], [-24, 2.5], [-24, -2.5]], body2);
+    rect(6, 36, -1.5, 1.5, barrel);
+    rect(29, 36.5, -2.6, 2.6, dark);
+    oval(0, 0, 8.2, 8.2, team);
+    oval(0, 0, 6.8, 6.8, metal);
+    oval(0, 0, 3, 3, dark);
+  }
+  function drawBlimpGlyph(cx, cy, s, cols, teamHex) {
+    function P(x, y) { return [cx + x * s, cy + y * s * SE]; }
+    function poly(pts, fill) {
+      ctx.fillStyle = fill; ctx.beginPath();
+      pts.forEach(function (p, i) { var q = P(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fill();
+    }
+    function oval(x, y, rx, ry, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.ellipse(cx + x * s, cy + y * s * SE, rx * s, ry * s * SE, 0, 0, TAU); ctx.fill(); }
+    poly([[-15, -2.5], [-25, -10.5], [-28.5, -9.5], [-21, -1.5]], css(cols.body2));
+    poly([[-15, 2.5], [-25, 10.5], [-28.5, 9.5], [-21, 1.5]], css(cols.body2));
+    poly([[-17, -0.9], [-28, -0.9], [-28, 0.9], [-17, 0.9]], css(cols.body2));
+    poly([[26, 0], [16, -5.5], [2, -8], [-12, -7], [-22, -3.5], [-26, 0], [-22, 3.5], [-12, 7], [2, 8], [16, 5.5]], css(cols.wing));
+    poly([[26, 0], [16, 5.5], [2, 8], [-12, 7], [-22, 3.5], [-26, 0]], css(cols.body));
+    poly([[26, 0], [20, -3.4], [20, 3.4]], teamHex);
+    oval(-1, 0, 7.5, 3.4, css(cols.dark));
+    oval(14, -2.5, 3.4, 1.4, 'rgba(255,255,255,0.5)');
+  }
+  function drawCarrierGlyph(cx, cy, s, cols, teamHex) {
+    function P(x, y) { return [cx + x * s, cy + y * s * SE]; }
+    function poly(pts, fill) {
+      ctx.fillStyle = fill; ctx.beginPath();
+      pts.forEach(function (p, i) { var q = P(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fill();
+    }
+    function rect(x0, x1, y0, y1, fill) { poly([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], fill); }
+    poly([[30, 0], [22, -7], [8, -10.5], [-16, -10.5], [-26, -7], [-28, 0], [-26, 7], [-16, 10.5], [8, 10.5], [22, 7]], css(cols.body2));
+    poly([[26, 0], [19, -5.5], [6, -8], [-14, -8], [-22, -5], [-24, 0], [-22, 5], [-14, 8], [6, 8], [19, 5.5]], css(cols.wing));
+    rect(2, 10, -13.5, -9, css(cols.body));
+    rect(2, 10, -13.5, -12.2, teamHex);
+    rect(-20, 22, -1.1, 1.1, teamHex);
+    poly([[30, 0], [24, -3.5], [24, 3.5]], teamHex);
+  }
+  function drawOttercopterGlyph(cx, cy, s, cols, teamHex) {
+    function P(x, y) { return [cx + x * s, cy + y * s * SE]; }
+    function poly(pts, fill) {
+      ctx.fillStyle = fill; ctx.beginPath();
+      pts.forEach(function (p, i) { var q = P(p[0], p[1]); if (i) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); });
+      ctx.closePath(); ctx.fill();
+    }
+    function oval(x, y, rx, ry, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.ellipse(cx + x * s, cy + y * s * SE, rx * s, ry * s * SE, 0, 0, TAU); ctx.fill(); }
+    oval(0, 0, 30, 30, 'rgba(200,230,245,0.20)');
+    poly([[-29, -1.3], [29, -1.3], [29, 1.3], [-29, 1.3]], 'rgba(60,75,88,0.55)');
+    poly([[-1.3, -29], [1.3, -29], [1.3, 29], [-1.3, 29]], 'rgba(60,75,88,0.55)');
+    poly([[25, -1.3], [29, -1.3], [29, 1.3], [25, 1.3]], teamHex);
+    poly([[-29, -1.3], [-25, -1.3], [-25, 1.3], [-29, 1.3]], teamHex);
+    poly([[-6, -2.6], [-27, -1.1], [-27, 1.1], [-6, 2.6]], css(cols.body2));
+    poly([[-27, -1.1], [-30, -6], [-31.5, -6], [-29, 0], [-31.5, 6], [-30, 6], [-27, 1.1]], css(cols.body));
+    oval(-29, 0, 1.7, 1.7, teamHex);
+    poly([[12, -7.6], [-8, -7.6], [-8, -6.7], [12, -6.7]], css(cols.dark));
+    poly([[12, 6.7], [-8, 6.7], [-8, 7.6], [12, 7.6]], css(cols.dark));
+    poly([[16, 0], [10, -4.6], [0, -5.6], [-8, -4.2], [-11, 0], [-8, 4.2], [0, 5.6], [10, 4.6]], css(cols.body));
+    oval(8.5, 0, 4.6, 3.1, '#bfe6f7');
+    oval(10, -1, 1.8, 1, 'rgba(255,255,255,0.85)');
+  }
+  function drawULabEmblem(race, cx, cy, s, cols, teamHex) {
+    if (race === 'fox') drawWraithGlyph(cx, cy, s, teamHex);
+    else if (race === 'beaver') drawB2Glyph(cx, cy, s, cols, teamHex);
+    else if (race === 'turtle') drawTankGlyph(cx, cy, s, cols);
+    else if (race === 'hamster') drawBlimpGlyph(cx, cy, s, cols, teamHex);
+    else if (race === 'bunny') drawCarrierGlyph(cx, cy, s, cols, teamHex);
+    else drawOttercopterGlyph(cx, cy, s, cols, teamHex);
+  }
   /* v91: hamster tube — translucent light-blue segmented tube like the reference toy:
      glass tube sections, pale coupling rings between sections, a dark rounded opening
      at the top, and small dark air holes on the tube wall. Footprint/HP/behaviour unchanged. */
@@ -3366,11 +3544,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
 
   // ---------- game setup ----------
-  function mkTeam(id, race) { return { id: id, race: race, dead: false, clouds: 100, upg: { guns: 0, armor: 0, engines: 0 }, lab: { damage: 0, speed: 0, range: 0, health: 0, walls: 0, heavy: 0, flying: 0, b2: 0, tank: 0, heli: 0, wraith: 0 }, spawnT: 0, income: 0, rr: 0, wave: 0, ms: msZero(), elimT: 0 }; }
+  function mkTeam(id, race) { return { id: id, race: race, dead: false, clouds: 100, upg: { guns: 0, armor: 0, engines: 0 }, lab: { damage: 0, speed: 0, range: 0, health: 0, walls: 0 }, ulab: { damage: 0, speed: 0, range: 0, health: 0 }, spawnT: 0, income: 0, rr: 0, wave: 0, ms: msZero(), elimT: 0 }; }
   function addBld(ti, type, x, y) {
     var hm = RACES[G.teams[ti].race].bhp || 1;
     var bmax = type === 'wall' ? 2000 : BLD[type].hp * hm; /* v90: Beaver Wall 3000 -> 2000 */
-    var b = { id: G.nid++, team: ti, type: type, x: x, y: y, hp: bmax, max: bmax, baseMax: bmax, cd: 0, a: ti === 0 ? -0.8 : 2.3, flash: 0, puffT: fxRandom(), pad: null, upg: type === 'turret' ? { damage: 0, range: 0, health: 0, weapon: 0, special: false, choice: null } : type === 'base' ? { armor: 0, regen: 0, turret: 0, range: 0 } : type === 'lab' ? { damage: 0, speed: 0, range: 0, health: 0 } : (type === 'hangar' || type === 'b2hangar' || type === 'thangar' || type === 'flyinghangar' || type === 'helihangar' || type === 'wraithhangar') ? { production: 0, blimp: 0, choice: type === 'hangar' ? null : 'unique' } : type === 'burrow' ? { production: 0, blimp: 0, choice: 'unique', turret: 0, damage: 0, range: 0, health: 0, weapon: 0, special: false } : null, buildT: 0, buildTotal: 1, complete: true, shot: 0, laser: null, dead: false, hurtT: 0, conv: null, convT: 0, turretJob: null, upgradeJob: null };
+    var b = { id: G.nid++, team: ti, type: type, x: x, y: y, hp: bmax, max: bmax, baseMax: bmax, cd: 0, a: ti === 0 ? -0.8 : 2.3, flash: 0, puffT: fxRandom(), pad: null, upg: type === 'turret' ? { damage: 0, range: 0, health: 0, weapon: 0, special: false, choice: null } : type === 'base' ? { armor: 0, regen: 0, turret: 0, range: 0 } : (type === 'lab' || type === 'ulab') ? { damage: 0, speed: 0, range: 0, health: 0 } : (type === 'hangar' || type === 'b2hangar' || type === 'thangar' || type === 'flyinghangar' || type === 'helihangar' || type === 'wraithhangar') ? { production: 0, blimp: 0, choice: type === 'hangar' ? null : 'unique' } : type === 'burrow' ? { production: 0, blimp: 0, choice: 'unique', turret: 0, damage: 0, range: 0, health: 0, weapon: 0, special: false } : null, buildT: 0, buildTotal: 1, complete: true, shot: 0, laser: null, dead: false, hurtT: 0, conv: null, convT: 0, turretJob: null, upgradeJob: null };
     G.blds.push(b); return b;
   }
   function addPad(ti, x, y) { var p = { id: G.nid++, team: ti, x: x, y: y, r: PAD_R, bld: null, t: 0, seed: fxRandom() * TAU }; G.pads.push(p); return p; }
@@ -3379,7 +3557,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var st = stats(ti);
     var px = (x === undefined ? base.x : x) + (simRandom() - 0.5) * 30;
     var py = (y === undefined ? base.y + 90 : y) + (simRandom() - 0.5) * 20;
-    var isB2 = kind === 'b2', isTank = kind === 'tank', isHeli = kind === 'heli', isWraith = kind === 'wraith', hp0 = isB2 ? 400 : /* v90: B2 HP 600 -> 400 */ isTank ? TANK.hp : isHeli ? HELI.hp : isWraith ? WRAITH.hp : st.max;
+    var isB2 = kind === 'b2', isTank = kind === 'tank', isHeli = kind === 'heli', isWraith = kind === 'wraith', hp0 = isB2 ? 400 * uMul(ti, 'health') : /* v90: B2 HP 600 -> 400 */ isTank ? TANK.hp * uMul(ti, 'health') : isHeli ? HELI.hp * uMul(ti, 'health') : isWraith ? WRAITH.hp * uMul(ti, 'health') : st.max; /* v131: unique Health line scales unique-plane spawn HP */
     G.planes.push({ id: G.nid++, team: ti, x: px, y: py, a: ti === 0 ? -0.6 : 2.5, hp: hp0, max: hp0, dest: null, cd: simRandom() * 0.4, bombCd: 0.5, gunCd: 0.1, sel: false, alt: 2, bank: 0, orbit: null, kind: kind || null, tur: ti === 0 ? -0.6 : 2.5, recoil: 0, mgCd: 0, misCd: 0, mgFlash: 0, misSide: false, cloakT: 0, cloaked: false, cloakFade: 0, laserFlash: 0 });
     msAdd(ti, 'planesProduced', 1);
   }
@@ -3575,7 +3753,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (b.turretJob) return 'Wait for the current turret upgrade to finish.';
     if (b.upg.special || b.upg.choice) return 'This turret has already chosen its weapon type.';
     var race = G.teams[ti].race, cfg = SPECIAL_TURRETS[race];
-    if (!G.blds.some(function (x) { return x.team === ti && x.type === 'lab' && x.hp > 0 && x.complete; })) return 'Build an Innovation Lab before installing a special turret.';
+    if (!G.blds.some(function (x) { return x.team === ti && (x.type === 'lab' || x.type === 'ulab') && x.hp > 0 && x.complete; })) return 'Build an Innovation Lab before installing a special turret.';
     if (G.teams[ti].clouds < cfg.cost) return 'Not enough clouds yet.';
     G.teams[ti].clouds -= cfg.cost; b.turretJob = { key: 'special', t: 10, total: 10, cost: cfg.cost }; return null;
   }
@@ -3629,12 +3807,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (b.type !== 'hangar') return 'This Hangar is already upgraded.';
     if (b.upg.choice) return 'This Hangar has already chosen its type.';
     if (HANGAR_UNIQUE[t0.race] !== key) return 'Your animal has no such Hangar.';
-    if (key === 'blimp' && !t0.lab.heavy) return 'Research Heavy Airframes in the Innovation Lab first.';
-    if (key === 'b2' && !t0.lab.b2) return 'Research the B2 Bomber in the Innovation Lab first.';
-    if (key === 'tank' && !t0.lab.tank) return 'Research the Turtle Tank in the Innovation Lab first.';
-    if (key === 'flying' && !t0.lab.flying) return 'Research the Flying Hangar in the Innovation Lab first.';
-    if (key === 'heli' && !t0.lab.heli) return 'Research the Ottercopter in the Innovation Lab first.';
-    if (key === 'wraith' && !t0.lab.wraith) return 'Research the Wraithwing in the Innovation Lab first.';
+    if (!hasULab(ti)) return 'Transform an Innovation Lab into your ' + ULAB_NAME[t0.race] + ' first.'; /* v131: the gate is a living unique lab, for every animal (Hamster/Blimp included) */
     var c = HUP[key].costs[0]; if (t0.clouds < c) return 'Not enough clouds yet.';
     t0.clouds -= c; b.upg.choice = 'unique';
         b.transform = { key: key, t: 20, total: 20 }; b.cd = 0; return null;
@@ -3644,15 +3817,40 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (ti === undefined) ti = b ? b.team : 0;
     if (!b || b.type !== 'lab' || b.team !== ti) return 'Select your Innovation Lab first.';
     var lv = G.teams[ti].lab[key], cfg = LUP[key];
-    if (key === 'tank' && G.teams[ti].race !== 'turtle') return 'Only Turtles can build Turtle Tanks.';
-    if (key === 'flying' && G.teams[ti].race !== 'bunny') return 'Only Bunnies can research the Flying Hangar.';
-    if (key === 'heli' && G.teams[ti].race !== 'otter') return 'Only Otters can build Ottercopters.';
-    if (key === 'wraith' && G.teams[ti].race !== 'fox') return 'Only Foxes can build Wraithwings.';
+    if (!cfg) return 'That research is no longer available.'; /* v131: the five unique-unlock researches were removed */
     if (lv >= cfg.max) return 'That lab upgrade is maxed.';
     var c = cfg.costs[lv]; if (G.teams[ti].clouds < c) return 'Not enough clouds yet.';
+    if (b.transform) return 'This lab is busy transforming.';
     if (b.res) return 'This lab is busy researching. Build another lab to research in parallel.';
     if (G.blds.some(function (x) { return x.team === ti && x.type === 'lab' && x.res && x.res.key === key; })) return 'That upgrade is already being researched.';
     G.teams[ti].clouds -= c; b.res = { key: key, t: LAB_TIME }; return null;
+  }
+  /* v131: transform a completed, IDLE Innovation Lab into the team's unique lab
+     (150 clouds, 20 s; HP semantics on completion mirror hangar transforms). */
+  function buyLabTransform(b, ti) {
+    if (ti === undefined) ti = b ? b.team : 0;
+    if (!b || b.type !== 'lab' || b.team !== ti) return 'Select your Innovation Lab first.';
+    if (!b.complete) return 'Wait for this Lab to finish building first.';
+    if (b.transform) return 'This Lab is already transforming.';
+    if (b.res) return 'This Lab is busy researching — it can transform once the research finishes.';
+    if (G.teams[ti].clouds < LAB_TRANSFORM_COST) return 'Not enough clouds yet.';
+    G.teams[ti].clouds -= LAB_TRANSFORM_COST;
+    b.transform = { key: 'ulab', t: LAB_TRANSFORM_TIME, total: LAB_TRANSFORM_TIME };
+    return null;
+  }
+  /* v131: the unique stat lines, researched at a unique lab only. Multiple
+     unique labs research in parallel (Taylor's ruling); levels live on
+     team.ulab, so they survive the building. */
+  function buyULabUpgrade(b, key, ti) {
+    if (ti === undefined) ti = b ? b.team : 0;
+    if (!b || b.type !== 'ulab' || b.team !== ti) return 'Select your unique lab first.';
+    var lv = G.teams[ti].ulab[key], cfg = ULAB[key];
+    if (!cfg) return 'Unknown research.';
+    if (lv >= cfg.max) return 'That unique upgrade is maxed.';
+    var c = cfg.costs[lv]; if (G.teams[ti].clouds < c) return 'Not enough clouds yet.';
+    if (b.res) return 'This lab is busy researching. Transform another lab to research in parallel.';
+    if (G.blds.some(function (x) { return x.team === ti && x.type === 'ulab' && x.res && x.res.key === key; })) return 'That upgrade is already being researched.';
+    G.teams[ti].clouds -= c; b.res = { key: key, t: LAB_TIME, u: 1 }; return null;
   }
 
   // v71 Burrow rework: release stored planes, but only as many as fit under the
@@ -3908,8 +4106,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var wl = wallOnLine(mx, my, tgt.x, tgt.y);
     if (wl) { var we = wallEntry(mx, my, wl.x, wl.y, wl); G.parts.push({ kind: 'bullet', x: mx, y: my, z: mz, tx: we.x, ty: we.y, tz: 12, t: 0, life: Math.max(0.08, Math.hypot(we.x - mx, we.y - my) / 900), team: p.team }); G.parts.push({ kind: 'muzzle', x: mx, y: my, z: mz, a: ta, sa: ta, t: 0, life: 0.18, team: p.team, small: true }); return; }
     var msHpC = tgt.hp;
-    if (tgt.type) { tgt.hp -= 3; tgt.flash = 0.1; tgt.hurtT = 1.2; }
-    else tgt.hp -= 3 / G.st[tgt.team].armor;
+    var qd = 2 * uMul(p.team, 'damage'); /* v131: Carrier Damage line drives its own quad guns; v133: base 3 -> 2 per shot (30 -> 20 DPS) — Taylor, after the 15-Carrier Bunny loss */
+    if (tgt.type) { tgt.hp -= qd; tgt.flash = 0.1; tgt.hurtT = 1.2; }
+    else tgt.hp -= qd / G.st[tgt.team].armor;
     msHit(p.team, tgt, msHpC);
     Aud.at('quadShot', p.x, p.y, p.team);
     var dist = Math.hypot(tgt.x - mx, tgt.y - my);
@@ -3993,7 +4192,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (wl) { var we = wallEntry(p.x, p.y, tx, ty, wl); tx = we.x; ty = we.y; tz = 14; blocked = true; }
     var dist = Math.hypot(tx - mx, ty - my);
     G.parts.push({ kind: 'rocketFx', style: 'missile', x: mx, y: my, z: mz, x0: mx, y0: my, z0: mz, lx: tx, ly: ty, lz: tz, tgt: blocked ? null : tgt, src: p, t: 0,
-      life: Math.max(0.15, dist / HELI.misSpeed), team: p.team, dmg: HELI.misDmg, splash: HELI.misDmg, rad: HELI.splash, kb: 120, arc: Math.min(20, dist * 0.08), hx: 0, hy: 0, hz: 0, smk: 0 });
+      life: Math.max(0.15, dist / HELI.misSpeed), team: p.team, dmg: HELI.misDmg * uMul(p.team, 'damage'), splash: HELI.misDmg * uMul(p.team, 'damage'), rad: HELI.splash, kb: 120, arc: Math.min(20, dist * 0.08), hx: 0, hy: 0, hz: 0, smk: 0 });
     G.parts.push({ kind: 'muzzle', x: mx, y: my, z: mz, a: a, sa: a, t: 0, life: 0.18, team: p.team, small: true });
     for (i = 0; i < 4; i++) G.parts.push({ kind: 'smoke', x: mx, y: my, z: mz - 2, vx: (fxRandom() - 0.5) * 30, vy: (fxRandom() - 0.5) * 30, vz: 4 + fxRandom() * 10, t: 0, life: 0.5, r: 4 + fxRandom() * 3, fire: i < 2 });
     Aud.at('tshot', p.x, p.y, p.team);
@@ -4006,7 +4205,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (wl) { var we = wallEntry(p.x, p.y, tx, ty, wl); tx = we.x; ty = we.y; tz = 14; blocked = true; }
     var dist = Math.hypot(tx - mx, ty - my);
     G.parts.push({ kind: 'rocketFx', style: 'shell', x: mx, y: my, z: mz, x0: mx, y0: my, z0: mz, lx: tx, ly: ty, lz: tz, tgt: blocked ? null : tgt, src: p, t: 0,
-      life: Math.max(0.08, dist / 1500), team: p.team, dmg: TANK.dmg, splash: TANK.dmg, rad: TANK.radius, kb: 0, arc: 0, hx: 0, hy: 0, hz: 0, smk: 0 });
+      life: Math.max(0.08, dist / 1500), team: p.team, dmg: TANK.dmg * uMul(p.team, 'damage'), splash: TANK.dmg * uMul(p.team, 'damage'), rad: TANK.radius, kb: 0, arc: 0, hx: 0, hy: 0, hz: 0, smk: 0 });
     G.parts.push({ kind: 'muzzle', x: mx, y: my, z: mz, a: a, sa: Math.atan2(Math.sin(a) * SE, Math.cos(a)), t: 0, life: 0.22, team: p.team, small: false });
     Aud.at('tshot', p.x, p.y, p.team);
   }
@@ -4246,6 +4445,22 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           if (b.team === 0) { note(upgradeKey === 'special' ? SPECIAL_TURRETS[G.teams[0].race].name + ' installed!' : 'Turret upgrade complete: ' + TUP[upgradeKey].label + '.', false); Aud.at('upgrade', b.x, b.y, b.team); }
         }
       }
+      // v131: lab transform occupies the Innovation Lab for 20 seconds before
+      // it becomes the unique lab (HP: keep current, gain the difference to the
+      // new 350 max — exactly like hangar transforms).
+      if (b.type === 'lab' && b.transform) {
+        b.transform.t -= dt;
+        if (b.transform.t <= 0) {
+          var oldLabMax = b.max, hmLab = RACES[G.teams[b.team].race].bhp || 1;
+          b.type = 'ulab'; b.max = BLD.ulab.hp * hmLab; b.baseMax = b.max;
+          b.hp = Math.min(b.max, b.hp + Math.max(0, b.max - oldLabMax));
+          b.transform = null;
+          burst(b.x, b.y, 16); Aud.at('done', b.x, b.y, b.team);
+          if (b.team === 0) note('Lab transform complete. Your ' + ULAB_NAME[G.teams[b.team].race] + ' is ready.');
+        } else {
+          continue;
+        }
+      }
       // B2 conversion occupies the existing Hangar for 20 seconds before changing its type.
       if (b.type === 'hangar' && b.transform) {
         b.transform.t -= dt;
@@ -4284,9 +4499,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         }
         if (b.stored.length) b.stored.forEach(function(sp){ sp.hp=Math.min(sp.max,sp.hp+12*dt); });
       }
-      if (b.type === 'lab' && b.res) {
+      if ((b.type === 'lab' || b.type === 'ulab') && b.res) {
         b.res.t -= dt;
-        if (b.res.t <= 0) { G.teams[b.team].lab[b.res.key]++; G.st[b.team] = stats(b.team); if (b.team === 0) note(LUP[b.res.key].label + ' research complete.'); b.res = null; }
+        if (b.res.t <= 0) { if (b.res.u) { G.teams[b.team].ulab[b.res.key]++; if (b.team === 0) note(ULAB_NAME[G.teams[b.team].race] + ': ' + ULAB[b.res.key].label + ' research complete.'); } else { G.teams[b.team].lab[b.res.key]++; G.st[b.team] = stats(b.team); if (b.team === 0) note(LUP[b.res.key].label + ' research complete.'); } b.res = null; }
       }
       if (b.type === 'hangar' || b.type === 'b2hangar' || b.type === 'thangar' || b.type === 'flyinghangar' || b.type === 'helihangar' || b.type === 'wraithhangar') {
         var dCur = b.type === 'hangar' && b.upg.blimp ? (b.bt || 0) : (b.cd || 0), dDur = hangarDur(b);
@@ -4298,7 +4513,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       if (b.type === 'hangar' && b.upg.blimp) {
         b.bt = (b.bt || 0) + dt * (isGold(b) ? 3 : 1);
         var blDur = hangarDur(b);
-        if (b.bt >= blDur) { b.bt = Math.min(b.bt - blDur, blDur * 0.999); if (cnt[b.team] + 5 <= CAP) { var n1 = G.planes.length; spawnPlane(b.team, b.x, b.y + 34); if (G.planes.length > n1) { var bq = G.planes[G.planes.length - 1]; bq.kind = 'blimp'; bq.hp = bq.max = 600; cnt[b.team] += 5; } } }
+        if (b.bt >= blDur) { b.bt = Math.min(b.bt - blDur, blDur * 0.999); if (cnt[b.team] + 5 <= CAP) { var n1 = G.planes.length; spawnPlane(b.team, b.x, b.y + 34); if (G.planes.length > n1) { var bq = G.planes[G.planes.length - 1]; bq.kind = 'blimp'; bq.hp = bq.max = 600 * uMul(b.team, 'health'); /* v131: Blimp Health line */ cnt[b.team] += 5; } } }
       } else if (b.type === 'hangar') {
         b.cd += dt * (isGold(b) ? 3 : 1);
         var prod = hangarProd(b);
@@ -4312,7 +4527,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           if (G.planes.length > nb2) cnt[b.team] += 4;
         } else if (b.cd > b2Dur) b.cd = b2Dur;
       } else if (b.type === 'flyinghangar') {
-        b.cd += dt * (isGold(b) ? 3 : 1); var flyDur=hangarDur(b); if (b.cd >= flyDur && cnt[b.team] + 5 <= CAP) { b.cd = Math.max(0,b.cd-flyDur); var nfly=G.planes.length; spawnPlane(b.team,b.x,b.y+38,'carrier'); if(G.planes.length>nfly) { var carrier=G.planes[G.planes.length-1]; carrier.hp=carrier.max=700; /* v90: Carrier HP 900 -> 700 */ carrier.carrierCd=0; cnt[b.team]+=5; /* v90: Carrier pop 3 -> 5 */ } } else if (b.cd > flyDur) b.cd = flyDur;
+        b.cd += dt * (isGold(b) ? 3 : 1); var flyDur=hangarDur(b); if (b.cd >= flyDur && cnt[b.team] + 5 <= CAP) { b.cd = Math.max(0,b.cd-flyDur); var nfly=G.planes.length; spawnPlane(b.team,b.x,b.y+38,'carrier'); if(G.planes.length>nfly) { var carrier=G.planes[G.planes.length-1]; carrier.hp=carrier.max=700*uMul(b.team,'health'); /* v131: Carrier Health line (the Carrier itself) */ /* v90: Carrier HP 900 -> 700 */ carrier.carrierCd=0; cnt[b.team]+=5; /* v90: Carrier pop 3 -> 5 */ } } else if (b.cd > flyDur) b.cd = flyDur;
       } else if (b.type === 'thangar') {
         b.cd += dt * (isGold(b) ? 3 : 1);
         var tkDur = hangarDur(b);
@@ -4390,7 +4605,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       }
       if (tubeEnter(p)) continue;
       // v71 #17: the B2 entry below uses max: 600, aligned with the real 600 HP set in spawnPlane (was a dead 350).
-      var st = G.st[p.team]; if (p.kind === 'carrier') st = { spd: 70, dmg: 3, range: 200, armor: 1, max: 700 }; /* v82: carrier quad turret range 130 -> 200; v90: Carrier HP 900 -> 700 */ else if (p.kind === 'blimp') st = { spd: 45, dmg: 16, range: 100, armor: st.armor, max: 600 }; else if (p.kind === 'b2') st = { spd: 90, dmg: 0, range: 125, armor: 1, max: 400 }; /* v90: B2 HP 600 -> 400, rear-gun range 100 -> 125 */ else if (p.kind === 'tank') st = { spd: TANK.spd, dmg: TANK.dmg, range: TANK.range, armor: st.armor, max: TANK.hp }; else if (p.kind === 'heli') st = { spd: HELI.spd, dmg: 0, range: HELI.misRange, armor: 1, max: HELI.hp }; else if (p.kind === 'wraith') st = { spd: WRAITH.spd, dmg: WRAITH.dmg, range: WRAITH.range, armor: 1, max: WRAITH.hp };
+      var st = G.st[p.team]; if (p.kind === 'carrier') st = { spd: 70 * uMul(p.team, 'speed'), dmg: 2 * uMul(p.team, 'damage'), range: 200 * uMul(p.team, 'range'), armor: 1, max: 700 * uMul(p.team, 'health') }; /* v82: carrier quad turret range 130 -> 200; v90: Carrier HP 900 -> 700; v131: all four unique lines apply to the Carrier itself */ else if (p.kind === 'blimp') st = { spd: 45 * uMul(p.team, 'speed'), dmg: 16 * uMul(p.team, 'damage'), range: 100 * uMul(p.team, 'range'), armor: st.armor, max: 600 * uMul(p.team, 'health') }; else if (p.kind === 'b2') st = { spd: 90 * uMul(p.team, 'speed'), dmg: 0, range: 125 * uMul(p.team, 'range'), armor: 1, max: 400 * uMul(p.team, 'health') }; /* v90: B2 HP 600 -> 400, rear-gun range 100 -> 125 */ else if (p.kind === 'tank') st = { spd: TANK.spd * uMul(p.team, 'speed'), dmg: TANK.dmg * uMul(p.team, 'damage'), range: TANK.range * uMul(p.team, 'range'), armor: st.armor, max: TANK.hp * uMul(p.team, 'health') }; else if (p.kind === 'heli') st = { spd: HELI.spd * uMul(p.team, 'speed'), dmg: 0, range: HELI.misRange * uMul(p.team, 'range'), armor: 1, max: HELI.hp * uMul(p.team, 'health') }; else if (p.kind === 'wraith') st = { spd: WRAITH.spd * uMul(p.team, 'speed'), dmg: WRAITH.dmg * uMul(p.team, 'damage'), range: WRAITH.range * uMul(p.team, 'range'), armor: 1, max: WRAITH.hp * uMul(p.team, 'health') };
       // v77 Accelerator: timer ticks down here (accelTick refreshes it to 5 s
       // while the plane stands on an Accelerator tile). Speed/damage use a
       // copied st so the shared team stats are never mutated.
@@ -4436,7 +4651,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         dx = wpt.x - p.x; dy = wpt.y - p.y; wd = Math.hypot(dx, dy) || 1;
         if (dd < 14) { p.dest = null; p.orbit = { x: p.x, y: p.y, r: 70 + (p.id % 4) * 14, a: simRandom() * TAU }; }
         else { p.orbit = null; mvx = dx / wd * st.spd * (p.slowMul || 1) * dt; mvy = dy / wd * st.spd * (p.slowMul || 1) * dt; ta = Math.atan2(dy, dx); moving = true; }
-      } else if (best && bd > (p.kind === 'blimp' ? 75 : p.kind === 'tank' ? TANK.range * 0.85 : p.kind === 'heli' ? HELI.gunRange * 0.9 : p.kind === 'b2' && best.type ? 20 : st.range * 0.75)) {
+      } else if (best && bd > (p.kind === 'blimp' ? 75 : p.kind === 'tank' ? st.range * 0.85 : p.kind === 'heli' ? HELI.gunRange * uMul(p.team, 'range') * 0.9 : p.kind === 'b2' && best.type ? 20 : st.range * 0.75)) {
         p.orbit = null;
         var bx = best.x - p.x, by = best.y - p.y, bl = Math.hypot(bx, by) || 1;
         mvx = bx / bl * st.spd * 0.9 * (p.slowMul || 1) * dt; mvy = by / bl * st.spd * 0.9 * (p.slowMul || 1) * dt; ta = Math.atan2(by, bx); moving = true;
@@ -4490,12 +4705,12 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       }
       if (p.kind === 'b2') {
         p.gunCd = (p.gunCd || 0) - dt; p.bombCd = (p.bombCd || 0) - dt;
-        // Rear gunner: four 6-damage shots per second against any enemy unit/building within 125 units. (v90: range 100 -> 125)
+        // Rear gunner: four shots per second against any enemy unit/building within 125 units. (v90: range 100 -> 125; v132: the gun's 6 damage scales with the unique Damage line, like the bomb — Taylor)
         if (p.gunCd <= 0) {
-          var gunTarget = null, gunDist = 125.01;
+          var gunTarget = null, gunDist = st.range + 0.01; /* v131: rear-gun reach rides the B2 Range line */
           for (j = 0; j < planes.length; j++) { var gp = planes[j]; if (gp.team === p.team || gp.hp <= 0 || !canTarget(p.team, gp)) continue; var gd = Math.hypot(gp.x-p.x,gp.y-p.y); if (gd <= gunDist) { gunDist = gd; gunTarget = gp; } }
           for (j = 0; j < blds.length; j++) { var gb = blds[j]; if (gb.team === p.team || gb.hp <= 0 || (gb.type === 'wall' && gb.complete && wallProtected(gb))) continue; var gbd = Math.hypot(gb.x-p.x,gb.y-p.y); if (gbd <= gunDist) { gunDist = gbd; gunTarget = gb; } }
-          if (gunTarget) { p.gunCd = 0.25; hit(p, gunTarget, 6); G.parts.push({kind:'sniperBeam',x:p.x,y:p.y,tx:gunTarget.x,ty:gunTarget.y,t:0,life:0.10,team:p.team}); }
+          if (gunTarget) { p.gunCd = 0.25; hit(p, gunTarget, 6 * uMul(p.team, 'damage')); /* v132: Taylor ruled the B2 Damage line covers BOTH weapons — bomb and rear gun */ G.parts.push({kind:'sniperBeam',x:p.x,y:p.y,tx:gunTarget.x,ty:gunTarget.y,t:0,life:0.10,team:p.team}); }
         }
         // Bomb bay: one 100-damage bomb per second, with a 25-unit blast radius. (v90: bomb 200 -> 100)
         if (b2BombTarget && b2BombTarget.hp > 0 && p.bombCd <= 0 && Math.hypot(b2BombTarget.x-p.x,b2BombTarget.y-p.y) <= BLD[b2BombTarget.type].r + 25) {
@@ -4506,7 +4721,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           for (var bi = 0; bi < blds.length; bi++) {
             var blastB = blds[bi];
             if (blastB.team === p.team || blastB.hp <= 0 || (blastB.type === 'wall' && blastB.complete && wallProtected(blastB))) continue;
-            if (Math.hypot(blastB.x-b2BombTarget.x, blastB.y-b2BombTarget.y) <= 25) hit(p, blastB, 100);
+            if (Math.hypot(blastB.x-b2BombTarget.x, blastB.y-b2BombTarget.y) <= 25) hit(p, blastB, 100 * uMul(p.team, 'damage')); /* v131: B2 Damage line = bomb damage (v132: the rear gun scales with it too) */
           }
         }
       } else if (p.kind === 'tank') {
@@ -4515,13 +4730,13 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         if (p.tur === undefined) p.tur = p.a;
         p.tur += angDiff(p.tur, tkAim) * Math.min(1, dt * 7);
         p.recoil = Math.max(0, (p.recoil || 0) - dt * 5);
-        if (best && bd <= TANK.range && p.cd <= 0 && Math.abs(angDiff(p.tur, tkAim)) < 0.25) tankFire(p, best);
+        if (best && bd <= st.range && p.cd <= 0 && Math.abs(angDiff(p.tur, tkAim)) < 0.25) tankFire(p, best); /* v131: st.range carries the Tank Range line */
       } else if (p.kind === 'heli') {
         // v73: two independent weapons, each with its own cooldown and range. The
         // minigun reuses hit() (tracer bullet + sound paths); missiles are projectiles.
         p.mgCd = (p.mgCd || 0) - dt; p.misCd = (p.misCd || 0) - dt; p.mgFlash = Math.max(0, (p.mgFlash || 0) - dt);
-        var hGun = heliTarget(p, HELI.gunRange), hMis = hGun || heliTarget(p, HELI.misRange);
-        if (hGun && p.mgCd <= 0) { p.mgCd = HELI.gunCd; p.mgFlash = 0.07; hit(p, hGun, HELI.gunDmg); }
+        var hGun = heliTarget(p, HELI.gunRange * uMul(p.team, 'range')), hMis = hGun || heliTarget(p, HELI.misRange * uMul(p.team, 'range'));
+        if (hGun && p.mgCd <= 0) { p.mgCd = HELI.gunCd; p.mgFlash = 0.07; hit(p, hGun, HELI.gunDmg * uMul(p.team, 'damage')); }
         if (hMis && p.misCd <= 0) { p.misCd = HELI.misCd; launchHeliMissile(p, hMis); }
       } else if (p.kind === 'carrier') {
         // v81 quad turret: rotates to track its target (like the tank's
@@ -4540,9 +4755,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         // laserBolt visual. Firing is what reveals the Wraithwing: cloakT
         // resets, so it decloaks the moment it shoots. Its own target search
         // above is unaffected by its own cloak, as specced.
-        if (best && bd <= WRAITH.range && p.cd <= 0) {
+        if (best && bd <= st.range && p.cd <= 0) {
           p.cd = WRAITH.cd; p.cloakT = 0; p.laserFlash = 0.09;
-          hit(p, best, WRAITH.dmg);
+          hit(p, best, st.dmg); /* v131: st carries the Wraithwing Damage/Range lines */
           G.parts.push({ kind: 'laserBolt', x: p.x, y: p.y, z: (p.alt || 24) + 6, tx: best.x, ty: best.y, tz: zOf(best), t: 0, life: 0.09, team: p.team });
         }
       } else if (best && bd <= st.range && p.cd <= 0) { p.cd = p.kind === 'blimp' ? 0.25 : 0.45; if (p.kind === 'blimp') { p.fireAt = G.t; p.side = !p.side; } hit(p, best, st.dmg); }
@@ -4747,7 +4962,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       if (!eb || eb.hp <= 0) continue;
       var planes = 0;
       for (var pi = 0; pi < G.planes.length; pi++) if (G.planes[pi].team === ei && G.planes[pi].hp > 0) planes++;
-      var buildings = countType(ei, 'factory') + countType(ei, 'turret') + countType(ei, 'hangar') + countType(ei, 'lab');
+      var buildings = countType(ei, 'factory') + countType(ei, 'turret') + countType(ei, 'hangar') + countType(ei, 'lab') + countType(ei, 'ulab'); /* v131: unique labs count as labs */
       // v71 #8 (REVISED per Taylor): target the overall LEADER, scored from army +
       // HQ health + wealth — not simply the richest team.
       //   v70 formula: clouds*1 + planes*18 + buildings*35 + HQ%*500.
@@ -4779,15 +4994,15 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   // deliberately simple, deterministic and readable: once per AI second it
   // performs at most ONE advanced action, always keeping aiReserve() clouds in
   // hand so it never starves its basic build order. Priority order:
-  //   1. racial lab unlock research (then core research to Lv 2)
-  //   2. hangar transform to the racial unique (or Basic choice for fox/otter)
+  //   1. v131: transform a lab into the unique lab, then core research, then unique lines
+  //   2. hangar transform to the racial unique (needs a living unique lab)
   //   3. second hangar
   //   4. race special building (dock / tube+exit / burrow / walls / fields / accel)
   //   5. turret special (via the normal 10 s job, #10) or turret/HQ upgrades
   //   6. HQ building upgrades, then hangar production upgrades
   // (v86: reserve now comes from aiReserve(), i.e. the difficulty table above.)
   var AI_SPECIAL_BLD = { otter: 'dock', hamster: 'tube', bunny: 'burrow', beaver: 'wall', turtle: 'field', fox: 'accel' };
-  var AI_LAB_UNLOCK = { hamster: 'heavy', beaver: 'b2', turtle: 'tank', bunny: 'flying', otter: 'heli', fox: 'wraith' };
+  /* v131: AI_LAB_UNLOCK is gone with the unlock researches — the AI now transforms a lab instead (see aiAdvanced step 1). */
   function aiCountHangars(ti) { var n = 0, i; for (i = 0; i < G.blds.length; i++) if (G.blds[i].team === ti && isHangarType(G.blds[i].type) && G.blds[i].hp > 0) n++; return n; }
   function aiFind(ti, type, completeOnly) { for (var i = 0; i < G.blds.length; i++) { var b = G.blds[i]; if (b.team === ti && b.type === type && b.hp > 0 && (!completeOnly || b.complete)) return b; } return null; }
   // Build `type` for team ti on a free pad, or start a new pad (gold-seeking spot) if none.
@@ -4816,11 +5031,16 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     return false;
   }
   function aiResearchOrder(T) {
-    var o = [];
-    if (AI_LAB_UNLOCK[T.race] && !T.lab[AI_LAB_UNLOCK[T.race]]) o.push(AI_LAB_UNLOCK[T.race]);
-    o = o.concat(['damage', 'health', 'speed', 'range']);
-    if (T.race === 'beaver' && T.lab.b2 && !T.lab.walls) o.push('walls');
+    var o = ['damage', 'health', 'speed', 'range'];
+    if (T.race === 'beaver' && !T.lab.walls) o.push('walls');
     return o;
+  }
+  /* v131: the unique stat lines, bought at the unique lab after the team has
+     committed to its unique. Same caps pattern as the core lines. */
+  function aiNextUResearch(ti) {
+    var T = G.teams[ti], o = ['damage', 'health', 'speed', 'range'], i, key;
+    for (i = 0; i < o.length; i++) { key = o[i]; var cap = (G && G.difficulty === 'nightmare') ? 3 : 2; if (T.ulab[key] < cap) return { key: key, cost: ULAB[key].costs[T.ulab[key]] }; }
+    return null;
   }
   function aiNextResearch(ti) {
     var T = G.teams[ti], o = aiResearchOrder(T), i, key;
@@ -4901,11 +5121,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (targetTeam < 0) return false;
     var targetBase = baseOf(targetTeam); if (!targetBase) return false;
     if (targetBase.hp / targetBase.max < 0.5) return false; /* finisher HQ: keep HQ pressure */
-    var cands = G.blds.filter(function (b) { return b.team === targetTeam && b.complete && b.hp > 0 && (b.type === 'lab' || b.type === 'turret' || isHangarType(b.type)); });
+    var cands = G.blds.filter(function (b) { return b.team === targetTeam && b.complete && b.hp > 0 && (b.type === 'lab' || b.type === 'ulab' || b.type === 'turret' || isHangarType(b.type)); });
     if (!cands.length) return false;
     var tgt = null;
     if (prioMode === 'lab') {
-      cands.sort(function (a, b) { var pa = a.type === 'lab' ? 0 : (isHangarType(a.type) ? 1 : 2); var pb = b.type === 'lab' ? 0 : (isHangarType(b.type) ? 1 : 2); if (pa !== pb) return pa - pb; return (a.hp / a.max) - (b.hp / b.max); });
+      cands.sort(function (a, b) { var pa = (a.type === 'lab' || a.type === 'ulab') ? 0 : (isHangarType(a.type) ? 1 : 2); var pb = (b.type === 'lab' || b.type === 'ulab') ? 0 : (isHangarType(b.type) ? 1 : 2); if (pa !== pb) return pa - pb; return (a.hp / a.max) - (b.hp / b.max); });
       tgt = cands[0];
     } else {
       cands.sort(function (a, b) { return (a.hp / a.max) - (b.hp / b.max); });
@@ -4945,13 +5165,13 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     for (var bi = 0; bi < G.blds.length; bi++) {
       var b = G.blds[bi];
       if (b.team !== targetTeam || !b.complete || b.hp <= 0) continue;
-      if (b.type !== 'factory' && b.type !== 'lab') continue;
+      if (b.type !== 'factory' && b.type !== 'lab' && b.type !== 'ulab') continue;
       var def = 0, qi, q;
       for (qi = 0; qi < G.planes.length; qi++) { q = G.planes[qi]; if (q.team === targetTeam && q.hp > 0 && !(q.cloaked && !canTarget(ti, q)) && Math.hypot(q.x - b.x, q.y - b.y) < 700) def += 1; }
       for (var wi = 0; wi < G.blds.length; wi++) { var tb = G.blds[wi]; if (tb.team === targetTeam && tb.type === 'turret' && tb.hp > 0 && Math.hypot(tb.x - b.x, tb.y - b.y) < 700) def += 4; }
       if (Math.hypot(targetBase.x - b.x, targetBase.y - b.y) < 900) def += 8;
       if (def * (aiPersona(ti) === 'rush' ? 1.5 : 2) >= SIZE) continue; /* v129: rush animals snipe at 1.5:1; others must outnumber the local defence at least 2:1 */
-      var score = (b.type === 'lab' ? 30 : 20) - def * 2 - (b.hp / b.max) * 10;
+      var score = ((b.type === 'lab' || b.type === 'ulab') ? 30 : 20) - def * 2 - (b.hp / b.max) * 10;
       if (score > bestScore) { bestScore = score; best = b; }
     }
     if (!best) return false;
@@ -4969,22 +5189,31 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function aiAdvanced(ti) {
     var T = G.teams[ti], i, b, key;
     if (isStorm(ti) && countType(ti, 'factory') < 10) return false; /* v125: factories first, for real (Taylor) — research, transforms, extra hangars and special buildings ALL wait until 10 factories stand; the v120 gate only held step 6, and steps 1-5 were eating the factory money (Turtle/Beaver/Otter stalled at 2 factories in Taylor's game) */
-    // 1. Lab research: racial unlock first, then core tracks to Lv 2 (walls for beaver last).
+    // 1. v131 lab sequence: transform a lab into the unique lab when committing
+    //    to the unique (this replaces the removed unlock research, at the same
+    //    point in the build-out and for the same 150 the hangar path always
+    //    charged around), then basic research in any plain lab, then the
+    //    unique stat lines in the unique lab. Same costs and waits as the player.
     var lab = aiFind(ti, 'lab', true);
-    if (lab && !lab.res) {
+    var ulab = aiFind(ti, 'ulab', true);
+    if (!ulab && lab && !lab.res && !lab.transform && T.clouds >= LAB_TRANSFORM_COST + aiReserve() + 40) { if (!buyLabTransform(lab, ti)) return true; }
+    if (lab && !lab.res && !lab.transform) {
       var nr = aiNextResearch(ti);
       if (nr && T.clouds >= nr.cost + aiReserve() + 40) { if (!buyLabUpgrade(lab, nr.key, ti)) return true; }
     }
+    if (ulab && !ulab.res) {
+      var nur = aiNextUResearch(ti);
+      if (nur && T.clouds >= nur.cost + aiReserve() + 40) { if (!buyULabUpgrade(ulab, nur.key, ti)) return true; }
+    }
     // 2. Hangar choice / transform: transform one hangar to the racial unique once
-    //    its lab unlock is researched; races without a unique just choose Basic.
+    //    a unique lab stands (v131 gate); races without a unique just choose Basic.
     var hangars = G.blds.filter(function (x) { return x.team === ti && x.type === 'hangar' && x.hp > 0 && x.complete && !x.transform; });
     var hKey = HANGAR_UNIQUE[T.race];
     for (i = 0; i < hangars.length; i++) {
       b = hangars[i]; if (b.upg.choice) continue;
       if (hKey) {
-        var unlockKey = AI_LAB_UNLOCK[T.race];
-        if (unlockKey && T.lab[unlockKey] && T.clouds >= HUP[hKey].costs[0] + aiReserve()) { if (!buyHangarUpgrade(b, hKey, ti)) return true; }
-        // else: leave the choice open until the unlock lands (production waits, by design)
+        if (hasULab(ti) && T.clouds >= HUP[hKey].costs[0] + aiReserve()) { if (!buyHangarUpgrade(b, hKey, ti)) return true; }
+        // else: leave the choice open until a unique lab stands (production waits, by design)
       } else { if (!chooseBasicHangar(b, ti)) return true; }
     }
     // 3. Hangars. Other difficulties: second hangar once the economy is running (2+ factories).
@@ -5006,6 +5235,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     // the tick it appeared and research (150-250 a time) was never affordable —
     // priority 1 has to be able to save up, not just spend first.
     if (lab && aiNextResearch(ti)) return false;
+    if (ulab && aiNextUResearch(ti)) return false; /* v131: unique lines get the same savings protection */
     // 5. Turrets: first turret takes the racial special through the normal 10 s
     //    turretJob once a lab exists (#10); other turrets choose Basic and upgrade.
     var turrets = G.blds.filter(function (x) { return x.team === ti && x.type === 'turret' && x.hp > 0 && x.complete && !x.turretJob; });
@@ -5013,7 +5243,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     for (i = 0; i < turrets.length; i++) {
       b = turrets[i];
       if (!b.upg.choice && !b.upg.special) {
-        if (!hasSpecial && lab) { if (T.clouds >= SPECIAL_TURRETS[T.race].cost + aiReserve()) { if (!buySpecialTurret(b, ti)) return true; } }
+        if (!hasSpecial && (lab || ulab)) { if (T.clouds >= SPECIAL_TURRETS[T.race].cost + aiReserve()) { if (!buySpecialTurret(b, ti)) return true; } }
         else if (!chooseBasicTurret(b, ti)) return true;
       }
       if (b.upg.choice === 'basic' || b.upg.special) {
@@ -5075,9 +5305,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function aiSoftTargetStorm(ti, targetTeam) {
     var targetBase = targetTeam >= 0 ? baseOf(targetTeam) : null; if (!targetBase) return null;
     if (targetBase.hp / targetBase.max < 0.35) return targetBase;
-    var cands = G.blds.filter(function (b) { return b.team === targetTeam && b.complete && b.hp > 0 && (b.type === 'lab' || b.type === 'turret' || isHangarType(b.type)); });
+    var cands = G.blds.filter(function (b) { return b.team === targetTeam && b.complete && b.hp > 0 && (b.type === 'lab' || b.type === 'ulab' || b.type === 'turret' || isHangarType(b.type)); });
     if (!cands.length) return targetBase;
-    cands.sort(function (a, b) { var pa = a.type === 'lab' ? 0 : (isHangarType(a.type) ? 1 : 2); var pb = b.type === 'lab' ? 0 : (isHangarType(b.type) ? 1 : 2); if (pa !== pb) return pa - pb; return (a.hp / a.max) - (b.hp / b.max); });
+    cands.sort(function (a, b) { var pa = (a.type === 'lab' || a.type === 'ulab') ? 0 : (isHangarType(a.type) ? 1 : 2); var pb = (b.type === 'lab' || b.type === 'ulab') ? 0 : (isHangarType(b.type) ? 1 : 2); if (pa !== pb) return pa - pb; return (a.hp / a.max) - (b.hp / b.max); });
     return cands[0];
   }
   function aiTickTeam(dt, ti) {
@@ -5150,6 +5380,49 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(sx-size*.11,sy-h*.16,size*.22,h*.32);
     if (team !== null && team !== undefined) { ctx.strokeStyle = TEAMC[team]; ctx.globalAlpha = alpha*.75; ctx.lineWidth=3; ctx.setLineDash([9*cam.z,7*cam.z]); ctx.strokeRect(sx-size*.43,sy-h*.4,size*.86,h*.8); ctx.setLineDash([]); }
     ctx.globalAlpha = 1;
+  }
+  /* v133: unique-lab dish + emblem sprites. In v131/v132 the rotating dish
+     (70 faces) and the emblem glyph were re-projected / re-drawn on EVERY
+     frame for EVERY unique lab on screen — measured 1,384 canvas ops for a
+     standing unique lab vs 984 for a plain lab, and +92% frame cost with 8
+     in view. The dish now renders from cached offscreen sprites:
+     DISH_HEADINGS headings per team colour, rendered once each; the static
+     emblem is cached per team+race. Per frame these parts cost one
+     drawImage each. The feed-tip glow stays live, computed at the same
+     bucketed heading so the dot stays glued to the sprite's tip. Rendering
+     only — the sweep was already render-time state, never sim state. If a
+     sprite cannot be created, drawBld falls back to the v132 direct draws. */
+  var DISH_SPR = {}, EMB_SPR = {}, DISH_HEADINGS = 36, DISH_ZREF = 2, DISH_CW = 128, DISH_CH = 128, DISH_OX = 64, DISH_OY = 120, EMB_ZREF = 4, EMB_CW = 144;
+  function dishSprite(team, bucket, cols, sc) {
+    var per = DISH_SPR[team]; if (!per) { per = []; DISH_SPR[team] = per; }
+    if (per[bucket]) return per[bucket];
+    var sCtx = ctx, sVw = vw, sVh = vh, sCx = cam.x, sCy = cam.y, sCz = cam.z, spr = null;
+    try {
+      var oc = document.createElement('canvas'); oc.width = DISH_CW; oc.height = DISH_CH;
+      var octx = oc.getContext('2d'); if (!octx) return null;
+      ctx = octx; vw = 0; vh = 0; cam.x = 0; cam.y = 0; cam.z = DISH_ZREF;
+      octx.setTransform(1, 0, 0, 1, DISH_OX, DISH_OY);
+      drawFaces(DISH_ROT, 0, 0, 20 * sc, (bucket + 0.5) * TAU / DISH_HEADINGS, 0, sc, cols, 1, false);
+      spr = oc;
+    } catch (e) { spr = null; }
+    ctx = sCtx; vw = sVw; vh = sVh; cam.x = sCx; cam.y = sCy; cam.z = sCz;
+    if (spr) per[bucket] = spr;
+    return spr;
+  }
+  function embSprite(team, race, cols, teamHex) {
+    var key = team + ':' + race;
+    if (EMB_SPR[key]) return EMB_SPR[key];
+    var sCtx = ctx, spr = null;
+    try {
+      var oc = document.createElement('canvas'); oc.width = EMB_CW; oc.height = EMB_CW;
+      var octx = oc.getContext('2d'); if (!octx) return null;
+      ctx = octx;
+      drawULabEmblem(race, EMB_CW / 2, EMB_CW / 2, 0.26 * EMB_ZREF, cols, teamHex);
+      spr = oc;
+    } catch (e) { spr = null; }
+    ctx = sCtx;
+    if (spr) EMB_SPR[key] = spr;
+    return spr;
   }
   function drawBld(b, time, alpha) {
     var cols = G.cols[b.team], sc = BLD[b.type].sc;
@@ -5287,8 +5560,26 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         ctx.restore();
       }
     } else {
-      var m = b.type === 'base' ? BASEM : b.type === 'hangar' ? hangarModel(b.door || 0) : b.type === 'b2hangar' ? B2_HANGAR : b.type === 'thangar' ? thangarModel(b.door || 0) : b.type === 'lab' ? LAB : b.type === 'wall' ? WALL : b.type === 'field' ? FIELD : b.type === 'dock' ? DOCK : b.type === 'tube' ? TUBE : b.type === 'exit' ? TEXIT : b.type === 'b2hangar' ? hangarModel(b.door || 0) : FACTORY;
+      var m = b.type === 'base' ? BASEM : b.type === 'hangar' ? hangarModel(b.door || 0) : b.type === 'b2hangar' ? B2_HANGAR : b.type === 'thangar' ? thangarModel(b.door || 0) : b.type === 'lab' ? LAB : b.type === 'ulab' ? LAB_DISH : b.type === 'wall' ? WALL : b.type === 'field' ? FIELD : b.type === 'dock' ? DOCK : b.type === 'tube' ? TUBE : b.type === 'exit' ? TEXIT : b.type === 'b2hangar' ? hangarModel(b.door || 0) : FACTORY;
       drawFaces(m, b.x, b.y, 0, 0, 0, sc, cols, alpha, false);
+      if (b.type === 'ulab') {
+        // v131: the dish sweeps one full turn every 7 s of RENDER time (the
+        // `time` draw() passes in is wall-clock) — it is never sim state.
+        var uDang = (time * TAU / 7) % TAU, uDx = b.x - 10 * sc, uDy = b.y - 4 * sc;
+        var uBucket = Math.floor(uDang / TAU * DISH_HEADINGS) % DISH_HEADINGS, uDangB = (uBucket + 0.5) * TAU / DISH_HEADINGS;
+        var uSpr = dishSprite(b.team, uBucket, cols, sc), uDrew = false;
+        if (uSpr) { var uK = cam.z / DISH_ZREF; ctx.globalAlpha = alpha; ctx.drawImage(uSpr, px(uDx) - DISH_OX * uK, py(uDy, 20 * sc) - DISH_OY * uK, DISH_CW * uK, DISH_CH * uK); ctx.globalAlpha = 1; uDrew = true; }
+        if (!uDrew) drawFaces(DISH_ROT, uDx, uDy, 20 * sc, uDang, 0, sc, cols, alpha, false);
+        var uTp = modelPt(uDx, uDy, 20 * sc, uDrew ? uDangB : uDang, 0, sc, 15.1, 0, 11.9);
+        var uTg = ctx.createRadialGradient(uTp.x, uTp.y, 0, uTp.x, uTp.y, 7 * cam.z);
+        uTg.addColorStop(0, 'rgba(255,255,255,0.95)'); uTg.addColorStop(0.35, TEAMC[b.team]); uTg.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.globalAlpha = alpha; ctx.fillStyle = uTg; ctx.beginPath(); ctx.arc(uTp.x, uTp.y, 7 * cam.z, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(uTp.x, uTp.y, 1.8 * cam.z, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+        var uSg = modelPt(b.x, b.y, 0, 0, 0, sc, 35, 13.4, 17.5);
+        var uEmb = embSprite(b.team, G.teams[b.team].race, cols, TEAMC[b.team]);
+        if (uEmb) { var uEk = cam.z / EMB_ZREF; ctx.globalAlpha = alpha; ctx.drawImage(uEmb, uSg.x - EMB_CW / 2 * uEk, uSg.y - EMB_CW / 2 * uEk, EMB_CW * uEk, EMB_CW * uEk); ctx.globalAlpha = 1; }
+        else drawULabEmblem(G.teams[b.team].race, uSg.x, uSg.y, cam.z * 0.26, cols, TEAMC[b.team]);
+      }
       // Upgrade levels use compact tally markers instead of decorative circles.
       if (b.type === 'base') {
         var hx=px(b.x), hy=py(b.y,0), hz=cam.z;
@@ -5358,6 +5649,30 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
          ctx.globalAlpha=la; ctx.strokeStyle='#fff7a8'; ctx.lineWidth=8*cam.z; ctx.beginPath(); ctx.moveTo(ls.x,ls.y); ctx.lineTo(le.x,le.y); ctx.stroke();
          ctx.strokeStyle=TEAMC[b.team]; ctx.lineWidth=3*cam.z; ctx.beginPath(); ctx.moveTo(ls.x,ls.y); ctx.lineTo(le.x,le.y); ctx.stroke(); ctx.restore(); }
       if (b.type === 'base') { var bsx=px(b.x), bsy=py(b.y, BLD.base.top*BLD.base.sc+28); ctx.globalAlpha=alpha; ctx.fillStyle=TEAMC[b.team]; ctx.font='700 '+Math.round(13*cam.z)+'px "Nunito Sans",system-ui,sans-serif'; ctx.textAlign='center'; ctx.fillText(RACES[G.teams[b.team].race].name.toUpperCase(),bsx,bsy); ctx.globalAlpha=1; }
+      if (b.type === 'ulab') {
+        // v131: unique-lab research markers, same layout as the lab's, reading team.ulab.
+        var ux0=px(b.x), uy0=py(b.y,0), uz0=cam.z, uLv=G.teams[b.team].ulab||{};
+        var umarks=[
+          {v:uLv.damage||0,c:'#ff936b',x:-76,y:-62,kind:'bullet'},
+          {v:uLv.range||0,c:'#e78bfa',x:54,y:-62,kind:'range'},
+          {v:uLv.health||0,c:'#54c7ff',x:-76,y:40,kind:'heart'},
+          {v:uLv.speed||0,c:'#55dc91',x:54,y:40,kind:'triple'}
+        ];
+        ctx.save();ctx.globalAlpha=alpha;
+        umarks.forEach(function(mk){
+          if(!mk.v)return;
+          var bx=ux0+mk.x*uz0,by=uy0+mk.y*uz0,sz=22*uz0;
+          ctx.fillStyle=mk.c;ctx.fillRect(bx,by,sz,sz);
+          ctx.strokeStyle='rgba(8,18,30,.98)';ctx.lineWidth=Math.max(1,1.5*uz0);ctx.strokeRect(bx,by,sz,sz);
+          ctx.fillStyle='#08121e';ctx.textAlign='center';ctx.textBaseline='middle';
+          if(mk.kind==='bullet'){ctx.beginPath();ctx.ellipse(bx+7*uz0,by+7*uz0,2.4*uz0,4*uz0,-0.6,0,TAU);ctx.fill();}
+          else if(mk.kind==='range'){ctx.lineWidth=1.5*uz0;ctx.beginPath();ctx.arc(bx+7*uz0,by+7*uz0,5*uz0,0,TAU);ctx.strokeStyle='#08121e';ctx.stroke();ctx.beginPath();ctx.arc(bx+7*uz0,by+7*uz0,2.5*uz0,0,TAU);ctx.stroke();}
+          else if(mk.kind==='heart'){ctx.beginPath();ctx.moveTo(bx+7*uz0,by+11*uz0);ctx.bezierCurveTo(bx-1*uz0,by+5*uz0,bx+2*uz0,by, bx+7*uz0,by+4*uz0);ctx.bezierCurveTo(bx+12*uz0,by,by+5*uz0,bx+7*uz0,by+11*uz0);ctx.fill();}
+          else if(mk.kind==='triple'){[-4,2,8].forEach(function(dx){ctx.beginPath();ctx.ellipse(bx+(7+dx*.45)*uz0,by+(7-dx*.45)*uz0,2*uz0,3.5*uz0,-0.6,0,TAU);ctx.fill();});}
+          ctx.font='900 '+Math.max(8,10*uz0)+'px sans-serif';ctx.fillText(String(Math.min(6,mk.v)),bx+16*uz0,by+16*uz0);
+        });
+        ctx.restore();
+      }
       if (b.type === 'lab') { var lq2=modelPt(b.x,b.y,0,0,0,sc,0,0,30); ctx.globalAlpha=alpha; drawPilot(ctx,G.teams[b.team].race,lq2.x,lq2.y,8*sc*cam.z,TEAMC[b.team]); ctx.globalAlpha=1; }
     }
     if (b.type === 'thangar' && b.complete && b.hp > 0) {
@@ -5376,11 +5691,17 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       for (k2 = 0; k2 < 3; k2++) { var oa = time * 2.2 + k2 * TAU / 3; ctx.beginPath(); ctx.arc(lo.x + Math.cos(oa) * lr * 2.2, lo.y + Math.sin(oa) * lr * 0.9, 2.2 * cam.z, 0, TAU); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
-    if (b.type === 'lab' && b.complete && b.hp > 0 && b.res) {
-      var rbx = px(b.x), rby = py(b.y, BLD.lab.top * sc + 25), rbw = 54 * cam.z, rbh = Math.max(4, 6 * cam.z), rpr = clamp(1 - b.res.t / LAB_TIME, 0, 1);
+    if ((b.type === 'lab' || b.type === 'ulab') && b.complete && b.hp > 0 && b.res) {
+      var rbx = px(b.x), rby = py(b.y, BLD[b.type].top * sc + 25), rbw = 54 * cam.z, rbh = Math.max(4, 6 * cam.z), rpr = clamp(1 - b.res.t / LAB_TIME, 0, 1);
       ctx.globalAlpha = 0.95; ctx.fillStyle = 'rgba(18,39,58,0.78)'; ctx.fillRect(rbx - rbw / 2 - 2, rby - rbh / 2 - 2, rbw + 4, rbh + 4);
       ctx.fillStyle = '#f2c94c'; ctx.fillRect(rbx - rbw / 2, rby - rbh / 2, rbw * rpr, rbh);
       ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = Math.max(1, cam.z); ctx.strokeRect(rbx - rbw / 2, rby - rbh / 2, rbw, rbh); ctx.globalAlpha = 1;
+    }
+    if (b.type === 'lab' && b.complete && b.hp > 0 && b.transform) {
+      var tbx2 = px(b.x), tby2 = py(b.y, BLD.lab.top * sc + 25), tbw2 = 54 * cam.z, tbh2 = Math.max(4, 6 * cam.z), tpr2 = clamp(1 - b.transform.t / (b.transform.total || LAB_TRANSFORM_TIME), 0, 1);
+      ctx.globalAlpha = 0.95; ctx.fillStyle = 'rgba(18,39,58,0.78)'; ctx.fillRect(tbx2 - tbw2 / 2 - 2, tby2 - tbh2 / 2 - 2, tbw2 + 4, tbh2 + 4);
+      ctx.fillStyle = '#f2c94c'; ctx.fillRect(tbx2 - tbw2 / 2, tby2 - tbh2 / 2, tbw2 * tpr2, tbh2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = Math.max(1, cam.z); ctx.strokeRect(tbx2 - tbw2 / 2, tby2 - tbh2 / 2, tbw2, tbh2); ctx.globalAlpha = 1;
     }
     if (b.type === 'dock' && b.complete && b.hp > 0) {
       var dsz = CELL * 3 * cam.z, dgx = px(b.x), dgy = py(b.y, 0), dk, dq, hitAny = false;
@@ -5416,7 +5737,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       ctx.strokeRect(barX - barW / 2, barY - barH / 2, barW, barH);
       ctx.globalAlpha = 1;
     }
-    if (b.type === 'field' && b.complete) { var fs = CELL * 3 * cam.z, fx = px(b.x), fy = py(b.y, 0); ctx.globalAlpha = 0.12 + 0.05 * Math.sin(time * 3); ctx.fillStyle = TEAMC[b.team]; ctx.fillRect(fx - fs / 2, fy - fs * SE / 2, fs, fs * SE); ctx.globalAlpha = 0.5; ctx.strokeStyle = TEAMC[b.team]; ctx.lineWidth = 2; ctx.setLineDash([10, 6]); ctx.strokeRect(fx - fs / 2, fy - fs * SE / 2, fs, fs * SE); ctx.setLineDash([]); ctx.globalAlpha = 1; }
+    if (b.type === 'field' && b.complete && !ICON_RENDER) { var fs = CELL * 3 * cam.z, fx = px(b.x), fy = py(b.y, 0); ctx.globalAlpha = 0.12 + 0.05 * Math.sin(time * 3); ctx.fillStyle = TEAMC[b.team]; ctx.fillRect(fx - fs / 2, fy - fs * SE / 2, fs, fs * SE); ctx.globalAlpha = 0.5; ctx.strokeStyle = TEAMC[b.team]; ctx.lineWidth = 2; ctx.setLineDash([10, 6]); ctx.strokeRect(fx - fs / 2, fy - fs * SE / 2, fs, fs * SE); ctx.setLineDash([]); ctx.globalAlpha = 1; }
     if (b.type === 'accel' && b.complete) { var asz = CELL * cam.z, asx = px(b.x), asy = py(b.y, 0); ctx.globalAlpha = 0.10 + 0.04 * Math.sin(time * 3); ctx.fillStyle = '#ffd166'; ctx.fillRect(asx - asz / 2, asy - asz * SE / 2, asz, asz * SE); ctx.globalAlpha = 0.6; ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2; ctx.setLineDash([10, 6]); ctx.strokeRect(asx - asz / 2, asy - asz * SE / 2, asz, asz * SE); ctx.setLineDash([]); ctx.globalAlpha = 1; }
     if (b.type === 'dock' && b.complete && b.conv && b.convT > 0) { ctx.strokeStyle = TEAMC[b.team]; ctx.lineWidth = 3; ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.moveTo(px(b.x), py(b.y, 30)); ctx.lineTo(px(b.conv.x), py(b.conv.y, 30)); ctx.stroke(); ctx.globalAlpha = 1; ctx.fillStyle = TEAMC[b.team]; ctx.fillRect(px(b.x) - 24, py(b.y, BLD.dock.top * BLD.dock.sc + 14) - 18, 48 * clamp(b.convT / 5, 0, 1), 5); }
     if (building) {
@@ -5451,6 +5772,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      team-coloured silhouette and is recorded as method 'fallback' — never an
      emoji, and never claimed as a direct render. */
   var BLD_ICON_CACHE = {}, BLD_ICON_RACE = null, BLD_ICON_CACHES = {}; /* v107: per-race caches, keyed by race */
+  var ICON_RENDER = false; /* v133: true while renderBldIcon draws a menu portrait, so world-only overlays (the Force Field's 3x3 shield wash) stay out of the portrait — in v132 the wash filled the whole 256px icon render, defeated the content crop, and shrank the field's portrait to ~29px wide vs 93-136px for its siblings */
   function bldIconSpec(key, race) {
     if (key === 'turretSpecial') return { type: 'turret', special: true, race: race };
     if (key === 'hangarUnique') {
@@ -5464,7 +5786,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     return { type: key };
   }
   function renderBldIcon(key, race) {
-    var spec = bldIconSpec(key, race), type = spec.type, saveCtx, saveVw, saveVh, saveCam, saveG;
+    var spec = bldIconSpec(key, race), type = spec.type, saveCtx, saveVw, saveVh, saveCam, saveG, saveIcon;
     try {
       var SIZE = 256, CROP = 180, OUT = 160; /* v105: 160px icons; v114: CROP is only the fallback, see content crop below */
       var oc = document.createElement('canvas'); oc.width = SIZE; oc.height = SIZE;
@@ -5477,6 +5799,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       G = { teams: fakeTeams, blds: [], planes: [], selectedTurret: null };
       G.cols = G.teams.map(function (_, j) { return teamCols(j); });
       ctx = octx; vw = SIZE; vh = SIZE; cam.x = 1200; cam.y = 1200; cam.z = z;
+      saveIcon = ICON_RENDER; ICON_RENDER = true; /* v133: portraits exclude world-only overlays */
       /* v103 fix: pads are not buildings (no BLD entry), so no fake b for them. */
       if (type === 'pad') { drawPadShape(1200, 1200, 100, 1, 0, 1); }
       else {
@@ -5524,7 +5847,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         return { url: url2, method: 'fallback', ops: null };
       } catch (e2) { return { url: null, method: 'fallback', ops: null }; }
     } finally {
-      try { if (saveCtx !== undefined) ctx = saveCtx; if (saveVw !== undefined) vw = saveVw; if (saveVh !== undefined) vh = saveVh; if (saveCam) { cam.x = saveCam.x; cam.y = saveCam.y; cam.z = saveCam.z; } if (saveG !== undefined) G = saveG; } catch (e3) {}
+      try { if (saveCtx !== undefined) ctx = saveCtx; if (saveVw !== undefined) vw = saveVw; if (saveVh !== undefined) vh = saveVh; if (saveCam) { cam.x = saveCam.x; cam.y = saveCam.y; cam.z = saveCam.z; } if (saveG !== undefined) G = saveG; if (saveIcon !== undefined) ICON_RENDER = saveIcon; } catch (e3) {}
     }
   }
   function buildBldIcons(race) {
@@ -5532,7 +5855,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
        this race are rendered; a dismantle-target change must never rebuild
        all 15 icons (that full rebuild on every building click was the
        click lag in v106). */
-    var keys = ['pad', 'factory', 'turret', 'turretSpecial', 'hangar', 'hangarUnique', 'lab', 'wall', 'field', 'dock', 'tube', 'burrow', 'accel', 'exit', 'base'];
+    var keys = ['pad', 'factory', 'turret', 'turretSpecial', 'hangar', 'hangarUnique', 'lab', 'ulab', 'wall', 'field', 'dock', 'tube', 'burrow', 'accel', 'exit', 'base'];
     var cache = BLD_ICON_CACHES[race];
     if (!cache) { cache = {}; BLD_ICON_CACHES[race] = cache; }
     for (var i = 0; i < keys.length; i++) if (!cache[keys[i]]) cache[keys[i]] = renderBldIcon(keys[i], race);
@@ -6247,6 +6570,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var btnUp = document.querySelectorAll('[data-tup]');
   var btnBaseUp = document.querySelectorAll('[data-bup]');
   var btnLabUp = document.querySelectorAll('[data-lup]');
+  var btnUUp = document.querySelectorAll('[data-uup]');
   var btnHangarUp = document.querySelectorAll('[data-hup]');
   function buildingStatusText(selb) {
     if (!selb) return 'Click a plane or building to see its stats.';
@@ -6263,7 +6587,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (selb.type === 'base') return 'Squad Head Quarters • ' + hpText;
     if (selb.type === 'hangar' && selb.transform) return 'Transforming into ' + (selb.transform.key === 'tank' ? 'Turtle Launcher Hangar' : selb.transform.key === 'blimp' ? 'Blimp Hangar' : selb.transform.key === 'heli' ? 'Ottercopter Hangar' : selb.transform.key === 'wraith' ? 'Wraith Hangar' : 'B2 Hangar') + ' • ' + Math.ceil(selb.transform.t) + 's remaining';
     if (selb.type === 'hangar') return selb.upg && selb.upg.blimp ? 'Blimp Hangar • 1 blimp every ' + hangarDur(selb).toFixed(1) + ' s • production Lv ' + selb.upg.production + '/3' : !selb.upg.choice ? 'Hangar • choose a Basic or Unique Hangar' : 'Hangar • production upgrades available';
+    if (selb.type === 'lab' && selb.transform) return 'Innovation Lab • transforming into ' + ULAB_NAME[G.teams[selb.team].race] + ' (' + Math.ceil(selb.transform.t) + 's)';
     if (selb.type === 'lab') return selb.res ? 'Innovation Lab • researching ' + LUP[selb.res.key].label + ' (' + Math.ceil(selb.res.t) + 's)' : 'Innovation Lab • upgrades future planes';
+    if (selb.type === 'ulab') return selb.res ? ULAB_NAME[G.teams[selb.team].race] + ' • researching ' + ULAB[selb.res.key].label + ' (' + Math.ceil(selb.res.t) + 's)' : ULAB_NAME[G.teams[selb.team].race] + ' • unique-plane research • ' + hpText;
     if (selb.type === 'turret') { var ts = turretStats(selb); return (selb.turretJob ? 'Turret upgrade in progress • ' + Math.ceil(selb.turretJob.t) + 's remaining • ' : '') + (selb.upg && selb.upg.special ? '' : 'Turret • ') + ts.weapon + ' • ' + Math.round(ts.damage) + ' dmg'; }
     if (selb.type === 'factory') return isGold(selb) ? 'Cloud Factory • centre gold square: produces 30 clouds every 10 s (+3.0/s) • ' + hpText : 'Cloud Factory • produces 10 clouds every 10 s (+1.0/s) • centre 2x2 gold squares produce 3x • ' + hpText;
     if (selb.type === 'field') return 'Force Field • ' + hpText;
@@ -6295,6 +6621,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         if (!$('hangarChoice').hidden) { cntBtn($('basicHangarChoice'), false); cntBtn($('uniqueHangarChoice'), false); }
         if (!$('hangarUpgrades').hidden) { for (var hi2 = 0; hi2 < btnHangarUp.length; hi2++) if (!btnHangarUp[hi2].hidden) count++; }
         if (!$('labUpgrades').hidden) { for (var li = 0; li < btnLabUp.length; li++) if (!btnLabUp[li].hidden) count++; }
+        if (!$('labUpgrades').hidden) cntBtn($('labTransformBtn'), false);
+        if (!$('ulabUpgrades').hidden) { for (var uu = 0; uu < btnUUp.length; uu++) if (!btnUUp[uu].hidden) count++; }
         dismantleVis = !$('wallActions').hidden && !$('dismantleBtn').hidden;
         if (dismantleVis) { var db = $('dismantleBtn'); db.style.gridColumn = '3'; db.style.gridRow = '3'; }
       }
@@ -6344,7 +6672,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     $('buildCard').hidden = !!selb;
     $('turretCard').hidden = !selb;
     $('buildingStatus').textContent = buildingStatusText(selb);
-    var spCfg = SPECIAL_TURRETS[t.race], hasLab = G.blds.some(function(x){return x.team===ht && x.type==='lab' && x.hp>0 && x.complete;});
+    var spCfg = SPECIAL_TURRETS[t.race], hasLab = G.blds.some(function(x){return x.team===ht && (x.type==='lab' || x.type==='ulab') && x.hp>0 && x.complete;});
     var needsTurretChoice = !!(stb && !stb.upg.choice && !stb.upg.special);
     $('turretChoice').hidden = !needsTurretChoice;
     $('turretUpgrades').hidden = !stb || needsTurretChoice;
@@ -6363,16 +6691,17 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     $('hangarChoice').hidden = !needsHangarChoice;
     $('hangarUpgrades').hidden = !(friendlySelb && isHangarType(friendlySelb.type) && friendlySelb.upg.choice);
     if (needsHangarChoice && hKey) {
-      var hReady = hKey === 'blimp' ? t.lab.heavy : hKey === 'b2' ? t.lab.b2 : hKey === 'tank' ? t.lab.tank : hKey === 'heli' ? t.lab.heli : hKey === 'wraith' ? t.lab.wraith : t.lab.flying, hNeed = hKey === 'blimp' ? 'Research Heavy Airframes in the Innovation Lab first.' : hKey === 'b2' ? 'Research the B2 Bomber in the Innovation Lab first.' : hKey === 'tank' ? 'Research the Turtle Tank in the Innovation Lab first.' : hKey === 'heli' ? 'Research the Ottercopter in the Innovation Lab first.' : hKey === 'wraith' ? 'Research the Wraithwing in the Innovation Lab first.' : 'Research Carrier Hangar in the Innovation Lab first.';
+      var hReady = hasULab(ht), hNeed = 'Transform an Innovation Lab into your ' + ULAB_NAME[t.race] + ' first — unique hangars need a living unique lab.'; /* v131 gate */
       $('uniqueHangarChoiceName').textContent = hKey === 'blimp' ? 'Blimp Hangar' : hKey === 'b2' ? 'B2 Hangar' : hKey === 'tank' ? 'Turtle Launcher Hangar' : hKey === 'heli' ? 'Ottercopter Hangar' : hKey === 'wraith' ? 'Wraith Hangar' : 'Carrier Hangar';
       $('uniqueHangarChoiceDesc').textContent = hReady ? (hKey === 'blimp' ? 'Makes blimps only (5 pop), 1 per 25 s. 20 s transformation. Production upgrades still apply.' : hKey === 'b2' ? 'Makes B2 bombers only (4 pop), 1 per 20 s. 20 s transformation. Production upgrades still apply.' : hKey === 'tank' ? 'Makes Turtle Tanks only (4 pop), 1 per 20 s. 20 s transformation. Production upgrades still apply.' : hKey === 'heli' ? 'Minigun plus splash missiles.' : hKey === 'wraith' ? 'Cloaks when not attacking.' : 'Transforms into a stationary Carrier Hangar building that produces one Aircraft Carrier every 25 seconds. Each Aircraft Carrier launches one regular plane every 10 seconds.') : hNeed;
       $('uniqueHangarChoiceCost').textContent = HUP[hKey].costs[0] + ' clouds';
       $('uniqueHangarChoice').disabled = !hReady || t.clouds < HUP[hKey].costs[0];
     }
     $('labUpgrades').hidden = !(friendlySelb && friendlySelb.type === 'lab');
-    var activeResearch = friendlySelb && friendlySelb.type === 'lab' ? friendlySelb.res : friendlySelb && friendlySelb.type === 'hangar' && friendlySelb.transform ? friendlySelb.transform : null;
+    $('ulabUpgrades').hidden = !(friendlySelb && friendlySelb.type === 'ulab');
+    var activeResearch = friendlySelb && (friendlySelb.type === 'lab' || friendlySelb.type === 'ulab') ? (friendlySelb.res || friendlySelb.transform) : friendlySelb && friendlySelb.type === 'hangar' && friendlySelb.transform ? friendlySelb.transform : null;
     $('labProgress').style.visibility = activeResearch ? 'visible' : 'hidden'; $('labProgress').style.display = activeResearch ? 'block' : 'none'; /* v106: 0 layout height when idle */
-    if (activeResearch) { var researchDuration = activeResearch.total || LAB_TIME; var labPct = clamp(1 - activeResearch.t / researchDuration, 0, 1) * 100; $('labProgressLabel').textContent = friendlySelb.type === 'hangar' ? 'Transforming Hangar into ' + (activeResearch.key === 'tank' ? 'Turtle Launcher Hangar' : activeResearch.key === 'blimp' ? 'Blimp Hangar' : activeResearch.key === 'flying' ? 'Carrier Hangar' : activeResearch.key === 'heli' ? 'Ottercopter Hangar' : activeResearch.key === 'wraith' ? 'Wraith Hangar' : 'B2 Hangar') : 'Researching ' + LUP[activeResearch.key].label; $('labProgressPct').textContent = Math.floor(labPct) + '%'; $('labProgressFill').style.width = labPct + '%'; }
+    if (activeResearch) { var researchDuration = activeResearch.total || LAB_TIME; var labPct = clamp(1 - activeResearch.t / researchDuration, 0, 1) * 100; $('labProgressLabel').textContent = friendlySelb.type === 'hangar' ? 'Transforming Hangar into ' + (activeResearch.key === 'tank' ? 'Turtle Launcher Hangar' : activeResearch.key === 'blimp' ? 'Blimp Hangar' : activeResearch.key === 'flying' ? 'Carrier Hangar' : activeResearch.key === 'heli' ? 'Ottercopter Hangar' : activeResearch.key === 'wraith' ? 'Wraith Hangar' : 'B2 Hangar') : friendlySelb.transform ? 'Transforming Lab into ' + ULAB_NAME[t.race] : 'Researching ' + (friendlySelb.type === 'ulab' ? ULAB[activeResearch.key].label : LUP[activeResearch.key].label); $('labProgressPct').textContent = Math.floor(labPct) + '%'; $('labProgressFill').style.width = labPct + '%'; }
     for (i = 0; i < btnUp.length; i++) {
       if (btnUp[i].getAttribute('data-tup') === 'weapon') btnUp[i].hidden = !!(stb && (stb.upg.special || stb.upg.choice === 'unique')); 
       var key = btnUp[i].getAttribute('data-tup'), lv = stb ? stb.upg[key] : 0, cfg=TUP[key];
@@ -6413,10 +6742,29 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     }
     for (i = 0; i < btnLabUp.length; i++) {
       var lk = btnLabUp[i].getAttribute('data-lup'), lonly = btnLabUp[i].getAttribute('data-only'), llv = friendlySelb && friendlySelb.type === 'lab' ? t.lab[lk] : 0, lcfg = LUP[lk];
-      btnLabUp[i].querySelector('[data-lupname]').textContent = (lk === 'walls' && llv >= lcfg.max ? 'Walls Unlocked' : lk === 'b2' && llv >= lcfg.max ? 'B2 Bomber Unlocked' : lcfg.label);
+      btnLabUp[i].querySelector('[data-lupname]').textContent = (lk === 'walls' && llv >= lcfg.max ? 'Walls Unlocked' : lcfg.label);
       btnLabUp[i].querySelector('[data-lupcost]').textContent = friendlySelb && friendlySelb.type === 'lab' ? (friendlySelb.res && friendlySelb.res.key === lk ? Math.ceil(friendlySelb.res.t) + 's left' : llv >= lcfg.max ? 'MAX' : lcfg.costs[llv] + ' • 15s') : '-';
       if (lonly) btnLabUp[i].hidden = t.race !== lonly;
-      btnLabUp[i].disabled = !(friendlySelb && friendlySelb.type === 'lab' && friendlySelb.complete && friendlySelb.hp > 0) || llv >= lcfg.max || t.clouds < lcfg.costs[llv] || !!friendlySelb.res;
+      btnLabUp[i].disabled = !(friendlySelb && friendlySelb.type === 'lab' && friendlySelb.complete && friendlySelb.hp > 0) || llv >= lcfg.max || t.clouds < lcfg.costs[llv] || !!friendlySelb.res || !!friendlySelb.transform;
+    }
+    for (i = 0; i < btnUUp.length; i++) {
+      var uk2 = btnUUp[i].getAttribute('data-uup'), ulv2 = friendlySelb && friendlySelb.type === 'ulab' ? t.ulab[uk2] : 0, ucfg2 = ULAB[uk2];
+      btnUUp[i].querySelector('[data-uupname]').textContent = ucfg2.label;
+      btnUUp[i].querySelector('[data-uupcost]').textContent = friendlySelb && friendlySelb.type === 'ulab' ? (friendlySelb.res && friendlySelb.res.key === uk2 ? Math.ceil(friendlySelb.res.t) + 's left' : ulv2 >= ucfg2.max ? 'MAX' : ucfg2.costs[ulv2] + ' • 15s') : '-';
+      btnUUp[i].disabled = !(friendlySelb && friendlySelb.type === 'ulab' && friendlySelb.complete && friendlySelb.hp > 0) || ulv2 >= ucfg2.max || t.clouds < ucfg2.costs[ulv2] || !!friendlySelb.res;
+      var uJob = !!(friendlySelb && friendlySelb.type === 'ulab' && friendlySelb.res && friendlySelb.res.key === uk2);
+      btnUUp[i].classList.toggle('upgrade-running', uJob);
+      btnUUp[i].style.setProperty('--upgrade-progress', (uJob ? clamp(1 - friendlySelb.res.t / LAB_TIME, 0, 1) * 100 : 0) + '%');
+    }
+    var tfBtn = $('labTransformBtn');
+    if (tfBtn) {
+      var tfLab = friendlySelb && friendlySelb.type === 'lab' ? friendlySelb : null;
+      $('labTransformName').textContent = 'Transform: ' + ULAB_NAME[t.race];
+      $('labTransformDesc').textContent = !tfLab ? 'Transform this lab into your animal\u2019s unique lab' : tfLab.transform ? 'Transforming into your ' + ULAB_NAME[t.race] + '\u2026' : !tfLab.complete ? 'Wait for the lab to finish building.' : tfLab.res ? 'A lab must be idle to transform \u2014 finish the current research first.' : t.clouds < LAB_TRANSFORM_COST ? 'Not enough clouds yet.' : 'Becomes your ' + ULAB_NAME[t.race] + ' (350 HP): a living unique lab unlocks unique hangar transforms and researches unique-plane stat lines. Basic research then needs a new plain lab.';
+      $('labTransformCost').textContent = tfLab && tfLab.transform ? Math.ceil(tfLab.transform.t) + 's left' : LAB_TRANSFORM_COST + ' \u2022 20s';
+      tfBtn.disabled = !tfLab || !tfLab.complete || tfLab.hp <= 0 || !!tfLab.res || !!tfLab.transform || t.clouds < LAB_TRANSFORM_COST;
+      tfBtn.classList.toggle('upgrade-running', !!(tfLab && tfLab.transform));
+      tfBtn.style.setProperty('--upgrade-progress', (tfLab && tfLab.transform ? clamp(1 - tfLab.transform.t / (tfLab.transform.total || LAB_TRANSFORM_TIME), 0, 1) * 100 : 0) + '%');
     }
     try { fillClickSlots(); } catch (e) {}
     try { hkPaintBadges(); } catch (e) {}
@@ -6624,7 +6972,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     else { var bid = +G.selectedTurret; for (i=0;i<G.blds.length;i++) if(G.blds[i].id===bid){b=G.blds[i];break;} }
     if (p) {
       var rn=RACES[G.teams[p.team].race].name, raceCfg=RACES[G.teams[p.team].race];
-      var ps=p.kind==='carrier'?{dmg:3,spd:70,range:200}:p.kind==='blimp'?{dmg:16,spd:45,range:100}:p.kind==='b2'?{dmg:6,spd:90,range:125}:p.kind==='tank'?{dmg:TANK.dmg,spd:TANK.spd,range:TANK.range}:p.kind==='heli'?{dmg:HELI.gunDmg,spd:HELI.spd,range:HELI.misRange}:p.kind==='wraith'?{dmg:WRAITH.dmg,spd:WRAITH.spd,range:WRAITH.range}:G.st[p.team];
+      var ps=p.kind==='carrier'?{dmg:2*uMul(p.team,'damage'),spd:70*uMul(p.team,'speed'),range:200*uMul(p.team,'range')}:p.kind==='blimp'?{dmg:16*uMul(p.team,'damage'),spd:45*uMul(p.team,'speed'),range:100*uMul(p.team,'range')}:p.kind==='b2'?{dmg:6*uMul(p.team,'damage'),spd:90*uMul(p.team,'speed'),range:125*uMul(p.team,'range')}:p.kind==='tank'?{dmg:TANK.dmg*uMul(p.team,'damage'),spd:TANK.spd*uMul(p.team,'speed'),range:TANK.range*uMul(p.team,'range')}:p.kind==='heli'?{dmg:HELI.gunDmg*uMul(p.team,'damage'),spd:HELI.spd*uMul(p.team,'speed'),range:HELI.misRange*uMul(p.team,'range')}:p.kind==='wraith'?{dmg:WRAITH.dmg*uMul(p.team,'damage'),spd:WRAITH.spd*uMul(p.team,'speed'),range:WRAITH.range*uMul(p.team,'range')}:G.st[p.team]; /* v131: unique lines shown live */
       var ordinary=!p.kind;
       var baseDmg=4*raceCfg.dmg, baseSpd=150*raceCfg.spd, baseRange=RANGE*(raceCfg.range||1)+(G.teams[p.team].race==='fox'?25:0), baseHp=30*raceCfg.hp;
       function bonusText(v, digits) {
@@ -6637,10 +6985,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         return '<div><span>'+label+'</span><b>'+shown+bonusText(bonus,digits)+'</b></div>';
       }
       var pAttackRate=p.kind==='wraith'?1/WRAITH.cd:p.kind==='blimp'||p.kind==='b2'?4:p.kind==='tank'?1/TANK.cd:p.kind==='carrier'?10:1/0.45;
-      var pSpecial=p.kind==='tank'?'<div><span>Blast Radius</span><b>'+TANK.radius+'</b></div>':p.kind==='b2'?'<div><span>Bomb Damage</span><b>100 / bomb</b></div>':p.kind==='blimp'?'<div><span>Bomb Damage</span><b>—</b></div>':p.kind==='carrier'?'<div><span>Aircraft</span><b>Launches every 10s</b></div><div><span>Quad Turret</span><b>3 dmg × 10/s</b></div>':'<div><span>Bomb Damage</span><b>—</b></div>';
+      var pSpecial=p.kind==='tank'?'<div><span>Blast Radius</span><b>'+TANK.radius+'</b></div>':p.kind==='b2'?'<div><span>Bomb Damage</span><b>'+Math.round(100*uMul(p.team,'damage'))+' / bomb</b></div>':p.kind==='blimp'?'<div><span>Bomb Damage</span><b>—</b></div>':p.kind==='carrier'?'<div><span>Aircraft</span><b>Launches every 10s</b></div><div><span>Quad Turret</span><b>'+(2*uMul(p.team,'damage')).toFixed(1)+' dmg × 10/s</b></div>':'<div><span>Bomb Damage</span><b>—</b></div>';
       var statHtml=planeStat('Damage',ps.dmg,ps.dmg-baseDmg,1)+planeStat('Speed',ps.spd,ps.spd-baseSpd,0)+planeStat('Range',ps.range,ps.range-baseRange,0)+planeStat('Max HP',p.max,p.max-baseHp,0)+'<div><span>Attack Speed</span><b>'+pAttackRate.toFixed(2)+'/s</b></div>'+pSpecial;
-      if (p.kind==='wraith') { var wraithCloakState = p.cloaked ? (p.team !== 0 && detectedBy(0, p) ? 'Detected!' : 'Cloaked') : 'Visible — cloaks in ' + Math.max(0, CLOAK_DELAY - (p.cloakT || 0)).toFixed(1) + ' s'; statHtml='<div><span>Laser</span><b>'+WRAITH.dmg+' dmg, '+(1/WRAITH.cd).toFixed(2)+'/s (range '+WRAITH.range+')</b></div>'+planeStat('Speed',WRAITH.spd,0,0)+planeStat('Max HP',p.max,0,0)+'<div><span>Plane Cap</span><b>'+WRAITH.pop+' pop</b></div><div><span>Cloak</span><b>'+wraithCloakState+'</b></div>'; }
-      if (p.kind==='heli') statHtml='<div><span>Minigun</span><b>'+HELI.gunDmg+' dmg \u00d7 '+(1/HELI.gunCd).toFixed(0)+'/s (range '+HELI.gunRange+')</b></div><div><span>Missiles</span><b>'+HELI.misDmg+' dmg splash, '+(1/HELI.misCd).toFixed(1)+'/s (range '+HELI.misRange+')</b></div>'+planeStat('Speed',HELI.spd,0,0)+planeStat('Max HP',p.max,0,0)+'<div><span>Plane Cap</span><b>'+HELI.pop+' pop</b></div>';
+      if (p.kind==='wraith') { var wraithCloakState = p.cloaked ? (p.team !== 0 && detectedBy(0, p) ? 'Detected!' : 'Cloaked') : 'Visible — cloaks in ' + Math.max(0, CLOAK_DELAY - (p.cloakT || 0)).toFixed(1) + ' s'; statHtml='<div><span>Laser</span><b>'+(WRAITH.dmg*uMul(p.team,'damage')).toFixed(1)+' dmg, '+(1/WRAITH.cd).toFixed(2)+'/s (range '+Math.round(WRAITH.range*uMul(p.team,'range'))+')</b></div>'+planeStat('Speed',WRAITH.spd*uMul(p.team,'speed'),0,0)+planeStat('Max HP',p.max,0,0)+'<div><span>Plane Cap</span><b>'+WRAITH.pop+' pop</b></div><div><span>Cloak</span><b>'+wraithCloakState+'</b></div>'; }
+      if (p.kind==='heli') statHtml='<div><span>Minigun</span><b>'+(HELI.gunDmg*uMul(p.team,'damage')).toFixed(1)+' dmg \u00d7 '+(1/HELI.gunCd).toFixed(0)+'/s (range '+Math.round(HELI.gunRange*uMul(p.team,'range'))+')</b></div><div><span>Missiles</span><b>'+Math.round(HELI.misDmg*uMul(p.team,'damage'))+' dmg splash, '+(1/HELI.misCd).toFixed(1)+'/s (range '+Math.round(HELI.misRange*uMul(p.team,'range'))+')</b></div>'+planeStat('Speed',HELI.spd*uMul(p.team,'speed'),0,0)+planeStat('Max HP',p.max,0,0)+'<div><span>Plane Cap</span><b>'+HELI.pop+' pop</b></div>';
       // v78: buffed plane stats show the Accelerator bonus live (panel refreshes 10x/s via hudT).
       // v79 Fox-exclusive: the row only appears for eligible Fox planes (ordinary + Wraithwing).
       if ((p.accelT || 0) > 0 && accelEligible(p)) {
@@ -6659,6 +7007,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       else if(b.type==='base'){extra='<div><span>Attack Damage</span><b>'+(12*(1+0.25*G.teams[b.team].upg.guns)*(1+0.25*b.upg.turret)).toFixed(1)+'</b></div><div><span>Range</span><b>'+(540+(b.upg.range||0)*55)+'</b></div><div><span>Armor</span><b>+'+(b.upg.armor*350)+'</b></div><div><span>Regen</span><b>'+(1.2+b.upg.regen*1.8).toFixed(1)+'/s</b></div><div><span>Attack Speed</span><b>2.50/s</b></div><div><span>Gun</span><b>Squad laser</b></div>';}
       else if(b.type==='hangar'||b.type==='b2hangar'||b.type==='thangar'||b.type==='helihangar'||b.type==='wraithhangar'){var hpLv=b.upg.production, prod=hangarDur(b);extra='<div><span>Production</span><b>'+prod.toFixed(2)+'s</b></div><div><span>Upgrade</span><b>Lv '+hpLv+'/3</b></div>';}
       else if(b.type==='lab'){var lv=G.teams[b.team].lab;extra='<div><span>Damage</span><b>Lv '+lv.damage+'</b></div><div><span>Speed</span><b>Lv '+lv.speed+'</b></div><div><span>Range</span><b>Lv '+lv.range+'</b></div><div><span>Health</span><b>Lv '+lv.health+'</b></div>';}
+      else if(b.type==='ulab'){var uv2=G.teams[b.team].ulab;extra='<div><span>Damage</span><b>Lv '+uv2.damage+'</b></div><div><span>Speed</span><b>Lv '+uv2.speed+'</b></div><div><span>Range</span><b>Lv '+uv2.range+'</b></div><div><span>Health</span><b>Lv '+uv2.health+'</b></div>';}
       else if(b.type==='tube'||b.type==='exit'){extra='<div><span>Role</span><b>Plane tube</b></div>';}
       else if(b.type==='wall'){extra='<div><span>Status</span><b>'+(wallProtected(b)?'Shielded / invincible':'Vulnerable')+'</b></div><div><span>HP</span><b>'+(wallProtected(b)?'Protected':Math.ceil(b.hp)+' / '+Math.ceil(b.max))+'</b></div>';}
       else if(b.type==='field'){extra='<div><span>Shields</span><b>3x3 area</b></div>';}
@@ -6669,6 +7018,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       else {extra='<div><span>Income</span><b>+0.9/s</b></div>';}
       if (b.type === 'base') title = 'Squad Head Quarters';
       if (b.type === 'hangar' && b.upg && b.upg.blimp) title = 'Blimp Hangar';
+      if (b.type === 'ulab') title = ULAB_NAME[race];
       var buildHtml = ''; if (b.upgradeJob) { var upct=Math.max(0,Math.min(1,1-b.upgradeJob.t/b.upgradeJob.total)); buildHtml='<div class="buildState"><div class="buildRow"><span class="hammer">⚙️</span><div class="buildBar"><i style="width:'+(upct*100)+'%;background:#4c91df"></i></div><b>'+Math.round(upct*100)+'%</b></div><div class="buildLabel">Upgrade in progress · '+Math.ceil(b.upgradeJob.t)+'s remaining</div></div>'; }
       var hpHtml = b.type === 'wall' && b.complete && wallProtected(b) ? '' : '<div class="selHp"><span>HP</span><div class="bar"><i style="width:'+hp+'%;background:'+TEAMC[b.team]+'"></i></div><b>'+Math.ceil(b.hp)+' / '+Math.ceil(b.max)+'</b></div>';
       if (!b.complete) { var built = Math.max(0, Math.min(1, 1 - b.buildT / b.buildTotal)); buildHtml = '<div class="buildState"><div class="buildRow"><span class="hammer">🔨</span><div class="buildBar"><i style="width:'+(built*100)+'%"></i></div><b>'+Math.round(built*100)+'%</b></div><div class="buildLabel">Under construction</div></div>'; }
@@ -6733,7 +7083,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (btn.getAttribute('data-tup')) { k = btn.getAttribute('data-tup'); return { key: 'turret', badge: { damage: 'DMG', range: 'RNG', health: 'HP', weapon: 'GUN' }[k] || '' }; }
     if (btn.getAttribute('data-bup')) { k = btn.getAttribute('data-bup'); return { key: 'base', badge: { armor: 'ARM', regen: 'REG', turret: 'DMG', range: 'RNG' }[k] || '' }; }
     if (btn.getAttribute('data-hup')) return { key: 'hangar', badge: 'PRD' };
-    if (btn.getAttribute('data-lup')) { k = btn.getAttribute('data-lup'); return { key: 'lab', badge: { damage: 'DMG', speed: 'SPD', range: 'RNG', health: 'HP', walls: 'WAL', b2: 'B2', tank: 'TNK', heavy: 'BLP', flying: 'CAR', heli: 'HEL', wraith: 'WRA' }[k] || '' }; }
+    if (btn.id === 'labTransformBtn') return { key: 'ulab', badge: '' };
+    if (btn.getAttribute('data-uup')) { k = btn.getAttribute('data-uup'); return { key: 'ulab', badge: { damage: 'DMG', speed: 'SPD', range: 'RNG', health: 'HP' }[k] || '' }; }
+    if (btn.getAttribute('data-lup')) { k = btn.getAttribute('data-lup'); return { key: 'lab', badge: { damage: 'DMG', speed: 'SPD', range: 'RNG', health: 'HP', walls: 'WAL' }[k] || '' }; }
     return null;
   }
   function applyBldIcons() {
@@ -6929,6 +7281,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     syncHud();
   });
   Array.prototype.forEach.call(btnLabUp, function (b) { b.addEventListener('click', function () { if (mode !== 'play') return; var lb=null; for(var i=0;i<G.blds.length;i++) if(String(G.blds[i].id)===String(G.selectedTurret)){lb=G.blds[i];break;} if (MP.enabled && (MP.role === 'guest' || mpLsOn())) { mpGuestCard('labUp', b.getAttribute('data-lup')); return; } var msg=buyLabUpgrade(lb,b.getAttribute('data-lup'), 0); if(msg) note(msg,true); else note('Research started. It finishes in 15 seconds.'); syncHud(); }); });
+  Array.prototype.forEach.call(btnUUp, function (b) { b.addEventListener('click', function () { if (mode !== 'play') return; var lb=null; for(var i=0;i<G.blds.length;i++) if(String(G.blds[i].id)===String(G.selectedTurret)){lb=G.blds[i];break;} if (MP.enabled && (MP.role === 'guest' || mpLsOn())) { mpGuestCard('ulabUp', b.getAttribute('data-uup')); return; } var msg=buyULabUpgrade(lb,b.getAttribute('data-uup'), 0); if(msg) note(msg,true); else note('Unique research started. It finishes in 15 seconds.'); syncHud(); }); });
+  $('labTransformBtn').addEventListener('click', function () { if (mode !== 'play') return; var lb=null; for(var i=0;i<G.blds.length;i++) if(String(G.blds[i].id)===String(G.selectedTurret)){lb=G.blds[i];break;} if (MP.enabled && (MP.role === 'guest' || mpLsOn())) { mpGuestCard('labTransform', null); return; } var msg=buyLabTransform(lb, 0); if(msg) note(msg,true); else note('Lab is transforming (20 seconds).'); syncHud(); });
   Array.prototype.forEach.call(document.querySelectorAll('[data-go]'), function (b) {
     b.addEventListener('click', function () { if (mode === 'play') { if (MP.enabled && (MP.role === 'guest' || mpLsOn())) mpGuestCompass(b.getAttribute('data-go')); else compass(b.getAttribute('data-go')); syncHud(); } });
   });
