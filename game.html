@@ -48,10 +48,14 @@ h1 { font: 600 28px/1 var(--font-display); margin: 0; letter-spacing: 0.01em; }
 .chip .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
 .chip b { font: 600 18px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .chip i { font-style: normal; font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.hp { display: grid; grid-template-columns: repeat(2, minmax(105px, 1fr)); gap: 5px 10px; min-width: 270px; margin-left: auto; }
+.hp { display: grid; grid-template-columns: repeat(2, minmax(105px, 1fr)); gap: 5px 10px; min-width: 270px; margin-left: 0; }
+#clockChip { margin-left: auto; } /* v136: the auto margin moves to the clock chip, so the chip + HP cluster right-align together with the chip beside the bars */
 .hprow { display: grid; grid-template-columns: 58px 1fr; gap: 7px; align-items: center; font-size: 11px; color: var(--ink-soft); font-weight: 700; }
 .bar { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
 .bar i { display: block; height: 100%; width: 100%; border-radius: 99px; transition: width 0.15s linear; }
+/* v137: the local player's HP row — no 'YOU' label any more (Taylor); a bold dark name and a blue outline around the whole name+bar unit say 'this one is you'. */
+.hprow.you { outline: 2px solid var(--you); outline-offset: 1px; border-radius: 6px; }
+.hprow.you span { font-weight: 800; color: var(--ink); }
 #hqBar0 { background: #2468c9; }
 #hqBar1 { background: #d63c52; }
 #hqBar2 { background: #8b4fd1; }
@@ -80,6 +84,21 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; curso
 .selStats span { display:block; color:var(--ink-soft); font-size:12px; }
 .selStats b { font:700 14px var(--font-display); }
 .selStats .upgBonus { display:block; color:#21804b; font:700 11px/1.2 var(--font-body); white-space:nowrap; }
+/* v134: StarCraft-style selection grid (shown when 2+ planes are selected) */
+.selGridHead { display:flex; align-items:baseline; gap:8px; margin-bottom:3px; }
+.selGridName { font:700 13px var(--font-display); }
+.selGridSub { font-size:11px; color:var(--ink-soft); }
+.selGrid { display:flex; flex-wrap:wrap; gap:3px; align-content:flex-start; }
+.sgCell { position:relative; box-sizing:border-box; display:flex; flex-direction:column; border:1px solid var(--line); border-radius:5px; background:#fff; overflow:hidden; flex:0 0 auto; }
+.sgCell.sgSpec { border:2px solid #d89a2b; background:#fdf6e0; box-shadow:inset 0 0 0 1px rgba(216,154,43,0.35); }
+.sgCell .sgPic { display:block; flex:1 1 auto; min-height:0; width:100%; object-fit:contain; }
+.sgCell .sgEmoji { display:grid; place-items:center; flex:1 1 auto; min-height:0; }
+.sgBar { height:5px; flex:0 0 auto; background:rgba(28,50,71,0.28); }
+.sgBar i { display:block; height:100%; width:100%; }
+.selGrid.sgA .sgCell { width:48px; height:48px; } .selGrid.sgA .sgEmoji { font-size:26px; }
+.selGrid.sgB .sgCell { width:39px; height:39px; } .selGrid.sgB .sgEmoji { font-size:21px; }
+.selGrid.sgC .sgCell { width:32px; height:32px; } .selGrid.sgC .sgEmoji { font-size:17px; }
+.selGrid.sgD .sgCell { width:26px; height:26px; } .selGrid.sgD .sgBar { height:4px; }
 
 
 .map { width: 100%; aspect-ratio: 1 / 1; margin-top: 0; border-radius: 8px; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.9); box-shadow: 0 2px 10px rgba(28, 50, 71, 0.25); background: #cfe8f6; }
@@ -127,6 +146,16 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 .mini { font-size: 12px; color: var(--ink-soft); margin: 0; }
 #note { min-height: 2.9em; margin: 0; font-size: 13.5px; color: var(--ink-soft); grid-column: 1; }
 #note.warn { color: #b3321c; font-weight: 600; }
+/* v135: leader announcement banner (LEADER-ANNOUNCEMENTS-SPEC.md). Sits
+   at the top of the stage, transient, never blocks play (pointer-events
+   none). The border takes the leading team's colour from JS. */
+#annBanner { position: absolute; left: 50%; top: 14px; transform: translate(-50%, -10px); display: flex; align-items: center; gap: 10px; padding: 7px 18px 7px 9px; background: rgba(18, 30, 46, 0.9); color: #fff; border: 2px solid #8b9bb4; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; z-index: 4; max-width: 92%; white-space: nowrap; box-shadow: 0 4px 18px rgba(10, 25, 45, 0.35); }
+#annBanner.show { opacity: 1; transform: translate(-50%, 0); }
+#annBanner .annMark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #f2c94c; font-size: 16px; flex: none; }
+#annBanner .annBody { display: grid; gap: 0; }
+#annBanner .annCat { font: 700 9.5px var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; color: #cfe0f2; }
+#annBanner .annText { font: 600 16.5px/1.2 var(--font-display); letter-spacing: 0.01em; }
+#annBanner .annDmg { font: 700 11px var(--font-body); letter-spacing: 0.04em; color: #ffd85a; }
 .ov { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(206, 232, 247, 0.85); overflow: auto; z-index: 5; }
 .sheet { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px; max-width: 580px; width: 100%; display: grid; gap: 14px; box-shadow: 0 12px 40px rgba(28, 50, 71, 0.18); }
 .sheet h2.big { font: 600 30px/1.05 var(--font-display); text-transform: none; letter-spacing: 0; color: var(--ink); }
@@ -162,7 +191,7 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 @media (max-width: 420px) {
   .races { grid-template-columns: minmax(0, 1fr); }
 }
-.top { padding-right: 46px; }
+.top { padding-right: 0; } /* v137: was 46px, reserving room for the corner-fixed mute/fullscreen buttons; they are in the header flow now (see #muteBtn), so the reservation is gone */
 .introOv { position: fixed; inset: 0; z-index: 30; background: #a9d3f1; overflow: hidden; }
 #introCv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #skipIntro { position: absolute; right: 16px; bottom: 16px; background: rgba(255,255,255,0.85); border: 2px solid var(--ink); border-radius: 999px; padding: 8px 18px; font: 600 15px var(--font-display); color: var(--ink); }
@@ -170,9 +199,10 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 #soundHint { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); font: 700 13px var(--font-body); color: var(--ink); background: rgba(255,255,255,0.7); border-radius: 999px; padding: 5px 14px; cursor: pointer; }
 #introStart { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: #a9d3f1; }
 #startIntroBtn { font: 700 56px var(--font-display); color: var(--ink); background: #fff; border: 3px solid var(--ink); border-radius: 999px; padding: 24px 48px; cursor: pointer; box-shadow: 0 4px 16px rgba(28,50,71,0.25); }
-#muteBtn { position: fixed; top: 12px; right: 12px; z-index: 40; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); font-size: 17px; line-height: 1; padding: 0; display: grid; place-items: center; box-shadow: 0 2px 8px rgba(28,50,71,0.15); }
+/* v137: mute/fullscreen live in the header flow beside the Time chip (Taylor) — no longer fixed over the team HP bars. */
+#muteBtn { position: static; flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); font-size: 17px; line-height: 1; padding: 0; display: grid; place-items: center; box-shadow: 0 2px 8px rgba(28,50,71,0.15); }
 #muteBtn:hover { border-color: var(--you); }
-#fsBtn { position: fixed; top: 12px; right: 54px; z-index: 40; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); font-size: 17px; line-height: 1; padding: 0; display: grid; place-items: center; box-shadow: 0 2px 8px rgba(28,50,71,0.15); }
+#fsBtn { position: static; flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); font-size: 17px; line-height: 1; padding: 0; display: grid; place-items: center; box-shadow: 0 2px 8px rgba(28,50,71,0.15); }
 #fsBtn:hover { border-color: var(--you); }
 #verTag { text-align: center; font: 700 10px var(--font-body); color: var(--ink-soft); padding: 0; pointer-events: none; letter-spacing: 0.04em; } /* v105: in compass card below Pause, no fixed overlay */
 [hidden] { display: none !important; }
@@ -220,7 +250,6 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 </style>
 
 <main class="app">
-  <button id="fsBtn" type="button" aria-label="Toggle fullscreen" title="Fullscreen">&#9970;</button>
   <header class="top">
     <h1>Squadrons</h1>
     <div class="hud" aria-live="off">
@@ -230,16 +259,22 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
       <button class="chip mpGuestAct" id="mpBtnResearch" type="button" hidden title="Start your lab's next research (the host runs it)"><span class="lbl">Lab</span><b>Research next</b></button>
       <button class="chip mpGuestAct" id="mpBtnHangarProd" type="button" hidden title="Upgrade a hangar's production (the host runs it)"><span class="lbl">Hangar</span><b>Production +</b></button>
     </div>
+    <div class="chip" id="clockChip"><span class="lbl">Time</span><b id="hClock">0:00</b></div>
+    <!-- Stage A (SP v136 timer + v137): mute + fullscreen live here, in the header flow immediately after the Time chip (fullscreen first, then mute — SP order) and immediately left of the HP cluster; the rows carry hqRow0-3 ids for the .you marking -->
+    <button id="fsBtn" type="button" aria-label="Toggle fullscreen" title="Fullscreen">&#9970;</button>
+    <button id="muteBtn" aria-label="Mute or unmute sound" title="Mute / unmute (M)">🔊</button>
     <div class="hp">
-      <div class="hprow"><span id="hqName0">HQ</span><div class="bar"><i id="hqBar0"></i></div></div>
-      <div class="hprow"><span id="hqName1">HQ</span><div class="bar"><i id="hqBar1"></i></div></div>
-      <div class="hprow"><span id="hqName2">HQ</span><div class="bar"><i id="hqBar2"></i></div></div>
-      <div class="hprow"><span id="hqName3">HQ</span><div class="bar"><i id="hqBar3"></i></div></div>
+      <div class="hprow" id="hqRow0"><span id="hqName0">HQ</span><div class="bar"><i id="hqBar0"></i></div></div>
+      <div class="hprow" id="hqRow1"><span id="hqName1">HQ</span><div class="bar"><i id="hqBar1"></i></div></div>
+      <div class="hprow" id="hqRow2"><span id="hqName2">HQ</span><div class="bar"><i id="hqBar2"></i></div></div>
+      <div class="hprow" id="hqRow3"><span id="hqName3">HQ</span><div class="bar"><i id="hqBar3"></i></div></div>
     </div>
   </header>
 
   <section class="stage" id="stage">
     <canvas id="cv" aria-label="Battlefield"></canvas>
+    <div id="annBanner" aria-live="polite"><span class="annMark">📣</span><span class="annBody"><span class="annCat" id="annCat">Announcer</span><span class="annText" id="annText"></span><span class="annDmg" id="annDmg"></span></span></div>
+    <div id="glitchNote" aria-live="polite"><span class="gnMark">⚠</span><span id="glitchText"></span></div>
   </section>
   <div class="bottomRow">
     <div class="card compassCard">
@@ -386,7 +421,6 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
   <button id="skipIntro" hidden>Skip ▸</button>
   <div id="introStart"><button id="startIntroBtn" type="button">Click to start</button></div>
 </div>
-<button id="muteBtn" aria-label="Mute or unmute sound" title="Mute / unmute (M)">🔊</button>
 
 <style>
 #mpMenuBtn { justify-self: stretch; width: 100%; text-align: center; padding: 16px 22px; font-size: 20px; }
@@ -404,6 +438,18 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
 #mpElimBanner { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 30; background: #d63c52; color: #fff; font: 600 14px var(--font-display); letter-spacing: .02em; padding: 8px 18px; border-radius: 999px; box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: none; white-space: nowrap; }
 #fxStall { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); z-index: 31; background: #8a6d1d; color: #fff; font: 600 14px var(--font-display); letter-spacing: .02em; padding: 8px 18px; border-radius: 999px; box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: none; white-space: nowrap; }
 #fxError { position: fixed; top: 94px; left: 50%; transform: translateX(-50%); z-index: 32; max-width: 92vw; background: #7a1f2b; color: #fff; font: 600 13px var(--font-display); letter-spacing: .01em; padding: 8px 16px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.4); pointer-events: none; text-align: center; }
+/* v139: the glitch note — the per-entity draw isolation's report, in a
+   VISIBLE dedicated element (SP v139 CSS verbatim; Stage A anchors it
+   here because MP has no #annBanner until Stage B). Sits 64px down —
+   that offset reserves the space Stage B's announcement banner will
+   occupy, so the two never overlap; pointer-events none, so it can
+   never block play. Shown for 12 s per burst of skips. MP's frame()
+   guard keeps reporting to #fxError above; only draw skips use this
+   pill. */
+#glitchNote { position: absolute; left: 50%; top: 64px; transform: translate(-50%, -10px); display: flex; align-items: center; gap: 9px; padding: 7px 16px 7px 8px; background: rgba(52, 26, 18, 0.93); color: #fff; border: 2px solid #e07856; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.25s ease; z-index: 4; max-width: 92%; box-shadow: 0 4px 18px rgba(45, 15, 5, 0.4); }
+#glitchNote.show { opacity: 1; transform: translate(-50%, 0); }
+#glitchNote .gnMark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #e07856; font-size: 14px; flex: none; }
+#glitchText { font: 600 13.5px/1.25 var(--font-body); }
 #mpOverlay .sheet { max-width: 640px; }
 #mpHome, #mpLobby { display: grid; gap: 14px; }
 #mpRoomCode { font: 700 42px/1.1 var(--font-display); letter-spacing: 6px; text-align: center; color: var(--ink); background: #fff; border: 2px solid var(--line); border-radius: 12px; padding: 10px 6px; }
@@ -611,7 +657,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '2baabedab0';
+  var LS_BUILD_ID = '48a9b5ccc7';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -738,7 +784,19 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var teams = G.teams.map(function (t) { return { clouds: t.clouds, income: typeof t.income === 'number' ? t.income : 0, dead: t.dead ? 1 : 0, lab: t.lab, ulab: t.ulab, upg: t.upg }; });
     var blds = G.blds.slice().sort(function (a, b) { return a.id - b.id; }).map(function (b) { return [b.id, b.type, b.team, b.x, b.y, b.hp, b.complete ? 1 : 0, b.buildT, b.upg && b.upg.choice ? b.upg.choice : '', b.stored ? b.stored.length : -1, b.dead ? 1 : 0]; });
     var pads = G.pads.slice().sort(function (a, b) { return a.id - b.id; }).map(function (p) { return [p.id, p.team, p.x, p.y, p.bld == null ? 0 : (typeof p.bld === 'object' ? p.bld.id : p.bld), p.t]; });
-    return { tick: LS.tick, rng: SIMR.calls, t: G.t, nid: G.nid, planes: planes, tub: tub, teams: teams, blds: blds, pads: pads, ai: G.ai };
+    var balloons = (G.balloons || []).slice().sort(function (a, b) { return a.id - b.id; }).map(function (b) { return [b.id, b.size, b.x, b.y, b.hp, b.vx, b.vy, b.lastBy]; }); /* Stage C: balloons are sim entities (INVENTORY §3) */
+    var proj = { tick: LS.tick, rng: SIMR.calls, t: G.t, nid: G.nid, planes: planes, tub: tub, teams: teams, blds: blds, pads: pads, ai: G.ai, balloons: balloons, brng: G.brng || 0, balNext: G.balNext || 0, balOrder: G.balOrder ? G.balOrder.slice() : null }; /* Stage C: brng/balNext/balOrder ride the hash too — balloon position alone would let a future spawn diverge silently */
+    /* Stage B: the announced leaders are SIM state (the leader mark's
+       damage reads G.ann.leader), so leader / lastT / nextDue /
+       pending join the hash — conditionally: the ann key is added
+       only once announcement state differs from its initial values,
+       so a pre-3:00 projection stays byte-identical to Stage A's
+       (the surgical gate proves the merge is inert before the
+       feature can activate). G.ann.log is presentation history and
+       is deliberately NOT hashed (it rides snapshots whole — see
+       lsSnapshot — but never enters the hash). */
+    if (G.ann && G.ann.leader && (G.ann.leader.army !== -2 || G.ann.leader.econ !== -2 || G.ann.lastT !== -1e9 || G.ann.nextDue !== ANN_FIRST || (G.ann.pending && G.ann.pending.length))) proj.ann = [G.ann.leader.army, G.ann.leader.econ, G.ann.lastT, G.ann.nextDue, G.ann.pending ? G.ann.pending.slice() : []];
+    return proj;
   }
   function lsHash() {
     var s = lsCanon(lsProject(), 0, []);
@@ -1329,14 +1387,30 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
          the adopter must hold the same future, not lose it — and the
          drop-to-AI conversions in force, from which the adopter
          rebuilds its AI team set and barrier. */
-      pending: lsEnc(LS.pending, []), conv: lsEnc(LS.conv, []), convAt: lsEnc(LS.convAt, []) };
+      pending: lsEnc(LS.pending, []), conv: lsEnc(LS.conv, []), convAt: lsEnc(LS.convAt, []),
+      /* Stage B: G.ann is plain data (no entity refs), so the whole
+         object rides via lsEnc — lsSnapshot enumerates G's fields
+         explicitly, so it would NOT ride automatically. The adopter
+         must restore leader / lastT / nextDue / pending exactly or
+         its mark damage and future announcements diverge from the
+         source. The log rides too (harmless presentation history;
+         it is NOT part of the hash). */
+      ann: lsEnc(G.ann || null, []),
+      /* Stage C: balloons ride resync snapshots as cloned entities
+         (position/HP/velocity/tier/lastBy via lsCloneEntity), plus
+         the full future spawn schedule — brng state, balNext and
+         balOrder — so a client resyncing mid-balloon resumes the
+         identical schedule, not just the live balloon. */
+      balloons: (G.balloons || []).map(lsCloneEntity), brng: G.brng || 0, balNext: G.balNext || 0, balOrder: lsEnc(G.balOrder || null, []) };
   }
   function lsApplySnapshot(s) {
     if (!s || !G) return;
     var keepSel = MP.guestSel.slice();
     G.t = s.t; G.over = s.over; G.winner = s.winner; G.endT = s.endT; G.msDur = (typeof s.msDur === 'number') ? s.msDur : -1; G.nid = s.nid; G.difficulty = s.difficulty;
-    G.teams = s.teams; G.planes = s.planes; G.blds = s.blds; G.pads = s.pads; G.tub = s.tub; G.ai = s.ai;
+    G.teams = s.teams; G.planes = s.planes; G.blds = s.blds; G.pads = s.pads; G.tub = s.tub; G.ai = s.ai; G.ann = s.ann || null; /* Stage B: announced-leader state (the leader mark reads it); null for a pre-Stage-B snapshot shape */ G.balloons = s.balloons || []; G.brng = s.brng || 0; G.balNext = s.balNext || 0; G.balOrder = s.balOrder || null; /* Stage C: balloon entities + RNG/schedule state; fallbacks keep a pre-Stage-C snapshot shape adoptable */
     G.teams = lsDec(G.teams); G.planes = lsDec(G.planes); G.blds = lsDec(G.blds); G.pads = lsDec(G.pads); G.tub = lsDec(G.tub); G.ai = lsDec(G.ai);
+    if (G.ann) G.ann = lsDec(G.ann); /* Stage B: plain data (no entity refs to re-link) — the walk is a no-op kept for symmetry with the other G fields */
+    G.balloons = lsDec(G.balloons); if (G.balOrder) G.balOrder = lsDec(G.balOrder); /* Stage C: balloons carry no entity refs either — the same symmetry walk */
     SIMR.a = s.rng >>> 0; SIMR.calls = s.rngCalls; FXR.a = s.fx >>> 0;
     G.st = G.teams.map(function (_, i) { return stats(i); });
     G.cols = G.teams.map(function (_, i) { return teamCols(i); });
@@ -2866,6 +2940,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       lose: { gap: 1, cap: 60, fn: function () { tone({ f: 300, f2: 150, d: 0.45, type: 'sawtooth', v: 0.18 }); tone({ f: 250, f2: 100, d: 0.7, type: 'sawtooth', v: 0.18, t: 0.5 }); } },
       whoosh: { gap: 0.5, cap: 60, fn: function () { noise({ ft: 'bandpass', f: 300, f2: 3000, q: 1.2, d: 0.8, v: 0.28 }); } },
       boing: { gap: 0.5, cap: 60, fn: function () { tone({ f: 150, f2: 700, d: 0.35, type: 'sine', v: 0.25 }); tone({ f: 300, f2: 1400, d: 0.3, type: 'triangle', v: 0.1 }); } },
+      balloon: { gap: 0.5, cap: 60, fn: function (v) { tone({ f: 587, d: 0.25, type: 'sine', v: 0.15 * v }); tone({ f: 880, d: 0.35, type: 'sine', v: 0.13 * v, t: 0.16 }); } }, /* v136: balloon spawn chime (sound-only notice) */
       ta: { gap: 0.5, cap: 60, fn: function () { [72, 76, 79, 84].forEach(function (m, i) { tone({ f: mtof(m), d: 0.2, type: 'square', v: 0.11, t: i * 0.07 }); }); tone({ f: mtof(84), d: 0.6, type: 'triangle', v: 0.14, t: 0.28 }); } },
       // v101: propeller swoop — 3.6s plane passing close overhead (preview propeller 2).
       // 32 lowpass chops swell to a 0.35 peak overhead then fade, filter sweeps
@@ -3604,8 +3679,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     simSeedMatch();
     G = { t: 0, over: false, winner: -1, endT: 1.1, msDur: -1, planes: [], blds: [], pads: [], ruins: [], tr: [], parts: [], nid: 1,
       teams: races.map(function (r, i) { return mkTeam(i, r); }), st: null, cols: null,
-      build: null, selectedTurret: null, mouse: { x: 450, y: 300 }, drag: null, tub: [], ai: { t: [0,0,0,0], wave: [0,0,0,0] } };
+      build: null, selectedTurret: null, mouse: { x: 450, y: 300 }, drag: null, tub: [], ai: { t: [0,0,0,0], wave: [0,0,0,0] }, balloons: [], balNext: 0, balOrder: null, brng: 0 };
     G.difficulty = pickDifficulty; // v86: difficulty lives on the game, so AI reads it every tick;
+    G.brng = ((SIMR.a ^ 0x85EBCA6B) >>> 0) || 1; /* Stage C adaptation C3: balloon RNG seeded from the MATCH seed — simSeedMatch() ran above, so SIMR.a IS the shared match seed on every lockstep client (queue, Custom and local all enter through newGame) and a fresh per-match seed in SP mode; never the ambient RNG, and never drawn from SIMR itself (SIMR.calls is hashed) */
     G.st = G.teams.map(function (_, i) { return stats(i); });
     G.cols = G.teams.map(function (_, i) { return teamCols(i); });
     for (var ti = 0; ti < 4; ti++) {
@@ -4064,6 +4140,196 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     }
   }
   function finish(team) { if (G.over) return; G.over = true; G.winner = team; G.endT = 1.1; G.msDur = G.t; if (MP.enabled && MP.role === 'host') { mpSend({ type: 'gameOver', winner: team }); } if (MP.enabled) lsOnGameOver(); }
+  // ---------- Stage B: the leader mark (SP v136, spec §10) ----------
+  /* The leader mark (LEADER-ANNOUNCEMENTS-SPEC.md §10, Taylor's ruling):
+     the ANNOUNCED army leader's planes take +5% damage from every other
+     team, the ANNOUNCED economy leader's planes likewise +5%, and a team
+     holding both titles takes +10%. Planes only — buildings always take
+     normal damage, and the neutral balloon is never marked and never
+     benefits. The mark reads G.ann.leader, which only annShow() changes,
+     so it follows the ANNOUNCED leader even after the true lead moves,
+     and lasts until that category announces a different leader or the
+     marked team is eliminated. Derived from announcement state (G.t-
+     driven), so an MP port stays deterministic. It is applied at every
+     point plane damage is dealt: hit() (all direct fire, lasers, the B2
+     rear gun, rocket/shell/missile direct hits and splash via
+     rocketBlast, turret and HQ fire, the flame cone), carrierQuadFire()
+     and the special turret's quad branch — the only three sites in the
+     game that subtract plane HP. */
+  function markMul(srcTeam, tgt) {
+    if (!tgt || tgt.type || tgt.balloon || !G.ann) return 1;
+    var ti = tgt.team;
+    if (ti === undefined || ti < 0 || ti > 3 || ti === srcTeam) return 1;
+    if (!G.teams[ti] || G.teams[ti].dead) return 1;
+    var L = G.ann.leader; if (!L) return 1;
+    var m = 1;
+    if (L.army === ti) m += 0.05;
+    if (L.econ === ti) m += 0.05;
+    return m;
+  }
+  // ---------- v136: hot-air balloon objectives + the leader mark ----------
+  /* Balloons (BALLOON-OBJECTIVES-SPEC.md, Taylor's §7 rulings; retuned in
+     v137 from his live playtest): seven neutral balloons — first at 1:00,
+     then every 90 s, the last at 10:00 — 2 small (400 HP / 40 clouds),
+     3 medium (1000 / 100) and 2 large (2000 / 200), 780 clouds in all, in
+     a random order that never repeats a size back to back (BAL_SET). A spawn may land anywhere on the map INCLUDING the centre
+     gold, but never within 2 squares (Chebyshev) of any building, HQ
+     included. A balloon never shoots; any team's planes can shoot it down.
+     While recently hit it flees directly away from the damage source at
+     up to its size's speed — small 270 (faster than any plane), medium 150
+     (plane speed), large 90 (just under a Hamster plane) — and when not
+     being hit its velocity decays until it drifts to a stop. LAST HIT
+     takes the clouds: balloonPop credits the team that landed the final
+     blow and floats "+<amount> <Animal>" at the balloon. Spawn notice is
+     SOUND ONLY (the 'balloon' chime). Balloons live till killed; only the
+     spawn schedule is windowed. Building weapons never target balloons —
+     they live in the plane targeting world, as specced.
+     Determinism (spec §8): every balloon decision (spawn order, spawn
+     position) draws from G.brng, a dedicated LCG seeded once in newGame;
+     in MP (Stage C) newGame seeds it from the shared match seed
+     (SIMR.a after simSeedMatch) and G.balloons rides the lockstep hash
+     with the rest of the sim state. */
+  var BAL_TIMES = [60, 150, 240, 330, 420, 510, 600]; /* v137 retune (Taylor): first balloon at 1:00 (was 1:30), then every 90 s — seven spawns, the last at 10:00 */
+  var BAL_DEF = {
+    small: { hp: 400, val: 40, spd: 270, r: 30, dr: 24 },
+    medium: { hp: 1000, val: 100, spd: 150, r: 40, dr: 42 },
+    large: { hp: 2000, val: 200, spd: 90, r: 52, dr: 66 }
+  };
+  /* v137: dr is the DRAWN envelope radius (item 7 — Taylor: 'adjust the
+     size to match the speed and HP. Small is fast, medium - medium. Large
+     is slow.'): the tiers read at a glance — 24 / 42 / 66 — while r stays
+     the sim radius (targeting, ejection), untouched. */
+  var BAL_SET = ['small', 'small', 'medium', 'medium', 'medium', 'large', 'large']; /* v137: the seven-balloon composition (Taylor: 2 small / 3 medium / 2 large) — the one-line table balGenOrder shuffles */
+  function balEnsure() {
+    if (!G) return;
+    if (!G.balloons) G.balloons = [];
+    if (G.balNext === undefined || G.balNext === null) G.balNext = 0;
+    if (!G.brng) G.brng = ((SIMR.a ^ 0x85EBCA6B) >>> 0) || 1; /* Stage C adaptation C1: SP's unseeded fallback must NOT survive in MP — re-derive from the sim seed state (newGame sets brng from the match seed directly; this is only the back-fill) */
+  }
+  function balRand() { G.brng = (Math.imul(G.brng >>> 0, 1664525) + 1013904223) >>> 0; return G.brng / 4294967296; }
+  /* Deterministic no-repeat arrangement of BAL_SET (greedy, most-remaining
+     first) — balGenOrder's fallback; composition-agnostic. */
+  function balInterleave() {
+    var left = {}, tiers = ['small', 'medium', 'large'], out = [], last = '', i, t, pick, best;
+    for (i = 0; i < BAL_SET.length; i++) left[BAL_SET[i]] = (left[BAL_SET[i]] || 0) + 1;
+    while (out.length < BAL_SET.length) {
+      pick = ''; best = 0;
+      for (i = 0; i < 3; i++) { t = tiers[i]; if (t !== last && (left[t] || 0) > best) { best = left[t]; pick = t; } }
+      if (!pick) for (i = 0; i < 3; i++) if (left[tiers[i]] > 0) { pick = tiers[i]; break; } /* only one tier remains */
+      left[pick]--; out.push(pick); last = pick;
+    }
+    return out;
+  }
+  function balGenOrder() {
+    var sizes = BAL_SET.slice(), i, j, tmp, ok = false, tries = 0;
+    while (!ok && tries < 300) {
+      tries++;
+      for (i = sizes.length - 1; i > 0; i--) { j = Math.floor(balRand() * (i + 1)); tmp = sizes[i]; sizes[i] = sizes[j]; sizes[j] = tmp; }
+      ok = true;
+      for (i = 1; i < sizes.length; i++) if (sizes[i] === sizes[i - 1]) { ok = false; break; }
+    }
+    if (!ok) sizes = balInterleave(); /* unreachable in practice; keeps the no-repeat rule absolute */
+    return sizes;
+  }
+  function balSpotOk(x, y) {
+    var cx = clamp(Math.floor(x / CELL), 0, GRID - 1), cy = clamp(Math.floor(y / CELL), 0, GRID - 1), i, b, bx, by;
+    for (i = 0; i < G.blds.length; i++) {
+      b = G.blds[i]; if (b.hp <= 0 || b.dead) continue;
+      bx = clamp(Math.floor(b.x / CELL), 0, GRID - 1); by = clamp(Math.floor(b.y / CELL), 0, GRID - 1);
+      if (Math.max(Math.abs(bx - cx), Math.abs(by - cy)) < 2) return false;
+    }
+    return true;
+  }
+  function balSpawnPos() {
+    var i, x, y, cx, cy;
+    for (i = 0; i < 60; i++) { x = 60 + balRand() * (W - 120); y = 60 + balRand() * (H - 120); if (balSpotOk(x, y)) return { x: x, y: y }; }
+    /* fallback: the first cell centre (fixed scan order) outside every
+       building's keep-out — a rolled spot is never allowed to stand. */
+    for (cy = 0; cy < GRID; cy++) for (cx = 0; cx < GRID; cx++) { x = cx * CELL + CELL / 2; y = cy * CELL + CELL / 2; if (balSpotOk(x, y)) return { x: x, y: y }; }
+    return null;
+  }
+  function balloonSpawn(size) {
+    balEnsure();
+    var def = BAL_DEF[size]; if (!def) return null;
+    var pos = balSpawnPos(); if (!pos) return null;
+    var b = { id: G.nid++, balloon: true, size: size, x: pos.x, y: pos.y, r: def.r, hp: def.hp, max: def.hp, val: def.val, spd: def.spd, vx: 0, vy: 0, alt: 55, flash: 0, lastBy: -1, dead: false };
+    G.balloons.push(b);
+    try { Aud.ui('balloon'); } catch (e) {} /* SOUND ONLY notice: no banner, no map marker */
+    return b;
+  }
+  /* v137: building ejection (Taylor's v136 playtest: a balloon got caught
+     in a Beaver wall). A balloon must never rest inside a building: after
+     its move, any overlap with a building's footprint circle (BLD r — the
+     game's own distance measure) is resolved by pushing the balloon
+     radially out to the surface, the shortest escape. Runs every tick for
+     every live balloon, moving or parked, against every standing building
+     (a construction site is a scaffold — and one that COMPLETES on a
+     parked balloon has already pushed it clear on the way up). No damage,
+     no velocity change: flee behaviour resumes untouched. Passes repeat
+     until a pass pushes nothing (early exit — normally one pass); the cap
+     exists for saddle points between two footprints, where each radial
+     push trades a little penetration with the neighbour and convergence
+     is gradual — a fleeing balloon re-enters ~8 px a tick, and the cap
+     clears several times that from a saddle in one tick. */
+  function balloonEject(b) {
+    var pass, i, e, dx, dy, d, min, pushed;
+    for (pass = 0; pass < 40; pass++) {
+      pushed = false;
+      for (i = 0; i < G.blds.length; i++) {
+        e = G.blds[i]; if (e.hp <= 0 || e.dead) continue;
+        min = BLD[e.type].r + b.r;
+        dx = b.x - e.x; dy = b.y - e.y; d = Math.hypot(dx, dy);
+        if (d >= min) continue;
+        if (d < 0.01) { dx = (b.id % 2 ? 1 : -1); dy = 0.35; d = Math.hypot(dx, dy); } /* dead centre: a fixed, deterministic escape direction */
+        b.x = e.x + dx / d * min; b.y = e.y + dy / d * min;
+        pushed = true;
+      }
+      if (!pushed) break;
+    }
+    b.x = clamp(b.x, 30, W - 30); b.y = clamp(b.y, 30, H - 30);
+  }
+  function balloonTick(dt) {
+    balEnsure();
+    var i, b;
+    if (!G.over && !G.tut) {
+      if (!G.balOrder) G.balOrder = balGenOrder();
+      while (G.balNext < BAL_TIMES.length && G.t >= BAL_TIMES[G.balNext]) { balloonSpawn(G.balOrder[G.balNext]); G.balNext++; }
+    }
+    for (i = 0; i < G.balloons.length; i++) {
+      b = G.balloons[i]; if (b.dead) continue;
+      b.flash = Math.max(0, (b.flash || 0) - dt);
+      if (b.vx || b.vy) {
+        b.x = clamp(b.x + b.vx * dt, 30, W - 30); b.y = clamp(b.y + b.vy * dt, 30, H - 30);
+        var dec = Math.exp(-1.6 * dt); b.vx *= dec; b.vy *= dec;
+        if (Math.abs(b.vx) < 2 && Math.abs(b.vy) < 2) { b.vx = 0; b.vy = 0; }
+      }
+      balloonEject(b); /* v137: buildings kick balloons out (Taylor) */
+    }
+    for (i = G.balloons.length - 1; i >= 0; i--) if (G.balloons[i].dead) G.balloons.splice(i, 1);
+  }
+  /* A balloon takes a hit: remember who dealt it (LAST HIT takes the
+     clouds) and run — directly away from the damage source, at up to the
+     size's flee cap. Velocity is set, not accumulated, so a balloon under
+     steady fire holds its cap and a balloon left alone decays to a stop
+     in balloonTick. */
+  function balloonHitFx(src, b) {
+    b.flash = 0.12;
+    if (!src) return;
+    if (src.team !== undefined && src.team >= 0 && src.team < 4) b.lastBy = src.team;
+    var dx = b.x - src.x, dy = b.y - src.y, d = Math.hypot(dx, dy);
+    if (d > 1) { b.vx = dx / d * b.spd; b.vy = dy / d * b.spd; }
+    else if (b.vx || b.vy) { var m = Math.hypot(b.vx, b.vy) || 1; b.vx = b.vx / m * b.spd; b.vy = b.vy / m * b.spd; }
+  }
+  function balloonPop(b) {
+    burst(b.x, b.y, 16);
+    var ti = b.lastBy;
+    Aud.at('pop', b.x, b.y, ti >= 0 ? ti : 0);
+    if (ti >= 0 && G.teams[ti] && !G.teams[ti].dead) {
+      G.teams[ti].clouds += b.val;
+      var nm = (typeof ANN_NAME !== 'undefined' && ANN_NAME[G.teams[ti].race]) || RACES[G.teams[ti].race].name;
+      G.parts.push({ kind: 'cloudText', x: b.x, y: b.y, z: b.alt + 16, vx: 0, vy: 0, vz: 24, t: 0, life: 1.6, team: ti, text: '+' + b.val + ' ' + nm });
+    }
+  }
   function zOf(e) { return e.type ? BLD[e.type].top * BLD[e.type].sc * 0.6 : e.alt + 5; }
   function hit(src, tgt, dmg, silent, noTracer) { /* v91: noTracer suppresses only the bullet tracer visual, not damage/wall logic */
     var accelBoosted = !!(src && !src.type && (src.accelT || 0) > 0 && accelEligible(src));
@@ -4073,8 +4339,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (wl) { if (!noTracer) G.parts.push({ kind: 'bullet', x: src.x, y: src.y, z: zOf(src), tx: wl.x, ty: wl.y, tz: 12, t: 0, life: Math.max(0.08, Math.hypot(wl.x - src.x, wl.y - src.y) / 520), team: src.team }); return; }
     if (tgt.type && tgt.type !== 'field' && tgt.type !== 'wall') { var fd = fieldFor(tgt, src); if (fd) tgt = fd; }
     var msHpB = tgt.hp;
-    if (tgt.type) { tgt.hp -= dmg; tgt.flash = 0.1; tgt.hurtT = 1.2; }
-    else tgt.hp -= dmg / G.st[tgt.team].armor;
+    if (tgt.balloon) { tgt.hp -= dmg; balloonHitFx(src, tgt); } /* v136: balloons take raw damage (no armour, never marked) and flee the source */
+    else if (tgt.type) { tgt.hp -= dmg; tgt.flash = 0.1; tgt.hurtT = 1.2; }
+    else tgt.hp -= dmg * markMul(src.team, tgt) / G.st[tgt.team].armor; /* v136: the leader mark multiplies plane damage */
     msHit(src.team, tgt, msHpB);
     if (!silent) {
       var bs = src.type === 'turret' ? turretStats(src).bulletSpeed : src.type === 'base' ? 1400 : 900;
@@ -4084,7 +4351,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       if (!noTracer) G.parts.push({ kind: 'bullet', x: src.x, y: src.y, z: zOf(src), tx: tgt.x, ty: tgt.y, tz: zOf(tgt), t: 0, life: bulletLife, team: src.team, big: src.kind === 'blimp' });
       if (accelBoosted && (src.team === 0 || visibleToPlayer(src))) { G.parts.push({ kind: 'accelSpark', x: tgt.x, y: tgt.y, z: zOf(tgt), t: 0, life: 0.35, team: src.team }); G.parts.push({ kind: 'sniperBeam', x: src.x, y: src.y, tx: tgt.x, ty: tgt.y, t: 0, life: 0.18, team: src.team }); }
     }
-    if (tgt.hp <= 0 && !tgt.dead) { tgt.dead = true; reward(src.team, tgt); }
+    if (tgt.hp <= 0 && !tgt.dead) { tgt.dead = true; if (tgt.balloon) balloonPop(tgt); else reward(src.team, tgt); }
   }
   // v81: carrier quad turret. One shot per call (10/s via p.cd = 0.1 in the
   // carrier branch), 3 damage, cycling through 4 barrels in turn. Bullets
@@ -4107,14 +4374,15 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (wl) { var we = wallEntry(mx, my, wl.x, wl.y, wl); G.parts.push({ kind: 'bullet', x: mx, y: my, z: mz, tx: we.x, ty: we.y, tz: 12, t: 0, life: Math.max(0.08, Math.hypot(we.x - mx, we.y - my) / 900), team: p.team }); G.parts.push({ kind: 'muzzle', x: mx, y: my, z: mz, a: ta, sa: ta, t: 0, life: 0.18, team: p.team, small: true }); return; }
     var msHpC = tgt.hp;
     var qd = 2 * uMul(p.team, 'damage'); /* v131: Carrier Damage line drives its own quad guns; v133: base 3 -> 2 per shot (30 -> 20 DPS) — Taylor, after the 15-Carrier Bunny loss */
-    if (tgt.type) { tgt.hp -= qd; tgt.flash = 0.1; tgt.hurtT = 1.2; }
-    else tgt.hp -= qd / G.st[tgt.team].armor;
+    if (tgt.balloon) { tgt.hp -= qd; balloonHitFx(p, tgt); } /* v136 */
+    else if (tgt.type) { tgt.hp -= qd; tgt.flash = 0.1; tgt.hurtT = 1.2; }
+    else tgt.hp -= qd * markMul(p.team, tgt) / G.st[tgt.team].armor; /* v136: the leader mark */
     msHit(p.team, tgt, msHpC);
     Aud.at('quadShot', p.x, p.y, p.team);
     var dist = Math.hypot(tgt.x - mx, tgt.y - my);
     G.parts.push({ kind: 'bullet', x: mx, y: my, z: mz, tx: tgt.x, ty: tgt.y, tz: zOf(tgt), t: 0, life: Math.max(0.08, dist / 900), team: p.team });
     G.parts.push({ kind: 'muzzle', x: mx, y: my, z: mz, a: ta, sa: ta, t: 0, life: 0.18, team: p.team, small: true });
-    if (tgt.hp <= 0 && !tgt.dead) { tgt.dead = true; reward(p.team, tgt); }
+    if (tgt.hp <= 0 && !tgt.dead) { tgt.dead = true; if (tgt.balloon) balloonPop(tgt); else reward(p.team, tgt); }
   }
 
   // ---------- Turtle rockets, tank shells, explosions and knockback ----------
@@ -4180,6 +4448,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var best = null, bs = 1e9, j, d, q, e;
     for (j = 0; j < G.planes.length; j++) { q = G.planes[j]; if (q.team === p.team || q.hp <= 0 || !canTarget(p.team, q)) continue; d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= range && d < bs) { bs = d; best = q; } }
     for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (e.team === p.team || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
+    for (j = 0; j < G.balloons.length; j++) { e = G.balloons[j]; if (e.hp <= 0 || e.dead) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } } /* v136: helis engage balloons */
     return best;
   }
   // v73: a helicopter missile is a visible, travelling projectile (rocketFx machinery):
@@ -4233,7 +4502,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         var tgIsPlane = !tg.type;
         hit(q.src, tg, q.dmg, true);
         // The directly hit plane is thrown along the rocket's line of flight.
-        if (tgIsPlane && q.kb && tg.hp > 0) knockPlane(tg, q.lx - q.x0, q.ly - q.y0, q.kb);
+        if (tgIsPlane && !tg.balloon && q.kb && tg.hp > 0) knockPlane(tg, q.lx - q.x0, q.ly - q.y0, q.kb); /* v136: balloons flee on their own rules, no knockback */
       }
       for (i = 0; i < G.planes.length; i++) {
         pl = G.planes[i]; if (pl.team === q.team || pl.hp <= 0 || pl === tg) continue;
@@ -4351,13 +4620,14 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var qwl = wallOnLine(qmx, qmy, target.x, target.y);
       if (qwl) { var qwe = wallEntry(qmx, qmy, qwl.x, qwl.y, qwl); G.parts.push({ kind: 'bullet', x: qmx, y: qmy, z: qmz, tx: qwe.x, ty: qwe.y, tz: 12, t: 0, life: Math.max(0.08, Math.hypot(qwe.x - qmx, qwe.y - qmy) / ts.bulletSpeed), team: b.team }); G.parts.push({ kind: 'muzzle', x: qmx, y: qmy, z: qmz, a: b.a, sa: b.a, t: 0, life: 0.18, team: b.team, small: true }); return; }
       var msHpQ = target.hp;
-      if (target.type) { target.hp -= ts.damage; target.flash = 0.1; target.hurtT = 1.2; }
-      else target.hp -= ts.damage / G.st[target.team].armor;
+      if (target.balloon) { target.hp -= ts.damage; balloonHitFx(b, target); } /* v136 (defensive: building weapons never acquire balloons) */
+      else if (target.type) { target.hp -= ts.damage; target.flash = 0.1; target.hurtT = 1.2; }
+      else target.hp -= ts.damage * markMul(b.team, target) / G.st[target.team].armor; /* v136: the leader mark */
       msHit(b.team, target, msHpQ);
       var qdist = Math.hypot(target.x - qmx, target.y - qmy);
       G.parts.push({ kind: 'bullet', x: qmx, y: qmy, z: qmz, tx: target.x, ty: target.y, tz: zOf(target), t: 0, life: Math.max(0.08, qdist / ts.bulletSpeed), team: b.team });
       G.parts.push({ kind: 'muzzle', x: qmx, y: qmy, z: qmz, a: b.a, sa: b.a, t: 0, life: 0.18, team: b.team, small: true });
-      if (target.hp <= 0 && !target.dead) { target.dead = true; reward(b.team, target); }
+      if (target.hp <= 0 && !target.dead) { target.dead = true; if (target.balloon) balloonPop(target); else reward(b.team, target); }
       return;
     }
     hit(b, target, ts.damage);
@@ -4388,6 +4658,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function update(dt) {
     var i, j, p, b, t;
     G.t += dt;
+    balEnsure(); /* v136: balloon state exists before anything in the tick reads it */
     for (i = 0; i < G.pads.length; i++) if (G.pads[i].t > 0) G.pads[i].t -= dt;
     tubeTick(dt);
     G.st = G.teams.map(function (_, i) { return stats(i); });
@@ -4638,6 +4909,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r;
         if (d <= reach && d < bs) { bs = d; best = e; bd = d; }
       }
+      for (j = 0; j < G.balloons.length; j++) { /* v136: neutral balloons are plane-world targets, scored like buildings (edge distance) */
+        var bn = G.balloons[j]; if (bn.hp <= 0 || bn.dead) continue;
+        d = Math.hypot(bn.x - p.x, bn.y - p.y) - bn.r;
+        if (d <= reach && d < bs) { bs = d; best = bn; bd = d; }
+      }
       var b2BombTarget = null;
       if (p.kind === 'b2') {
         var bombDist = 1e9;
@@ -4710,6 +4986,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           var gunTarget = null, gunDist = st.range + 0.01; /* v131: rear-gun reach rides the B2 Range line */
           for (j = 0; j < planes.length; j++) { var gp = planes[j]; if (gp.team === p.team || gp.hp <= 0 || !canTarget(p.team, gp)) continue; var gd = Math.hypot(gp.x-p.x,gp.y-p.y); if (gd <= gunDist) { gunDist = gd; gunTarget = gp; } }
           for (j = 0; j < blds.length; j++) { var gb = blds[j]; if (gb.team === p.team || gb.hp <= 0 || (gb.type === 'wall' && gb.complete && wallProtected(gb))) continue; var gbd = Math.hypot(gb.x-p.x,gb.y-p.y); if (gbd <= gunDist) { gunDist = gbd; gunTarget = gb; } }
+          for (j = 0; j < G.balloons.length; j++) { var gbn = G.balloons[j]; if (gbn.hp <= 0 || gbn.dead) continue; var gnd = Math.hypot(gbn.x-p.x,gbn.y-p.y) - gbn.r; if (gnd <= gunDist) { gunDist = gnd; gunTarget = gbn; } } /* v136: the B2 rear gun engages balloons */
           if (gunTarget) { p.gunCd = 0.25; hit(p, gunTarget, 6 * uMul(p.team, 'damage')); /* v132: Taylor ruled the B2 Damage line covers BOTH weapons — bomb and rear gun */ G.parts.push({kind:'sniperBeam',x:p.x,y:p.y,tx:gunTarget.x,ty:gunTarget.y,t:0,life:0.10,team:p.team}); }
         }
         // Bomb bay: one 100-damage bomb per second, with a 25-unit blast radius. (v90: bomb 200 -> 100)
@@ -4823,6 +5100,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       if (x.hp <= 0 && x.type !== 'base' && x.pad) { var deadPad = x.pad; if (deadPad.team !== x.team) { deadPad.bld = null; /* v72 #3: captured pad reverts to its owner, empty */ } else { G.pads = G.pads.filter(function (pp) { return pp !== deadPad; }); } x.pad = null; }
       return x.hp > 0 || x.type === 'base';
     });
+    announceTick(); /* v135: leader announcements read the settled post-tick state */
+    balloonTick(dt); /* v136: balloon spawns, flee movement and cleanup */
   }
 
   function updateFx(dt) {
@@ -5116,7 +5395,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function aiRaidSend(ti, sizeMode, prioMode) {
     if (!G.ai.raidCd) G.ai.raidCd = {};
     if (G.ai.raidCd[ti] && G.t < G.ai.raidCd[ti]) return false;
-    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId; });
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet; }); /* v136: detachment planes are not wave/raid/snipe material */
     var targetTeam = aiTargetTeam(ti);
     if (targetTeam < 0) return false;
     var targetBase = baseOf(targetTeam); if (!targetBase) return false;
@@ -5159,7 +5438,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var targetTeam = aiTargetTeam(ti); if (targetTeam < 0) return false;
     var targetBase = baseOf(targetTeam); if (!targetBase) return false;
     if (targetBase.hp / targetBase.max < 0.5) return false; /* finisher state: leave it to the waves */
-    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId; });
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet; }); /* v136: detachment planes are not wave/raid/snipe material */
     if (idle.length < 24) return false; /* 12 go, at least 12 stay home */
     var SIZE = 12, best = null, bestScore = -1e9;
     for (var bi = 0; bi < G.blds.length; bi++) {
@@ -5310,6 +5589,43 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     cands.sort(function (a, b) { var pa = (a.type === 'lab' || a.type === 'ulab') ? 0 : (isHangarType(a.type) ? 1 : 2); var pb = (b.type === 'lab' || b.type === 'ulab') ? 0 : (isHangarType(b.type) ? 1 : 2); if (pa !== pb) return pa - pb; return (a.hp / a.max) - (b.hp / b.max); });
     return cands[0];
   }
+  /* v136: balloon detachment (BALLOON-OBJECTIVES-SPEC.md §6 — the AI must
+     contest balloons, without breaking the difficulty AIs' economy /
+     deathball structure). A team sends ~20% of its live army (2-4 planes)
+     at the live balloon nearest its HQ. Storm's deathball core is never
+     taken: before the boom latch (10 factories) the gate is 8 planes;
+     after it, a detachment forms only from a surplus (34+ planes, so the
+     30-plane deathball stays whole). Members are flagged p.balDet and are
+     excluded from wave pools; they are released when their balloon pops,
+     when the team is threatened at home, or when badly hurt. Orders are
+     refreshed onto the balloon's current position every AI tick, like the
+     other "use" blocks in aiAdvanced. */
+  function aiBalloonDetach(ti) {
+    if (!G.balloons || !G.teams[ti] || G.teams[ti].dead) return;
+    var bals = [], i, p;
+    for (i = 0; i < G.balloons.length; i++) if (!G.balloons[i].dead && G.balloons[i].hp > 0) bals.push(G.balloons[i]);
+    var mine = G.planes.filter(function (q) { return q.team === ti && q.hp > 0; });
+    var threatened = aiThreatened(ti);
+    for (i = 0; i < mine.length; i++) {
+      p = mine[i]; if (!p.balDet) continue;
+      var alive = false; for (var bi = 0; bi < bals.length; bi++) if (bals[bi].id === p.balDet) alive = true;
+      if (!alive || threatened || p.hp < p.max * 0.3) { p.balDet = 0; if (p.balDest) { p.dest = null; p.wp = null; p.balDest = false; } }
+    }
+    if (!bals.length || threatened) return;
+    var base = baseOf(ti); if (!base) return;
+    var target = bals[0], td = 1e18;
+    for (i = 0; i < bals.length; i++) { var dd = Math.hypot(bals[i].x - base.x, bals[i].y - base.y); if (dd < td) { td = dd; target = bals[i]; } }
+    var members = mine.filter(function (q) { return q.balDet === target.id; });
+    var want = Math.max(2, Math.min(4, Math.round(mine.length * 0.2)));
+    if (members.length < want) {
+      var gate = isStorm(ti) ? (G.ai.boom && G.ai.boom[ti] ? 34 : 8) : 10;
+      if (mine.length >= gate) {
+        var cand = mine.filter(function (q) { return !q.balDet && !q.dest && !q.raidTargetId && !q.storeAt && q.kind !== 'carrier'; });
+        for (i = 0; i < cand.length && members.length < want; i++) { cand[i].balDet = target.id; members.push(cand[i]); }
+      }
+    }
+    for (i = 0; i < members.length; i++) { p = members[i]; p.dest = { x: target.x, y: target.y }; p.wp = routeTo(p.x, p.y, target.x, target.y); p.balDest = true; }
+  }
   function aiTickTeam(dt, ti) {
     if (G.teams[ti].dead) return;
     var ai = G.ai; ai.t[ti] += dt; if (ai.t[ti] < aiDiff().tick) return; ai.t[ti] = 0;
@@ -5335,10 +5651,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     }
     for (var advI = 0; advI < aiDiff().adv; advI++) aiAdvanced(ti); // v71 #9: research, transforms, upgrades, 2nd hangar, special buildings (Storm takes 3 per tick)
     if (isStorm(ti)) aiRaidManage(ti);
-    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId; });
+    aiBalloonDetach(ti); /* v136: balloon detachment rides every AI tick, all difficulties */
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet; }); /* v136: detachment planes are not wave/raid/snipe material */
     if (isStorm(ti) && ai.wave[ti] > 0) aiRaidSend(ti, '8', 'weak'); /* v116: raids wait until the first deathball has launched */
     else if (isStorm(ti)) aiSnipeSend(ti); /* v124: before the deathball, an exposed enemy factory/lab may be sniped instead (Taylor: building sniping + early gameplay) */
-    idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId; });
+    idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet; }); /* v136 */
     var need;
     if (isStorm(ti)) {
       /* v116 Deathball Storm: conquer only after the economy is up. A latch
@@ -5862,6 +6179,61 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     BLD_ICON_CACHE = cache; BLD_ICON_RACE = race;
     return cache;
   }
+  /* v134: plane portraits for the selection grid, rendered through the
+     same offscreen pipeline as renderBldIcon: swap ctx/cam/G, draw the
+     real aircraft with drawPlane() at a fixed heading, content-crop, and
+     cache the data URL per kind+race+team. Health is never baked into
+     the cached portrait — the grid's HP bar carries health; this cache
+     only ever holds the pristine portrait. */
+  var PLANE_ICON_CACHE = {};
+  function renderPlaneIcon(kind, race, team) {
+    var key = (kind || 'basic') + '|' + race + '|' + team;
+    if (PLANE_ICON_CACHE[key]) return PLANE_ICON_CACHE[key];
+    var out = { url: null, method: 'fallback' };
+    var saveCtx, saveVw, saveVh, saveCam, saveG;
+    try {
+      var SIZE = 256, OUT = 120;
+      var oc = document.createElement('canvas'); oc.width = SIZE; oc.height = SIZE;
+      var octx = oc.getContext('2d'); if (!octx) throw new Error('no ctx');
+      saveCtx = ctx; saveVw = vw; saveVh = vh; saveCam = { x: cam.x, y: cam.y, z: cam.z }; saveG = G;
+      var fakeTeams = [];
+      for (var i = 0; i < 4; i++) fakeTeams.push(mkTeam(i, i === team ? race : RKEYS[i % RKEYS.length]));
+      G = { t: 0, teams: fakeTeams, blds: [], planes: [], parts: [], selectedTurret: null };
+      G.cols = G.teams.map(function (_, j) { return teamCols(j); });
+      ctx = octx; vw = SIZE; vh = SIZE; cam.x = 1200; cam.y = 1200;
+      cam.z = kind === 'carrier' ? 0.85 : kind === 'blimp' ? 1.3 : kind === 'tank' ? 1.7 : (kind === 'b2' || kind === 'heli') ? 2.0 : 2.4;
+      var fp = { id: 1, team: team, x: 1200, y: 1200, a: -0.85, hp: 100, max: 100, dest: null, cd: 0, bombCd: 0, gunCd: 0, sel: false, alt: 24, bank: 0, orbit: null, kind: kind || null, tur: -0.85, recoil: 0, mgCd: 0, misCd: 0, mgFlash: 0, misSide: false, cloakT: 0, cloaked: false, cloakFade: 0, laserFlash: 0, hitFlash: 0, quadBarrel: 0, quadFlash: 0, carrierCd: 5, tumble: 0, kbank: 0, fireAt: -9, side: false };
+      drawPlane(fp, 0, false);
+      var fc = document.createElement('canvas'); fc.width = OUT; fc.height = OUT;
+      var fctx = fc.getContext('2d');
+      if (fctx) {
+        /* content crop, same as renderBldIcon (v114): square around the
+           drawn pixels so the aircraft fills the portrait; fixed centre
+           crop as the fallback when pixel scanning is unavailable. */
+        var cropX = 38, cropY = 38, cropS = 180;
+        try {
+          var idata = octx.getImageData(0, 0, SIZE, SIZE), ipix = idata.data;
+          var mnx = SIZE, mny = SIZE, mxx = -1, mxy = -1;
+          for (var py2 = 0; py2 < SIZE; py2++) for (var px2 = 0; px2 < SIZE; px2++) {
+            if (ipix[(py2 * SIZE + px2) * 4 + 3] > 8) { if (px2 < mnx) mnx = px2; if (px2 > mxx) mxx = px2; if (py2 < mny) mny = py2; if (py2 > mxy) mxy = py2; }
+          }
+          if (mxx > mnx && mxy > mny) {
+            var bw = mxx - mnx + 1, bh = mxy - mny + 1;
+            cropS = Math.max(48, Math.min(SIZE, Math.max(bw, bh) * 1.18));
+            cropX = Math.max(0, Math.min(SIZE - cropS, (mnx + mxx + 1) / 2 - cropS / 2));
+            cropY = Math.max(0, Math.min(SIZE - cropS, (mny + mxy + 1) / 2 - cropS / 2));
+          }
+        } catch (e4) {}
+        fctx.drawImage(oc, cropX, cropY, cropS, cropS, 0, 0, OUT, OUT);
+      }
+      var url = (typeof fc.toDataURL === 'function') ? fc.toDataURL() : null;
+      if (!url) throw new Error('no data URL');
+      out = { url: url, method: 'drawPlane' };
+    } catch (e) { out = { url: null, method: 'fallback' }; }
+    finally { try { if (saveCtx !== undefined) ctx = saveCtx; if (saveVw !== undefined) vw = saveVw; if (saveVh !== undefined) vh = saveVh; if (saveCam) { cam.x = saveCam.x; cam.y = saveCam.y; cam.z = saveCam.z; } if (saveG !== undefined) G = saveG; } catch (e3) {} }
+    PLANE_ICON_CACHE[key] = out;
+    return out;
+  }
   // Rubble left behind where a building was destroyed: scorch mark, broken chunks, a little smoke.
   function drawRuin(r, time) {
     var sx = px(r.x), sy = py(r.y, 0), big = r.type === 'base', R = (big ? 80 : 40) * cam.z;
@@ -5893,6 +6265,54 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       ctx.fillStyle = 'rgba(70,80,92,' + a2 + ')';
       ctx.beginPath(); ctx.arc(sx + Math.sin(ph * 5 + k) * R * 0.15, sy - ph * R * 1.4, R * (0.14 + ph * 0.2), 0, TAU); ctx.fill();
     }
+  }
+  /* v136: the balloon — drawn in the game's own flat vocabulary: nested
+     ellipses for the classic crimson-and-cream panels, a gold equator
+     band, rope lines and a wooden basket, with a gentle render-time bob
+     (drawing only; the sim altitude stays fixed). Neutral livery for
+     every size; size itself carries the tier. The HP bar uses the
+     selection grid's colour language (green > 50%, yellow > 25%, red). */
+  function drawBalloon(b, time) {
+    var sx = px(b.x), sy = py(b.y, 0);
+    if (!inView(sx, sy - 90 * cam.z, 170)) return;
+    var z = cam.z, bob = Math.sin(time * 0.9 + b.id * 1.7) * 3;
+    var ey = py(b.y, b.alt + bob), R = (BAL_DEF[b.size] ? BAL_DEF[b.size].dr : b.r) * z, Ry = R * 1.14; /* v137: envelope drawn at the tier's dr (item 7), not the sim radius */
+    ctx.fillStyle = 'rgba(40,70,100,0.18)'; ell(sx + 8 * z, sy + 4 * z, R * 0.8, R * 0.8 * SE * 0.7); ctx.fill();
+    var byTop = ey + Ry * 0.82, bkW = R * 0.36, bkH = R * 0.3, bkY = byTop + R * 0.36;
+    ctx.strokeStyle = 'rgba(90,70,50,0.85)'; ctx.lineWidth = Math.max(1, 1.6 * z);
+    ctx.beginPath(); ctx.moveTo(sx - R * 0.42, byTop - R * 0.1); ctx.lineTo(sx - bkW / 2, bkY); ctx.moveTo(sx + R * 0.42, byTop - R * 0.1); ctx.lineTo(sx + bkW / 2, bkY); ctx.stroke();
+    ctx.fillStyle = '#8a6844'; ctx.fillRect(sx - bkW / 2, bkY, bkW, bkH);
+    ctx.fillStyle = '#6d5133'; ctx.fillRect(sx - bkW / 2, bkY, bkW, bkH * 0.34);
+    ctx.fillStyle = '#f3e3c2'; ell(sx, ey, R, Ry); ctx.fill();
+    ctx.fillStyle = '#d6563c'; ell(sx, ey, R * 0.66, Ry); ctx.fill();
+    ctx.fillStyle = '#f3e3c2'; ell(sx, ey, R * 0.34, Ry); ctx.fill();
+    ctx.fillStyle = '#d6563c'; ell(sx, ey, R * 0.13, Ry); ctx.fill();
+    ctx.fillStyle = 'rgba(214,150,20,0.9)'; ctx.fillRect(sx - R * 0.8, ey + Ry * 0.55, R * 1.6, Math.max(2, R * 0.1));
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ell(sx - R * 0.3, ey - Ry * 0.42, R * 0.34, Ry * 0.3); ctx.fill();
+    if (b.flash > 0) { ctx.globalAlpha = Math.min(0.65, b.flash * 5); ctx.fillStyle = '#fff'; ell(sx, ey, R, Ry); ctx.fill(); ctx.globalAlpha = 1; }
+    if (b.hp < b.max) {
+      var f = Math.max(0, b.hp / b.max), bw = Math.max(30 * z, R * 1.7), bx = sx - bw / 2, byy = ey - Ry - 13 * z;
+      ctx.fillStyle = 'rgba(28,50,71,0.55)'; ctx.fillRect(bx, byy, bw, 5);
+      ctx.fillStyle = f > 0.5 ? '#3aa86f' : f > 0.25 ? '#e8b83e' : '#d6563c'; ctx.fillRect(bx, byy, bw * f, 5);
+    }
+    /* v137: worth label (Taylor) — the balloon carries its cloud value on
+       itself: a mini cloud glyph + the tier value, hanging under the
+       basket like a nameplate, drawn at every HP (even undamaged, when
+       no HP bar shows). Same vocabulary as the hangar labels (700 weight,
+       z-scaled) with a white halo so it reads over sky, clouds and gold.
+       Drawing only — reads b.val, writes nothing. */
+    ctx.save();
+    var vtxt = '' + b.val;
+    ctx.font = '700 ' + Math.max(10, 13 * z) + 'px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    var vtw = ctx.measureText(vtxt).width, vgw = 18 * z, vgap = 4 * z, vx0 = sx - (vgw + vgap + vtw) / 2, vly = bkY + bkH + 14 * z;
+    ctx.fillStyle = '#ffffff';
+    ell(vx0 + vgw * 0.27, vly + 1 * z, vgw * 0.26, vgw * 0.19); ctx.fill();
+    ell(vx0 + vgw * 0.54, vly - vgw * 0.07, vgw * 0.3, vgw * 0.25); ctx.fill();
+    ell(vx0 + vgw * 0.79, vly + 1 * z, vgw * 0.23, vgw * 0.17); ctx.fill();
+    ctx.lineWidth = Math.max(2, 3 * z); ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeText(vtxt, vx0 + vgw + vgap, vly);
+    ctx.fillStyle = '#26384a'; ctx.fillText(vtxt, vx0 + vgw + vgap, vly);
+    ctx.restore();
   }
   function drawBar(x, y, w, f) {
     ctx.fillStyle = 'rgba(28,50,71,0.4)'; ctx.fillRect(x - w / 2, y, w, 5);
@@ -6364,6 +6784,55 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   function inView(sx, sy, m) { return sx > -m && sx < vw + m && sy > -m && sy < vh + m; }
 
+  /* v139: draw fault isolation + a glitch note the player can SEE.
+     Taylor's v137 game (2026-11-07): the sim and clock kept running
+     but his buildings and planes vanished in his own base and
+     reappeared when he scrolled to the enemy base. The v133 guard was
+     catching a throw every frame — but it wrote its report into
+     #note, display:none since v103, so the message could never be
+     read; and because the throw aborted draw() mid-pass, everything
+     queued after the poisoned entity never drew. The throwing line
+     itself never reproduced in the lab (zero throws across full-base
+     fixtures, balloons in every state, and organic 1200 s games), so
+     this build makes the failure mode harmless instead of hunting
+     the line: every per-entity draw pass isolates each entity — a
+     throw skips ONLY that entity for that frame, the error is
+     recorded here (render-side bookkeeping; glitchUi is never sim
+     state and nothing below writes to G), and drawing continues, so
+     the frame always completes. The outer frame guard stays as the
+     final net for anything outside the entity passes. Any skip
+     raises the #glitchNote pill with the first message of the burst
+     plus a '+N more' aggregate (no flicker), repainted at most every
+     250 ms so a per-frame poison cannot thrash the DOM, and kept up
+     for 12 s after the last repaint — long enough to read and
+     screenshot. */
+  var glitchUi = { total: 0, burst: 0, first: '', lastPaint: 0, timer: null, log: [] };
+  function showGlitchNote(msg, pass, kind) {
+    glitchUi.total++; glitchUi.burst++;
+    if (glitchUi.burst === 1) glitchUi.first = msg;
+    glitchUi.log.push({ pass: pass || '', kind: kind || '', msg: msg });
+    if (glitchUi.log.length > 24) glitchUi.log.shift();
+    var nowMs = performance.now();
+    if (glitchUi.burst > 1 && nowMs - glitchUi.lastPaint < 250) return; /* counted + logged above; the pill repaints at 4 Hz at most */
+    glitchUi.lastPaint = nowMs;
+    var el = $('glitchNote'), tx = $('glitchText');
+    if (!el || !tx) return;
+    tx.textContent = 'A glitch was skipped — the game is still running. (' + glitchUi.first + ')' + (glitchUi.burst > 1 ? ' +' + (glitchUi.burst - 1) + ' more' : '');
+    el.className = 'show';
+    if (glitchUi.timer) clearTimeout(glitchUi.timer);
+    glitchUi.timer = setTimeout(function () { var e2 = $('glitchNote'); if (e2) e2.className = ''; glitchUi.burst = 0; glitchUi.first = ''; }, 12000);
+    if (glitchUi.timer && glitchUi.timer.unref) glitchUi.timer.unref();
+  }
+  function drawSkip(pass, kind, e) {
+    /* Re-assert the frame's base canvas state, which a draw that threw
+       mid-way may have stranded: one restore for a possibly stranded
+       save (a no-op when the stack is already at its base), then the
+       base transform / alpha / dash. Runs only on the throw path —
+       the clean path adds no canvas operations. */
+    try { ctx.restore(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.setLineDash([]); } catch (e2) {}
+    try { console.error(e); } catch (e3) {}
+    showGlitchNote((e && e.message) ? e.message : 'error', pass, kind);
+  }
   function draw() {
     var time = performance.now() / 1000, i, j;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -6387,21 +6856,23 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       ctx.fillStyle = 'rgba(255,255,255,0.5)';
       ell(sx, sy, rr, rr * 0.42); ctx.fill(); ell(sx + rr * 0.7, sy - rr * 0.1, rr * 0.7, rr * 0.34); ctx.fill(); ell(sx - rr * 0.7, sy + rr * 0.05, rr * 0.6, rr * 0.3); ctx.fill();
     }
-    for (i = 0; i < G.blds.length; i++) if (G.blds[i].type === 'base') drawPadShape(G.blds[i].x, G.blds[i].y, 92, i * 1.7, G.blds[i].team, 1);
+    for (i = 0; i < G.blds.length; i++) if (G.blds[i].type === 'base') { try { drawPadShape(G.blds[i].x, G.blds[i].y, 92, i * 1.7, G.blds[i].team, 1); } catch (e) { drawSkip('building', 'base', e); } } /* v139: per-entity isolation */
     var showPads = G.build && G.build !== 'pad' && mode === 'play';
     for (i = 0; i < G.pads.length; i++) {
       var pd = G.pads[i];
+      try { /* v139: per-entity isolation */
       drawPadShape(pd.x, pd.y, pd.r, pd.seed, pd.team, pd.t > 0 ? 0.5 : 1);
       if (pd.t > 0) { ctx.fillStyle = '#1c3247'; ctx.font = '700 12px "Nunito Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText('PAD ' + Math.round((1 - pd.t / 5) * 100) + '%', px(pd.x), py(pd.y, 0)); }
       if (showPads && !pd.bld && (pd.team === mpHudTeam() || buildingNear(mpHudTeam(), pd, 1))) { // v72 #3: also highlight capturable enemy pads (own building next to them)
         var psx = px(pd.x), psy = py(pd.y, 0), pulse = 0.55 + 0.35 * Math.sin(time * 5);
         ctx.strokeStyle = 'rgba(58,168,111,' + pulse + ')'; ctx.lineWidth = 4; ell(psx, psy, pd.r * cam.z * 0.95, pd.r * cam.z * SE * 0.95); ctx.stroke();
       }
+      } catch (e) { drawSkip('pad', 'pad', e); }
     }
     ctx.fillStyle = 'rgba(255,205,70,0.38)'; ctx.fillRect(px(5 * CELL), py(5 * CELL, 0), 2 * CELL * cam.z, 2 * CELL * cam.z * SE);
     ctx.strokeStyle = 'rgba(214,150,20,0.8)'; ctx.lineWidth = 3; ctx.strokeRect(px(5 * CELL), py(5 * CELL, 0), 2 * CELL * cam.z, 2 * CELL * cam.z * SE);
     ctx.fillStyle = 'rgba(150,100,0,0.75)'; ctx.font = '700 13px "Nunito Sans",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.fillText('GOLD 3x SPEED', px(6 * CELL), py(5 * CELL, 0) + 16);
-    for (i = 0; i < G.ruins.length; i++) drawRuin(G.ruins[i], time);
+    for (i = 0; i < G.ruins.length; i++) { try { drawRuin(G.ruins[i], time); } catch (e) { drawSkip('ruin', G.ruins[i] && G.ruins[i].type, e); } } /* v139: per-entity isolation */
     var rawMw = s2w(G.mouse.x, G.mouse.y), mw = gridPos(rawMw.x, rawMw.y);
     if (G.build && mode === 'play') {
       var pb = baseOf(mpHudTeam());
@@ -6429,7 +6900,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
             ctx.restore();
           } else {
             var gb = { team: mpHudTeam(), type: G.build, x: hp.x, y: hp.y, a: -0.8, hp: 1, flash: 0, complete: true };
-            drawBld(gb, time, 0.7);
+            try { drawBld(gb, time, 0.7); } catch (e) { drawSkip('building', gb.type, e); } /* v139: isolated like every building draw */
           }
         }
       }
@@ -6453,15 +6924,17 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     for (i = 0; i < sortedB.length; i++) {
       var sb = sortedB[i];
       if (!inView(px(sb.x), py(sb.y, 0), 200)) continue;
-      drawBld(sb, time, 1);
+      try { drawBld(sb, time, 1); } catch (e) { drawSkip('building', sb.type, e); } /* v139: per-entity isolation */
     }
     /* v91: faint translucent connector between a team's Tube Entrance and its Tube Exit (drawing only — no selection/placement effect) */
     for (var tc = 0; tc < G.teams.length; tc++) { var te = null, tx = null; for (var tb = 0; tb < G.blds.length; tb++) { if (G.blds[tb].team === tc && G.blds[tb].hp > 0) { if (G.blds[tb].type === 'tube') te = G.blds[tb]; if (G.blds[tb].type === 'exit') tx = G.blds[tb]; } } if (te && tx) { ctx.save(); ctx.globalAlpha = 0.35; ctx.strokeStyle = '#9ed8f2'; ctx.lineWidth = 6 * cam.z; ctx.setLineDash([14 * cam.z, 10 * cam.z]); ctx.beginPath(); ctx.moveTo(px(te.x), py(te.y, 0)); ctx.lineTo(px(tx.x), py(tx.y, 0)); ctx.stroke(); ctx.setLineDash([]); ctx.restore(); } }
     vis.sort(function (a, b) { return a.y - b.y; });
     var lod = vis.length > 60 || cam.z < 0.85;
-    for (i = 0; i < vis.length; i++) drawPlane(vis[i], time, lod);
+    for (i = 0; i < vis.length; i++) { try { drawPlane(vis[i], time, lod); } catch (e) { drawSkip('plane', vis[i] && vis[i].kind, e); } } /* v139: per-entity isolation */
+    if (G.balloons) for (i = 0; i < G.balloons.length; i++) { try { drawBalloon(G.balloons[i], time); } catch (e) { drawSkip('balloons', G.balloons[i] && G.balloons[i].size, e); } } /* Stage C: balloons fly above the plane layer (SP v136 pass), wrapped in Stage A's per-entity isolation (A9) */
     for (i = 0; i < G.parts.length; i++) {
       var bp = G.parts[i];
+      try { /* v139: per-entity isolation */
       if (bp.kind === 'bullet') {
         var bx=px(bp.x), by=py(bp.y,bp.z), btx=px(bp.tx), bty=py(bp.ty,bp.tz || 22), bdx=btx-bx, bdy=bty-by, blen=Math.hypot(bdx,bdy)||1;
         ctx.lineCap='round'; ctx.strokeStyle=bp.team===0?'rgba(36,104,201,0.95)':'rgba(214,60,82,0.95)'; ctx.lineWidth=(bp.big?5:2.5)*cam.z;
@@ -6469,9 +6942,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         ctx.fillStyle = bp.team === 0 ? '#2468c9' : '#d63c52';
         ctx.beginPath(); ctx.arc(bx, by, (bp.big ? 4.5 : 2.4) * cam.z, 0, TAU); ctx.fill();
       } else if (bp.kind === 'rocketFx') { drawRocketFx(bp, time); }
+      } catch (e) { drawSkip('particle', bp && bp.kind, e); }
     }
     for (i = 0; i < G.parts.length; i++) {
       var q = G.parts[i], k = q.t / q.life;
+      try { /* v139: per-entity isolation */
       if (q.kind === 'puff') { ctx.fillStyle = 'rgba(255,255,255,' + (0.9 * (1 - k)) + ')'; ctx.beginPath(); ctx.arc(px(q.x), py(q.y, q.z), q.r * (1 + k * 0.9) * cam.z, 0, TAU); ctx.fill(); }
       else if (q.kind === 'sniperBeam' || q.kind === 'healBeam' || q.kind === 'javelinFx') {
         var x1=px(q.x), y1=py(q.y, q.z || 22), x2=px(q.tx), y2=py(q.ty, 22); ctx.globalAlpha=Math.max(0,1-k);
@@ -6534,7 +7009,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         ctx.beginPath(); ctx.arc(crx - cr * 0.35, cry, cr * 0.48, 0, TAU); ctx.arc(crx + cr * 0.25, cry - cr * 0.12, cr * 0.62, 0, TAU); ctx.arc(crx + cr * 0.65, cry + cr * 0.08, cr * 0.38, 0, TAU); ctx.fill(); ctx.stroke(); ctx.globalAlpha = 1;
       } else if (q.kind === 'cloudText') {
         ctx.globalAlpha = Math.max(0, 1 - k); ctx.fillStyle = TEAMC[q.team || 0]; ctx.font = '700 ' + Math.max(12, Math.round(18 * cam.z)) + 'px "Fredoka",system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
-        var tx = px(q.x), ty = py(q.y, q.z); ctx.strokeText('+10 CLOUDS', tx, ty); ctx.fillText('+10 CLOUDS', tx, ty); ctx.globalAlpha = 1;
+        var tx = px(q.x), ty = py(q.y, q.z); var ctt = q.text || '+10 CLOUDS'; ctx.strokeText(ctt, tx, ty); ctx.fillText(ctt, tx, ty); ctx.globalAlpha = 1; /* v136: floaters may carry their own text (balloon credit) */
       }
       else if (q.kind === 'laserBolt') {
         // v76 Wraithwing laser: a bright glowing bolt, gone in 0.09 s.
@@ -6548,10 +7023,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         ctx.globalAlpha=Math.max(0,1-k)*0.8; ctx.strokeStyle=q.team===0?'#9be8ff':'#c9b8ff'; ctx.lineWidth=2.5*cam.z; ctx.beginPath(); ctx.ellipse(px(q.x),py(q.y,0),(8+34*k)*cam.z,(8+34*k)*cam.z*SE,0,0,TAU); ctx.stroke(); ctx.globalAlpha=1;
       }
       else { ctx.strokeStyle = 'rgba(36,104,201,' + (1 - k) + ')'; ctx.lineWidth = 3; ell(px(q.x), py(q.y, 0), (14 + 60 * k) * cam.z, (14 + 60 * k) * cam.z * SE); ctx.stroke(); }
+      } catch (e) { drawSkip('particle', q && q.kind, e); }
     }
-    for (i = 0; i < vis.length; i++) { var vp = vis[i]; if ((vp.accelT || 0) > 0) { ctx.globalAlpha = 0.55; ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2.5 * cam.z; ctx.beginPath(); ctx.ellipse(px(vp.x), py(vp.y, 0), 30 * cam.z, 30 * cam.z * SE, 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; } if (vp.hp < vp.max) drawBar(px(vp.x), py(vp.y, vp.alt + (vp.kind === 'blimp' ? 66 : vp.kind === 'tank' ? 50 : 24)), vp.kind === 'blimp' ? 60 : vp.kind === 'tank' ? 48 : 26, vp.hp / vp.max); }
+    for (i = 0; i < vis.length; i++) { var vp = vis[i]; try { if ((vp.accelT || 0) > 0) { ctx.globalAlpha = 0.55; ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2.5 * cam.z; ctx.beginPath(); ctx.ellipse(px(vp.x), py(vp.y, 0), 30 * cam.z, 30 * cam.z * SE, 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; } if (vp.hp < vp.max) drawBar(px(vp.x), py(vp.y, vp.alt + (vp.kind === 'blimp' ? 66 : vp.kind === 'tank' ? 50 : 24)), vp.kind === 'blimp' ? 60 : vp.kind === 'tank' ? 48 : 26, vp.hp / vp.max); } catch (e) { drawSkip('plane', vp && vp.kind, e); } }
     for (i = 0; i < G.blds.length; i++) {
-      var hb = G.blds[i]; if (hb.hp > 0 && hb.hp < hb.max) drawBar(px(hb.x), py(hb.y, BLD[hb.type].top * BLD[hb.type].sc + 14), hb.type === 'base' ? 90 : 46, hb.hp / hb.max);
+      var hb = G.blds[i]; if (hb.hp > 0 && hb.hp < hb.max) { try { drawBar(px(hb.x), py(hb.y, BLD[hb.type].top * BLD[hb.type].sc + 14), hb.type === 'base' ? 90 : 46, hb.hp / hb.max); } catch (e) { drawSkip('building', hb.type, e); } } /* v139: per-entity isolation */
     }
     if (G.drag && G.drag.moved) {
       var dg = G.drag, x0 = Math.min(dg.x0, dg.x1), y0 = Math.min(dg.y0, dg.y1), w2 = Math.abs(dg.x1 - dg.x0), h2 = Math.abs(dg.y1 - dg.y0);
@@ -6559,8 +7035,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       ctx.fillRect(x0, y0, w2, h2); ctx.strokeRect(x0, y0, w2, h2);
     }
     for (i = 0; i < G.parts.length; i++) if (G.parts[i].kind === 'rocket') {
-      var rq=G.parts[i]; ctx.strokeStyle=rq.team===0?'rgba(36,104,201,0.95)':'rgba(214,60,82,0.95)'; ctx.lineWidth=3;
+      var rq=G.parts[i];
+      try { /* v139: per-entity isolation */
+      ctx.strokeStyle=rq.team===0?'rgba(36,104,201,0.95)':'rgba(214,60,82,0.95)'; ctx.lineWidth=3;
       ctx.beginPath(); ctx.moveTo(px(rq.x),py(rq.y,rq.z)); ctx.lineTo(px(rq.tx),py(rq.ty,24)); ctx.stroke();
+      } catch (e) { drawSkip('particle', 'rocket', e); }
     }
     
   }
@@ -6646,10 +7125,12 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     $('padNote').textContent = (fp ? 'Empty cloud pads ready: ' + fp + '. Buildings go on a pad.' : 'No empty cloud pad. Build a Cloud Pad first — new pads must sit next to one of your buildings' + (t.race === 'beaver' ? ' (Beavers: within 2 squares)' : '') + '.') + ' Enemy pads can be built on if one of your buildings is next to them.';
     for (var hi = 0; hi < 4; hi++) {
       var hb = baseOf(hi), raceName = RACES[G.teams[hi].race].name;
-      $('hqName' + hi).textContent = (hi === ht ? 'YOU ' : '') + raceName + (G.teams[hi].dead ? ' ✖' : '');
+      $('hqName' + hi).textContent = raceName + (G.teams[hi].dead ? ' ✖' : ''); /* v137: no 'YOU ' prefix (Taylor) — the local player's row is marked by the .you outline + bold name instead */
+      $('hqRow' + hi).classList.toggle('you', hi === ht); /* Stage A adaptation A5: SP toggled hi === 0; MP toggles hi === ht (ht = mpHudTeam(), the LOCAL seat — guests are seats 1-3) */
       $('hqBar' + hi).style.width = (hb ? Math.max(0, hb.hp / hb.max) * 100 : 0) + '%';
       $('hqBar' + hi).style.opacity = hb && hb.hp > 0 ? '1' : '0.25';
     }
+    var clkEl = $('hClock'); if (clkEl) { var cs = Math.max(0, Math.floor(G.t)); clkEl.textContent = Math.floor(cs / 60) + ':' + ('0' + (cs % 60)).slice(-2); } /* v136: game timer (G.t-driven, display-only) */
     showSelectionStats();
     for (i = 0; i < btnBuild.length; i++) {
       var ty = btnBuild[i].getAttribute('data-build'), c = cost(ht, ty), only = btnBuild[i].getAttribute('data-only'); if (only) btnBuild[i].hidden = t.race !== only;
@@ -6880,7 +7361,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     turtle: ["Slow an' steady, ace!", "All spooled up... eventually.", "Another fine sortie!", "I am not hiding in my shell", "Leave me alone"]
   }; /* v117: last two lines per race are Taylor's own character lines */
   var ANNOY_LINES = ['Yes?', 'What is it?', 'Okay, okay, I am going!'];
-  var RACE_VOICE = { fox: { pitch: 1.4, rate: 1.05 }, bunny: { pitch: 1.35, rate: 1.22 } /* v118: Judy Hopps — bright/eager, female voice below does the heavy lifting */, hamster: { pitch: 1.55, rate: 1.05 } /* v122: clarity retry — near-normal pace, moderate pitch (1.32 rate was too fast to understand) */ /* v120: retry — 2.0 was the synth pitch ceiling and distorted; still highest/fastest in the cast */, otter: { pitch: 1.6, rate: 1.25 }, beaver: { pitch: 1.5, rate: 1.2 }, turtle: { pitch: 1.3, rate: 1.05 } }; /* v114: cartoon Corki-style, all races high/fast; turtle stays the slowest, beaver the gruffest */
+  var RACE_VOICE = { fox: { pitch: 1.4, rate: 1.05 }, bunny: { pitch: 1.35, rate: 1.22 } /* v118: Judy Hopps — bright/eager, female voice below does the heavy lifting */, hamster: { pitch: 1.55, rate: 1.05 } /* v122: clarity retry — near-normal pace, moderate pitch (1.32 rate was too fast to understand) */ /* v120: retry — 2.0 was the synth pitch ceiling and distorted; still highest/fastest in the cast */, otter: { pitch: 1.6, rate: 1.25 }, beaver: { pitch: 1.5, rate: 1.2 }, turtle: { pitch: 1.3, rate: 1.05 }, announcer: { pitch: 0.8, rate: 0.9 } }; /* v135: the Announcer (Taylor: TF2 Administrator style) — low and measured, distinct from every race profile; not a race, never a team voice */ /* v114: cartoon Corki-style, all races high/fast; turtle stays the slowest, beaver the gruffest */
   /* v114: voice cooldown. A line, once started, always finishes:
      speakLine never cancels and never queues, and it ignores new
      triggers while a line is playing and for VOICE_COOLDOWN_MS after
@@ -6929,6 +7410,115 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       speechSynthesis.speak(u);
     } catch (e) {}
   }
+  /* v135: Leader Announcements (LEADER-ANNOUNCEMENTS-SPEC.md; Taylor's
+     §7 calls). Display-only: this block reads sim state and writes none
+     of it. All bookkeeping is driven by game time (G.t), never wall
+     clock, so every multiplayer client will derive identical
+     announcements from the same state. Rules in brief: army = popOf
+     summed over live, uncloaked planes (carrier/burrow/tube-stored
+     planes are not in G.planes and never count); economy = completed
+     factories; stored clouds are never read; eliminated teams are
+     out; a best score of 0 announces nothing. Ties are picked silently
+     (the incumbent keeps the title while tied, else the earliest
+     seat). Leader changes announce on the spot, the 3-minute clock
+     restarts from each announcement, and no announcement lands sooner
+     than ANN_GAP after the previous one — when both categories are
+     due together, army goes first and economy waits out the gap. */
+  var ANN_FIRST = 180, ANN_PERIOD = 180, ANN_GAP = 60;
+  var ANN_NAME = { hamster: 'Hamster', fox: 'Fox', bunny: 'Bunny', otter: 'Otter', beaver: 'Beaver', turtle: 'Turtle' }; /* Taylor's wording uses the singular race name ("Hamster Army is superior") */
+  var annHideTimer = null;
+  function annState() {
+    if (!G.ann) G.ann = { leader: { army: -2, econ: -2 }, lastT: -1e9, nextDue: ANN_FIRST, pending: [], log: [] };
+    return G.ann;
+  }
+  function annTeamAlive(ti) { var b = baseOf(ti); return !G.teams[ti].dead && !!b && b.hp > 0; }
+  function annScores(cat) {
+    var s = [-1, -1, -1, -1], i, p, b;
+    for (i = 0; i < 4; i++) if (annTeamAlive(i)) s[i] = 0;
+    if (cat === 'army') {
+      for (i = 0; i < G.planes.length; i++) { p = G.planes[i]; if (p.hp > 0 && !p.cloaked && s[p.team] >= 0) s[p.team] += popOf(p); }
+    } else {
+      for (i = 0; i < G.blds.length; i++) { b = G.blds[i]; if (b.type === 'factory' && b.hp > 0 && b.complete && s[b.team] >= 0) s[b.team]++; }
+    }
+    return s;
+  }
+  function annLeader(cat, incumbent) {
+    var s = annScores(cat), best = 0, i;
+    for (i = 0; i < 4; i++) if (s[i] > best) best = s[i];
+    if (best <= 0) return -1;
+    if (incumbent >= 0 && s[incumbent] === best) return incumbent;
+    for (i = 0; i < 4; i++) if (s[i] === best) return i;
+    return -1;
+  }
+  function annTextFor(cat, ti) {
+    var nm = ANN_NAME[G.teams[ti].race] || RACES[G.teams[ti].race].name;
+    return cat === 'army' ? nm + ' Army is superior' : nm + ' is producing ample Clouds'; /* Taylor's templates, verbatim */
+  }
+  /* The Announcer speaks through the same fail-soft path as the pilots
+     (mute honoured, shared busy window so voices never overlap), but
+     with its own profile and no pilot portrait to animate. */
+  function speakAnnounce(text) {
+    if (!text) return;
+    try { if (Aud.isMuted()) return; } catch (e) { return; }
+    if (!('speechSynthesis' in window)) return;
+    var nowMs = Date.now();
+    if (nowMs < voiceBusyUntil) return;
+    try { if (speechSynthesis.speaking || speechSynthesis.pending) return; } catch (e) {}
+    try {
+      var u = new SpeechSynthesisUtterance(text);
+      var v = RACE_VOICE.announcer || {};
+      u.pitch = v.pitch || 1; u.rate = v.rate || 1; u.volume = 0.9;
+      var estMs = (0.5 + text.length * 0.07) * 1000;
+      voiceBusyUntil = nowMs + estMs + VOICE_COOLDOWN_MS;
+      u.onend = function () { voiceBusyUntil = Date.now() + VOICE_COOLDOWN_MS; };
+      u.onerror = function () { voiceBusyUntil = Date.now() + VOICE_COOLDOWN_MS; };
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function annShow(cat, ti) {
+    var A = annState(), text = annTextFor(cat, ti);
+    A.leader[cat] = ti; A.lastT = G.t; A.nextDue = G.t + ANN_PERIOD;
+    /* v136: the leader mark — the banner names the damage bonus this
+       announcement puts on the announced team's planes, so players know
+       about the 5% damage (Taylor): +5%, or +10% when the same team
+       already holds the other title too. */
+    var dmgPct = ((cat === 'army' ? A.leader.econ : A.leader.army) === ti) ? 10 : 5;
+    var dmgText = '+' + dmgPct + '% damage against ' + (ANN_NAME[G.teams[ti].race] || RACES[G.teams[ti].race].name) + ' planes';
+    A.log.push({ t: Math.round(G.t * 100) / 100, cat: cat, team: ti, text: text, dmg: dmgPct, dmgText: dmgText });
+    if (A.log.length > 60) A.log.shift();
+    var el = $('annBanner');
+    if (el) {
+      $('annText').textContent = text;
+      $('annCat').textContent = cat === 'army' ? 'Announcer · Biggest Army' : 'Announcer · Best Economy';
+      var dmgEl = $('annDmg'); if (dmgEl) dmgEl.textContent = dmgText;
+      try { el.style.borderColor = (G.cols && G.cols[ti]) || '#8b9bb4'; } catch (e) {}
+      el.className = 'show';
+      if (annHideTimer) clearTimeout(annHideTimer);
+      annHideTimer = setTimeout(function () { var e2 = $('annBanner'); if (e2) e2.className = ''; }, 5200);
+      if (annHideTimer && annHideTimer.unref) annHideTimer.unref();
+    }
+    speakAnnounce(text);
+  }
+  function announceTick() {
+    if (!G || G.over || G.tut) return; /* Stage D fix: SP's exact guard restored — this file DOES have a local tutorial (startTutorial sets G.tut), so announcements (and the leader mark they drive) skip tutorial games exactly as SP; balloonTick already kept its !G.tut spawn guard verbatim in Stage C. Lockstep matches never set G.tut. */
+    var A = annState();
+    if (G.t < ANN_FIRST) return;
+    var cats = ['army', 'econ'], k, cat, lead, ix;
+    for (k = 0; k < 2; k++) {
+      cat = cats[k];
+      lead = annLeader(cat, A.leader[cat]);
+      if (lead >= 0 && lead !== A.leader[cat] && A.pending.indexOf(cat) < 0) A.pending.push(cat);
+      else if (lead < 0 && A.leader[cat] >= 0) A.leader[cat] = -1; /* title vacated (leader wiped out): silent */
+    }
+    if (!A.pending.length) return;
+    if (G.t - A.lastT < ANN_GAP) return;
+    for (k = 0; k < 2; k++) { /* army before economy when both are due */
+      cat = cats[k]; ix = A.pending.indexOf(cat); if (ix < 0) continue;
+      lead = annLeader(cat, A.leader[cat]);
+      A.pending.splice(ix, 1);
+      if (lead >= 0 && lead !== A.leader[cat]) { annShow(cat, lead); return; }
+    }
+  }
   function v113MoveVoice() {
     if (!G) return;
     var lines = MOVE_LINES[G.teams[0].race] || MOVE_LINES.fox;
@@ -6963,12 +7553,69 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       portraitSetRace(r0); nm.textContent = RACES[r0].name + ' Pilot'; sb.textContent = 'Normal plane · select a unit to see its pilot';
     }
   }
+  /* v134: StarCraft-style selection grid. Display-only: reads plane
+     state, never writes it. Cells are rebuilt ONLY when the selection's
+     composition (the ordered plane-id set) changes; every panel refresh
+     otherwise just rewrites the HP bar widths/colours from live state.
+     Grouping: specials first (carrier, b2, tank, heli, wraith, blimp),
+     basics after, stable within each kind. Cell size steps down as the
+     count grows (sgA 48px -> sgD 26px) so even a full 80-plane selection
+     wraps compactly inside the panel card, which keeps its own internal
+     scroll as the safety net — the page layout never moves. */
+  var SELGRID_KIND_ORDER = { carrier: 0, b2: 1, tank: 2, heli: 3, wraith: 4, blimp: 5 };
+  var selGridHost = null, selGridSig = '', selGridCells = [];
+  function selGridBarColor(frac) { return frac > 0.5 ? '#43b04c' : frac > 0.25 ? '#e0a91f' : '#d63c52'; }
+  function selGridSizeClass(n) { return n <= 16 ? 'sgA' : n <= 36 ? 'sgB' : n <= 64 ? 'sgC' : 'sgD'; }
+  function resetSelGrid() { selGridHost = null; selGridSig = ''; selGridCells = []; }
+  function updateSelGrid(el, selNow) {
+    var sorted = selNow.slice().sort(function (a, b) { var ra = a.kind ? SELGRID_KIND_ORDER[a.kind] : 6, rb = b.kind ? SELGRID_KIND_ORDER[b.kind] : 6; return ra - rb; });
+    var sig = G.teams[mpHudTeam()].race + '|' + sorted.map(function (p) { return p.id; }).join(','); /* Stage A adaptation A1: SP read G.teams[0].race; MP reads the HUD team's race */
+    if (!selGridHost || sig !== selGridSig) {
+      el.innerHTML = '';
+      if (Array.isArray(el.children)) el.children.length = 0; /* headless stub keeps children beside innerHTML; a real browser clears both via innerHTML */
+      selGridCells = [];
+      var head = document.createElement('div'); head.className = 'selGridHead';
+      var hn = document.createElement('span'); hn.className = 'selGridName'; hn.textContent = sorted.length + ' planes selected';
+      var hs = document.createElement('span'); hs.className = 'selGridSub'; hs.textContent = 'gold frame = special plane · bars show health';
+      head.appendChild(hn); head.appendChild(hs); el.appendChild(head);
+      var host = document.createElement('div'); host.className = 'selGrid ' + selGridSizeClass(sorted.length);
+      for (var i = 0; i < sorted.length; i++) {
+        var p = sorted[i], race = G.teams[p.team].race;
+        var cell = document.createElement('div');
+        cell.className = 'sgCell' + (p.kind ? ' sgSpec' : '');
+        cell.title = p.kind === 'tank' ? 'Turtle Tank' : p.kind === 'carrier' ? 'Aircraft Carrier' : p.kind === 'heli' ? 'Ottercopter' : p.kind === 'wraith' ? 'Wraithwing' : p.kind === 'blimp' ? 'Blimp' : p.kind === 'b2' ? 'B2 Bomber' : RACES[race].name + ' Plane';
+        var icon = null;
+        try { icon = renderPlaneIcon(p.kind, race, p.team); } catch (e) { icon = null; }
+        if (icon && icon.url) { var im = document.createElement('img'); im.className = 'sgPic'; im.src = icon.url; im.alt = ''; cell.appendChild(im); }
+        else { var em = document.createElement('span'); em.className = 'sgEmoji'; em.textContent = p.kind === 'blimp' ? '🎈' : p.kind === 'b2' ? '🛩️' : p.kind === 'carrier' ? '🚢' : p.kind === 'heli' ? '🚁' : p.kind === 'wraith' ? '👻' : raceIcon(race); cell.appendChild(em); }
+        var bar = document.createElement('div'); bar.className = 'sgBar';
+        var fill = document.createElement('i'); bar.appendChild(fill); cell.appendChild(bar);
+        host.appendChild(cell);
+        selGridCells.push({ plane: p, fill: fill });
+      }
+      el.appendChild(host);
+      selGridHost = host; selGridSig = sig;
+    }
+    for (var j = 0; j < selGridCells.length; j++) {
+      var c = selGridCells[j], f = c.plane.max > 0 ? Math.max(0, c.plane.hp / c.plane.max) : 0;
+      c.fill.style.width = (f * 100).toFixed(1) + '%';
+      c.fill.style.background = selGridBarColor(f);
+    }
+  }
   function showSelectionStats() {
     var el = $('statsText');
-    if (!G || G.selectedTurret === null || G.selectedTurret === undefined) { var ep = null; if (G) for (var ei = 0; ei < G.planes.length; ei++) if (G.planes[ei].team === mpHudTeam() && G.planes[ei].sel && G.planes[ei].hp > 0) { ep = G.planes[ei]; break; } updateAvatar(ep, null); el.innerHTML = '<div class="selHero"><span class="selAnimal">✈️</span><div><div class="selName">' + (ep ? 'Planes selected' : 'Select a unit') + '</div><div class="selSub">' + (selCount > 1 ? selCount + ' planes selected · click one to see its stats' : 'Click a plane or building') + '</div></div></div>'; return; }
-    var b = null, p = null, i;
+    var lonePlane = null; /* v134: a lone box-selected plane falls through to the single-unit stat view below */
+    if (!G || G.selectedTurret === null || G.selectedTurret === undefined) {
+      var selNow = G ? selected() : [];
+      if (selNow.length >= 2) { updateSelGrid(el, selNow); updateAvatar(selNow[0], null); return; } /* v134: 2+ selected -> the grid */
+      resetSelGrid(); /* v134: leaving grid mode — drop stale cell refs before the other views rewrite the panel */
+      if (selNow.length === 1) lonePlane = selNow[0];
+      else { var ep = selNow.length ? selNow[0] : null; updateAvatar(ep, null); el.innerHTML = '<div class="selHero"><span class="selAnimal">✈️</span><div><div class="selName">' + (ep ? 'Planes selected' : 'Select a unit') + '</div><div class="selSub">' + 'Click a plane or building' + '</div></div></div>'; return; }
+    } else resetSelGrid();
+    var b = null, p = lonePlane, i;
     var selCount = G ? selected().length : 0; /* v102: multi-select count display only; selection logic unchanged */
-    if (typeof G.selectedTurret === 'string' && G.selectedTurret.indexOf('p:') === 0) { var pid = +G.selectedTurret.slice(2); for (i=0;i<G.planes.length;i++) if(G.planes[i].id===pid){p=G.planes[i];break;} }
+    if (p) { /* v134: lonePlane already resolved above */ }
+    else if (typeof G.selectedTurret === 'string' && G.selectedTurret.indexOf('p:') === 0) { var pid = +G.selectedTurret.slice(2); for (i=0;i<G.planes.length;i++) if(G.planes[i].id===pid){p=G.planes[i];break;} }
     else { var bid = +G.selectedTurret; for (i=0;i<G.blds.length;i++) if(G.blds[i].id===bid){b=G.blds[i];break;} }
     if (p) {
       var rn=RACES[G.teams[p.team].race].name, raceCfg=RACES[G.teams[p.team].race];
@@ -7333,7 +7980,11 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   // guard below additionally silences every game hotkey while typing
   // in a text field (room code, dev/gamertag names, ...).
   var HK_KEYS = ['q', 'w', 'e', 'r', 't', 'f'];
-  function hkPresentedOptions() {
+  function hkPresentedButtons() {
+    /* Every option the card presents (visible, DOM order) — the raw
+       list the card-context test in the key handler runs on: a card
+       counts as 'up' iff this is non-empty. (Stage A: this is MP's
+       former hkPresentedOptions body, renamed — SP v140 rep 1.) */
     var out = [];
     try {
       var tc = $('turretCard'), bc = $('buildCard');
@@ -7346,6 +7997,17 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       }
     } catch (e) {}
     return out;
+  }
+  function hkPresentedOptions() {
+    /* v140 (Taylor's ruling, 2026-11-07 — a Q press on a selected
+       Cloud Factory dismantled it instantly, because on a factory's
+       card Dismantle is the only option and sat on Q): Dismantle is
+       EXCLUDED from the hotkeys. Dismantle stays mouse-only: no badge
+       (hkPaintBadges reads this filtered list), no letter, clicking
+       it unchanged, no confirm step. It is always LAST in the
+       presented order (wallActions is the card's last section), so
+       filtering it out cannot move any other option's letter. */
+    return hkPresentedButtons().filter(function (b) { return b.id !== 'dismantleBtn'; });
   }
   function hkPaintBadges() {
     /* Re-asserted on every syncHud (10x/s), painted LAST in the cycle:
@@ -7384,8 +8046,13 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var k = e.key.toLowerCase();
     if (k.indexOf('arrow') === 0) { keysDown[k] = true; e.preventDefault(); return; }
     if (HK_KEYS.indexOf(k) >= 0) {
-      var hkOpts = hkPresentedOptions();
-      if (hkOpts.length) {
+      if (hkPresentedButtons().length) {
+        /* v140: the context test runs on the RAW presented list, so a
+           card whose only option is Dismantle (a factory, a wall)
+           still swallows Q-F as no-ops — the letters never fall
+           through to the build keys. Dispatch uses the filtered
+           list, in which Dismantle does not exist. */
+        var hkOpts = hkPresentedOptions();
         var hkIdx = HK_KEYS.indexOf(k);
         if (hkIdx < hkOpts.length) { hkOpts[hkIdx].click(); syncHud(); }
         e.preventDefault(); return;
@@ -7731,7 +8398,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           mode = 'end';
           var won = G.winner === mpHudTeam(), rn = G.winner >= 0 ? RACES[G.teams[G.winner].race].name.toLowerCase() : 'rivals';
           $('endTitle').textContent = won ? 'Victory' : 'Defeat';
-          $('endText').textContent = won ? 'The ' + rn + ' base has fallen. The sky is yours.' : 'Your base was destroyed by the ' + rn + '. Build more turrets and try again.';
+          $('endText').textContent = won ? 'The Sky is clear. Victory is yours.' : 'Your base was destroyed by the ' + rn + '. Build more turrets and try again.'; /* Stage A: Taylor's fixed victory line — the old sentence named the WINNER's race in the fallen slot (the wrong-race bug, INVENTORY §9); the defeat branch is byte-unchanged and still names the winner (correctly) */
           try { renderEndStats(); } catch (e) {}
           $('end').hidden = false; Aud.ui(won ? 'win' : 'lose'); Aud.musicLevel(0.25);
         }
