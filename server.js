@@ -143,6 +143,8 @@
  *               GET /leaderboard serves a plain page of gamertag /
  *               MMR / rated games / 1st places for players with at
  *               least MIN_GAMES_LEADERBOARD rated games. FAIL SOFT
+ *               GET /leaderboard.json serves the same board as JSON
+ *               for the in-game panel (v179) — same rows, same order.
  *               as accounts: no database (or one that dies before a
  *               match ends) ⇒ the match plays out normally, nothing
  *               is recorded, no rating is shown, nothing retro-fires
@@ -194,7 +196,7 @@ const FILL_MS = parseInt(process.env.SQ_FILL_MS || '20000', 10);    /* Stage C f
    seating in finishDraft branches on the actual group size (2 humans
    keep the legacy host+guest room, 3-4 get a Stage C seated room). */
 const MATCH_HUMANS = 4;
-const ANIMALS = ['hamster', 'fox', 'bunny', 'otter', 'beaver', 'turtle']; /* race keys, game order */
+const ANIMALS = ['hamster', 'fox', 'bunny', 'otter', 'beaver', 'turtle', 'raccoon']; /* race keys, game order (v179: raccoon appended last, like RACES — Raccoon is pickable in multiplayer now) */
 if (AUTH_DEV_MODE) console.log('[relay] *** AUTH DEV MODE: GOOGLE_CLIENT_ID not set — dev: tokens accepted ***');
 
 /* ---------------- accounts: Postgres + gamertags (step 2) ----------------
@@ -342,6 +344,7 @@ function requestHandler(req, res) {
   let urlPath = '';
   try { urlPath = decodeURIComponent((req.url || '/').split('?')[0]); } catch (e) { urlPath = ''; }
   if (urlPath === '/leaderboard') { leaderboardHandler(req, res).catch((e) => { try { res.writeHead(500); res.end('error'); } catch (e2) {} }); return; }
+  if (urlPath === '/leaderboard.json') { leaderboardJsonHandler(req, res).catch((e) => { try { res.writeHead(500); res.end('error'); } catch (e2) {} }); return; }
   staticHandler(req, res);
 }
 
@@ -1042,32 +1045,43 @@ function lbEscape(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').
 function lbPage(title, inner) {
   return '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<title>Squadrons — ' + lbEscape(title) + '</title>\n<style>\n  body { background:#0d1522; color:#dbe6f5; font-family: Georgia, \'Times New Roman\', serif;\n         margin:0; padding:40px 20px 80px; line-height:1.65; }\n  main { max-width: 680px; margin: 0 auto; }\n  h1 { font-size: 30px; margin: 0 0 4px; color:#fff; }\n  h2 { font-size: 19px; margin: 30px 0 6px; color:#9fc2ee; }\n  .date { color:#8fa6c4; font-size: 14px; margin-bottom: 28px; }\n  a { color:#9fc2ee; }\n  p, li { font-size: 16px; }\n  table { border-collapse: collapse; width: 100%; margin-top: 10px; }\n  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #24344d; font-size: 16px; }\n  th { color:#9fc2ee; font-weight: normal; }\n  td.n, th.n { text-align: right; }\n</style>\n</head>\n<body>\n<main>\n' + inner + '\n</main>\n</body>\n</html>\n';
 }
+/* Shared board data (v179): the HTML page and /leaderboard.json run
+   the SAME two queries and share the rows — the page renders them as
+   tables, the endpoint as JSON. Returns null when the accounts
+   database is unreachable (ensureSchema never throws — it resolves
+   false — so the null path covers every down state). */
+async function lbFetchData() {
+  if (!dbPool || !(await ensureSchema())) return null;
+  const r = await dbPool.query(
+    'SELECT p.gamertag AS tag, p.mmr AS mmr, p.games_played AS games, ' +
+    '(SELECT COUNT(*)::int FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE mp.sub = p.sub AND mp.placement = 1 AND m.rated) AS wins ' +
+    'FROM players p WHERE p.gamertag IS NOT NULL AND p.games_played >= $1 ' +
+    'ORDER BY p.mmr DESC, p.games_played DESC, p.tag_lower ASC', [MIN_GAMES_LEADERBOARD]);
+  /* Per-animal table (amendment): RATED queue matches, HUMAN
+     participants only — match_players only ever holds humans, and
+     the animal column is the one the relay seated them on. AI
+     seats have no rows and so can never enter these numbers.
+     Placements are the recorded ones, so a converted player
+     counts at their frozen Option A placement. */
+  const ra = await dbPool.query(
+    'SELECT mp.animal AS animal, COUNT(*)::int AS games, ' +
+    'SUM(CASE WHEN mp.placement = 1 THEN 1 ELSE 0 END)::int AS wins, ' +
+    'SUM(CASE WHEN mp.placement <= 2 THEN 1 ELSE 0 END)::int AS top2 ' +
+    'FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE m.rated AND mp.animal IS NOT NULL GROUP BY mp.animal');
+  const byAnimal = {};
+  let totalPlayerGames = 0;
+  for (const row of ra.rows) { byAnimal[row.animal] = row; totalPlayerGames += row.games; }
+  return { rows: r.rows, byAnimal: byAnimal, totalPlayerGames: totalPlayerGames };
+}
 async function leaderboardHandler(req, res) {
   const unavailable = (why) => {
     res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(lbPage('Leaderboard', '<h1>Squadrons — Leaderboard</h1>\n<div class="date">Queue-match ratings</div>\n<p>The leaderboard is unavailable right now (' + lbEscape(why) + '). The game itself is unaffected — ratings live in the accounts database, and matches are only recorded while it is reachable.</p>\n<p><a href="/game.html">Back to the game</a></p>'));
   };
-  if (!dbPool || !(await ensureSchema())) { unavailable('accounts database unreachable'); return; }
   try {
-    const r = await dbPool.query(
-      'SELECT p.gamertag AS tag, p.mmr AS mmr, p.games_played AS games, ' +
-      '(SELECT COUNT(*)::int FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE mp.sub = p.sub AND mp.placement = 1 AND m.rated) AS wins ' +
-      'FROM players p WHERE p.gamertag IS NOT NULL AND p.games_played >= $1 ' +
-      'ORDER BY p.mmr DESC, p.games_played DESC, p.tag_lower ASC', [MIN_GAMES_LEADERBOARD]);
-    /* Per-animal table (amendment): RATED queue matches, HUMAN
-       participants only — match_players only ever holds humans, and
-       the animal column is the one the relay seated them on. AI
-       seats have no rows and so can never enter these numbers.
-       Placements are the recorded ones, so a converted player
-       counts at their frozen Option A placement. */
-    const ra = await dbPool.query(
-      'SELECT mp.animal AS animal, COUNT(*)::int AS games, ' +
-      'SUM(CASE WHEN mp.placement = 1 THEN 1 ELSE 0 END)::int AS wins, ' +
-      'SUM(CASE WHEN mp.placement <= 2 THEN 1 ELSE 0 END)::int AS top2 ' +
-      'FROM match_players mp JOIN matches m ON m.id = mp.match_id WHERE m.rated AND mp.animal IS NOT NULL GROUP BY mp.animal');
-    const byAnimal = {};
-    let totalPlayerGames = 0;
-    for (const row of ra.rows) { byAnimal[row.animal] = row; totalPlayerGames += row.games; }
+    const data = await lbFetchData();
+    if (!data) { unavailable('accounts database unreachable'); return; }
+    const r = { rows: data.rows }, byAnimal = data.byAnimal, totalPlayerGames = data.totalPlayerGames;
     const pct = (num, den) => den > 0 ? (Math.round((num / den) * 1000) / 10).toFixed(1) + '%' : '—';
     let inner = '<h1>Squadrons — Leaderboard</h1>\n<div class="date">Queue-match ratings — everyone starts at 1000</div>\n';
     inner += '<p>Players online: ' + onlineCount() + '</p>\n';
@@ -1090,6 +1104,31 @@ async function leaderboardHandler(req, res) {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(lbPage('Leaderboard', inner));
   } catch (e) { console.log('[relay] leaderboard query failed: ' + e.message); unavailable('accounts database unreachable'); }
+}
+
+/* GET /leaderboard.json (v179): the same board as the HTML page, as
+   JSON, for the in-game leaderboard panel. No auth — the page is
+   public, so the data is too. Rates are numbers in percent units
+   rounded to one decimal (the page's displayed values), or null
+   where the page shows '—'. DB trouble answers 503 with a JSON
+   error, mirroring the page's unavailable path. */
+async function leaderboardJsonHandler(req, res) {
+  const unavailable = () => {
+    res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'leaderboard unavailable' }));
+  };
+  try {
+    const data = await lbFetchData();
+    if (!data) { unavailable(); return; }
+    const pct = (num, den) => den > 0 ? Math.round((num / den) * 1000) / 10 : null;
+    const players = data.rows.map((row, i) => ({ rank: i + 1, tag: row.tag, mmr: row.mmr, games: row.games, wins: row.wins }));
+    const animals = ANIMALS.map((a) => {
+      const row = data.byAnimal[a] || { games: 0, wins: 0, top2: 0 };
+      return { animal: a, picks: row.games, pickRate: pct(row.games, data.totalPlayerGames), winRate: pct(row.wins, row.games), top2Rate: pct(row.top2, row.games) };
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ players: players, animals: animals }));
+  } catch (e) { console.log('[relay] leaderboard.json query failed: ' + e.message); unavailable(); }
 }
 
 
@@ -1244,7 +1283,7 @@ function draftPick(conn, o) {
   const d = match.draft;
   if (d.order[d.turn] !== conn) { sendTo(conn, { type: 'draft_error', msg: 'It is not your pick yet' }); return; }
   const animal = o ? o.animal : null;
-  if (typeof animal !== 'number' || animal % 1 !== 0 || animal < 0 || animal >= ANIMALS.length) { sendTo(conn, { type: 'draft_error', msg: 'Pick one of the six animals' }); return; }
+  if (typeof animal !== 'number' || animal % 1 !== 0 || animal < 0 || animal >= ANIMALS.length) { sendTo(conn, { type: 'draft_error', msg: 'Pick one of the seven animals' }); return; }
   if (d.taken.has(animal)) { sendTo(conn, { type: 'draft_error', msg: ANIMALS[animal] + ' is already taken' }); return; }
   applyPick(match, conn, animal, false);
 }
