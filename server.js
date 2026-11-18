@@ -196,7 +196,7 @@ const FILL_MS = parseInt(process.env.SQ_FILL_MS || '20000', 10);    /* Stage C f
    seating in finishDraft branches on the actual group size (2 humans
    keep the legacy host+guest room, 3-4 get a Stage C seated room). */
 const MATCH_HUMANS = 4;
-const ANIMALS = ['hamster', 'fox', 'bunny', 'otter', 'beaver', 'turtle', 'raccoon']; /* race keys, game order (v179: raccoon appended last, like RACES — Raccoon is pickable in multiplayer now) */
+const ANIMALS = ['hamster', 'fox', 'bunny', 'otter', 'beaver', 'turtle', 'raccoon', 'hedgehog']; /* race keys, game order (v179: raccoon appended last; v185: hedgehog appended last, like RACES — Hedgehog is pickable in multiplayer now) */
 if (AUTH_DEV_MODE) console.log('[relay] *** AUTH DEV MODE: GOOGLE_CLIENT_ID not set — dev: tokens accepted ***');
 
 /* ---------------- accounts: Postgres + gamertags (step 2) ----------------
@@ -1283,7 +1283,7 @@ function draftPick(conn, o) {
   const d = match.draft;
   if (d.order[d.turn] !== conn) { sendTo(conn, { type: 'draft_error', msg: 'It is not your pick yet' }); return; }
   const animal = o ? o.animal : null;
-  if (typeof animal !== 'number' || animal % 1 !== 0 || animal < 0 || animal >= ANIMALS.length) { sendTo(conn, { type: 'draft_error', msg: 'Pick one of the seven animals' }); return; }
+  if (typeof animal !== 'number' || animal % 1 !== 0 || animal < 0 || animal >= ANIMALS.length) { sendTo(conn, { type: 'draft_error', msg: 'Pick one of the eight animals' }); return; }
   if (d.taken.has(animal)) { sendTo(conn, { type: 'draft_error', msg: ANIMALS[animal] + ' is already taken' }); return; }
   applyPick(match, conn, animal, false);
 }
