@@ -853,7 +853,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = 'b84a86910f';
+  var LS_BUILD_ID = '9a61755747';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -2077,6 +2077,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         }
         if (atkTgt) { mpOrder({ type: 'order', kind: 'move', ids: MP.guestSel.slice(), x: atkTgt.x, y: atkTgt.y }); }
         else if (cb) { if (d.touch) MP.guestSel = []; /* v195 (Taylor), mirrored for guests: on touch, tapping a building deselects your planes — the old flow left the plane selected under the building card, so the next empty-sky tap ordered it somewhere you never meant. Mouse unchanged. */ G.selectedTurret = String(cb.id); note((cb.type === 'base' ? 'Main base' : cb.type === 'hangar' ? 'Hangar' : cb.type === 'lab' ? 'Flight Lab' : cb.type === 'ulab' ? 'Unique Lab' : 'Turret') + ' selected.'); }
+        else if (d.touch && MP.guestSel.length) { var w = s2w(m.x, m.y); mpOrder({ type: 'order', kind: 'move', ids: MP.guestSel.slice(), x: w.x, y: w.y }); } /* HOTFIX 2026-11-20 (Taylor): touch + planes selected + empty-sky tap ORDERS the move — the guest path had no move verb on touch (only right-click moved, and touch never produces it). Mirrors SP's pointerup move branch. Mouse unchanged. */
         else { G.selectedTurret = null; if (!d.shift) MP.guestSel = []; }
       }
       var sel = MP.guestSel, selMap2 = {};

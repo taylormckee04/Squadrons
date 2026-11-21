@@ -187,7 +187,7 @@ const REJOIN_GRACE_MS = parseInt(process.env.SQ_REJOIN_GRACE_MS || '45000', 10);
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const AUTH_DEV_MODE = !GOOGLE_CLIENT_ID;
 const READY_MS = parseInt(process.env.SQ_READY_MS || '10000', 10);   /* ready-check window */
-const PICK_MS = parseInt(process.env.SQ_PICK_MS || '6000', 10);      /* per-turn draft clock */
+const PICK_MS = parseInt(process.env.SQ_PICK_MS || '15000', 10);     /* per-turn draft clock (15 s — Taylor 2026-11-20, was 6 s) */
 const FILL_MS = parseInt(process.env.SQ_FILL_MS || '20000', 10);    /* Stage C fill wait (see tryMatch) */
 /* Stage C scope (Taylor's calls, 2026-11-03): a queue match seats up
    to FOUR humans (teams 0-3 in queue order); the queue waits FILL_MS
