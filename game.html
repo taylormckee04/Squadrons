@@ -89,7 +89,8 @@ canvas#cv { display: block; width: 100%; height: 100%; touch-action: none; curso
 .selGridName { font:700 13px var(--font-display); }
 .selGridSub { font-size:11px; color:var(--ink-soft); }
 .selGrid { display:flex; flex-wrap:wrap; gap:3px; align-content:flex-start; }
-.sgCell { position:relative; box-sizing:border-box; display:flex; flex-direction:column; border:1px solid var(--line); border-radius:5px; background:#fff; overflow:hidden; flex:0 0 auto; }
+.sgCell { position:relative; box-sizing:border-box; display:flex; flex-direction:column; border:1px solid var(--line); border-radius:5px; background:#fff; overflow:hidden; flex:0 0 auto; cursor:pointer; }
+.sgCell:hover { outline:1px solid var(--you); } /* v201: cells are clickable — click a portrait to select just that plane */
 .sgCell.sgSpec { border:2px solid #d89a2b; background:#fdf6e0; box-shadow:inset 0 0 0 1px rgba(216,154,43,0.35); }
 .sgCell .sgPic { display:block; flex:1 1 auto; min-height:0; width:100%; object-fit:contain; }
 .sgCell .sgEmoji { display:grid; place-items:center; flex:1 1 auto; min-height:0; }
@@ -561,6 +562,7 @@ h2 { font: 600 12px/1 var(--font-display); text-transform: uppercase; letter-spa
         <button class="diff" id="diffNormal" data-diff="normal" aria-pressed="true"><b>Normal</b><span>A 12-year-old could win.</span></button>
         <button class="diff" id="diffHard" data-diff="hard" aria-pressed="false"><b>Hard</b><span>An adult could win.</span></button>
         <button class="diff" id="diffNightmare" data-diff="nightmare" aria-pressed="false"><b>Storm</b><span>As good as the AI can get, without cheating.</span></button>
+        <button class="diff" id="diffHurricane" data-diff="hurricane" aria-pressed="false"><b>Hurricane</b><span>Three Storm AIs, allied against you.</span></button>
       </div>
       <button class="go" id="tutBtn">Learn to play (Tutorial)</button>
       <p style="margin:0">A guided first match — learn by doing, at your own pace, against Easy enemies.</p>
@@ -853,7 +855,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '9a61755747';
+  var LS_BUILD_ID = '6f2e468608';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -975,7 +977,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     return '?' + t;
   }
   function lsProject() {
-    var planes = G.planes.slice().sort(function (a, b) { return a.id - b.id; }).map(function (p) { return [p.id, p.team, p.kind || '', p.x, p.y, p.a, p.hp, p.alt || 0, p.cloaked ? 1 : 0, p.gone ? 1 : 0, p.lastHurtT === undefined ? -99 : p.lastHurtT, p.swiftT || 0, p.vwLeft || 0, p.vwNext || 0, p.vwReloadT || 0, p.vwSide ? 1 : 0, p.lbT || 0, p.spin || 0, p.lastShot === undefined ? -99 : p.lastShot]; }); /* v196 Stage B: spin / lastShot (Leviathan minigun state, v194) — spin decides whether the gun fires this tick, lastShot decides spin-up vs the 3 s grace, same pattern as lastHurtT / swiftT; Stage B: lastHurtT (Hamster heal clock) + swiftT (Fox speed window) — both decide future sim state; v185 Stage B: vwLeft/vwNext/vwReloadT/vwSide (V Wing burst state, v180) + lbT (dying spin-out timer, v182/v183) — all decide future sim state, same pattern */
+    var planes = G.planes.slice().sort(function (a, b) { return a.id - b.id; }).map(function (p) { return [p.id, p.team, p.kind || '', p.x, p.y, p.a, p.hp, p.alt || 0, p.cloaked ? 1 : 0, p.gone ? 1 : 0, p.lastHurtT === undefined ? -99 : p.lastHurtT, p.swiftT || 0, p.vwLeft || 0, p.vwNext || 0, p.vwReloadT || 0, p.vwSide ? 1 : 0, p.lbT || 0, p.spin || 0, p.lastShot === undefined ? -99 : p.lastShot, p.recall || 0, p.rescue || 0]; }); /* v201 port: recall / rescue (AI-order flags, v198/v199 — both gate the wave idle filter, so a disagreement changes orders; rescue holds the ally team index). v196 Stage B: spin / lastShot (Leviathan minigun state, v194) — spin decides whether the gun fires this tick, lastShot decides spin-up vs the 3 s grace, same pattern as lastHurtT / swiftT; Stage B: lastHurtT (Hamster heal clock) + swiftT (Fox speed window) — both decide future sim state; v185 Stage B: vwLeft/vwNext/vwReloadT/vwSide (V Wing burst state, v180) + lbT (dying spin-out timer, v182/v183) — all decide future sim state, same pattern */
     var tub = G.tub.map(function (e) { return [e.team, e.p ? e.p.id : -1, e.t, e.tx, e.ty]; });
     var teams = G.teams.map(function (t) { return { clouds: t.clouds, income: typeof t.income === 'number' ? t.income : 0, dead: t.dead ? 1 : 0, lab: t.lab, ulab: t.ulab, upg: t.upg, arm: t.arm || { damage: 0, range: 0, health: 0 }, sarm: t.sarm || { damage: 0, range: 0, health: 0 }, nukeHp: typeof t.nukeHp === 'number' ? t.nukeHp : 0, ret: (t.retSlows || []).map(function (e) { return [e.mul, e.until]; }) }; }); /* v196 Stage B: ret — the team's active retribution slows (v186), each [mul, until]; they decide plane speeds via retMul, same pattern as nukeHp; Stage B: nukeHp — the team's nuke-HP level (team knowledge, sets future warhead HP) */
     var blds = G.blds.slice().sort(function (a, b) { return a.id - b.id; }).map(function (b) { return [b.id, b.type, b.team, b.x, b.y, b.hp, b.complete ? 1 : 0, b.buildT, b.upg && b.upg.choice ? b.upg.choice : '', b.stored ? b.stored.length : -1, b.dead ? 1 : 0, b.nukeT, b.nukePick || null, b.nukeFlying ? 1 : 0, b.lastDmg === undefined ? -1 : b.lastDmg]; }); /* v196 Stage B: lastDmg — the last team that damaged the building (v186 Retribution; -1 = none yet, stamped by hit() and quadBldHit, read when an HQ dies); Stage B: nukeT / nukePick / nukeFlying — the silo's launch state (nukeT is undefined on non-silos, null in flight, a countdown otherwise; lsCanon tells all three apart) */
@@ -1754,7 +1756,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   /* ---------------- lobby UI ----------------
      Carried over from the lobby build; the status line additionally
      reports the lockstep state (tick / waiting / sync). */
-  function mpRaceName(k) { return (typeof RACES !== 'undefined' && RACES[k]) ? RACES[k].name : (k || '—'); }
+  function mpRaceName(k) { if (k === 'random') return 'Random'; /* v201 port (J201-1): the Random pick's display name */ return (typeof RACES !== 'undefined' && RACES[k]) ? RACES[k].name : (k || '—'); }
   function mpDiffLabel(d) { return { easy: 'Easy', normal: 'Normal', hard: 'Hard', nightmare: 'Storm' }[d] || d || '—'; }
   function mpStatus(msg) {
     if (msg) MP.lastStatus = msg;
@@ -1832,6 +1834,22 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       b.addEventListener('click', function () { try { Aud.ui('select'); } catch (e) {} onPick(key); });
       el.appendChild(b);
     });
+    /* v201 port (J201-1): the Random tile — the 9th tile, same
+       shape as the SP Random tile (a portrait circle with a
+       '?'). Picking it sets the lobby pick to 'random'; the
+       launch resolves it once, and the resolved race stays
+       hidden until the game starts. */
+    (function () {
+      var rb = document.createElement('button');
+      rb.className = 'race'; rb.type = 'button'; rb.setAttribute('data-race', 'random'); rb.setAttribute('aria-pressed', 'false');
+      var rc = document.createElement('canvas'); rc.width = 104; rc.height = 104;
+      try { var rcc = rc.getContext('2d'); rcc.fillStyle = '#e8eef4'; rcc.beginPath(); rcc.arc(52, 52, 50, 0, TAU); rcc.fill(); rcc.fillStyle = '#1c3247'; rcc.font = '700 64px Fredoka, sans-serif'; rcc.textAlign = 'center'; rcc.textBaseline = 'middle'; rcc.fillText('?', 52, 56); } catch (e) {}
+      var rn = document.createElement('b'); rn.textContent = 'Random';
+      var rs = document.createElement('span'); rs.textContent = 'Surprise me.';
+      rb.appendChild(rc); rb.appendChild(rn); rb.appendChild(rs);
+      rb.addEventListener('click', function () { try { Aud.ui('select'); } catch (e) {} onPick('random'); });
+      el.appendChild(rb);
+    })();
   }
   function mpMarkGrid(el, key) { if (!el) return; Array.prototype.forEach.call(el.children, function (x) { if (x.setAttribute) x.setAttribute('aria-pressed', x.getAttribute('data-race') === key ? 'true' : 'false'); }); }
   function mpEnsureGrids() {
@@ -1842,6 +1860,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     });
   }
   function mpShowHome(overGame) {
+    if (pickDifficulty === 'hurricane') pickDifficulty = 'normal'; /* v201 port (J201-3): Hurricane is SP-only — a leftover SP pick must never reach an MP lobby */
     var ov = document.getElementById('mpOverlay'); if (ov) ov.hidden = false;
     var home = document.getElementById('mpHome'); if (home) home.hidden = false;
     var lob = document.getElementById('mpLobby'); if (lob) lob.hidden = true;
@@ -1946,12 +1965,21 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (MP.role !== 'host' || !MP.guestConnected) return;
     if (MP.guestBuild && MP.guestBuild !== LS_BUILD_ID) { mpStatus('Your guest is running a different game build — you both need the same game.html file. Launch cancelled.'); try { note('Version mismatch — launch cancelled. You both need the same game.html.', true); } catch (e) {} return; }
     /* Custom games are 2-player: clear any queue seating. */
+    if (pickDifficulty === 'hurricane') pickDifficulty = 'normal'; /* v201 port (J201-3): Hurricane is SP-only */
     MP.seats = null; MP.seat = 0; MP.aiTeams = [2, 3];
     pickRace = MP.hostRace || pickRace;
     var guestRace = MP.guestRace || 'fox';
-    var others = RKEYS.filter(function (k) { return k !== pickRace && k !== guestRace; });
-    others.sort(function () { return Math.random() - 0.5; });
-    var lineup = [pickRace, guestRace, others[0], others[1]];
+    /* v201 port (J201-1): a Random pick resolves HERE, once, on
+       the host — the resolved lineup rides the start broadcast,
+       so the guest never rolls. Random draws from the races no
+       human picked, like the queue draft; AI backfill takes
+       what's left. */
+    var raw201 = [pickRace, guestRace];
+    var concrete201 = raw201.filter(function (r) { return r !== 'random'; });
+    var pool201 = RKEYS.filter(function (k) { return concrete201.indexOf(k) < 0; });
+    pool201.sort(function () { return Math.random() - 0.5; });
+    var lineup = raw201.map(function (r) { return r === 'random' ? pool201.shift() : r; });
+    while (lineup.length < 4) lineup.push(pool201.shift());
     lsStartCommon(lineup, (Math.random() * 4294967296) >>> 0, 5);
     LS_LINEUP = lineup.slice();
     MP.launchArmed = true;
@@ -2216,7 +2244,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           mpSend({ type: 'start', races: G.teams.map(function (tm) { return tm.race; }), difficulty: pickDifficulty, seed: LS.seed, delay: LS.delay, build: LS_BUILD_ID, rejoin: true });
           lsSendSnap(LS.epoch);
           mpStatus('Guest reconnected — sending the current match state…');
-        } else { mpSend({ type: 'joined', team: 1, name: FD.authed ? fdDisplayName() : undefined }); mpSendLobby(); mpStatus('Guest joined as ' + o.race + ' — Launch game when you are both ready'); }
+        } else { mpSend({ type: 'joined', team: 1, name: FD.authed ? fdDisplayName() : undefined }); mpSendLobby(); mpStatus('Guest joined as ' + mpRaceName(o.race) + ' — Launch game when you are both ready'); }
       }
       else if (o.type === 'race') { MP.guestRace = o.race; mpStatus('Guest changed animal to ' + mpRaceName(o.race)); }
       else if (o.type === 'guestLeft') { MP.guestConnected = false; if (G && mode === 'play' && !G.over) { paused = true; try { note('Guest disconnected — game paused.'); } catch (e) {} } mpStatus('Guest disconnected' + (G && mode === 'play' ? ' — paused' : '')); if (G && mode === 'play' && !G.over && mpLsOn()) fxShowEnd('Your opponent left', 'Your opponent disconnected and did not come back — the match has ended.'); }
@@ -2239,7 +2267,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       else if (o.type === 'lobby') { MP.hostRace = o.hostRace; MP.hostDifficulty = o.difficulty; mpStatus('Lobby updated by the host'); }
       else if (o.type === 'start') {
         if (o.build && o.build !== LS_BUILD_ID) { mpStatus('Version mismatch: the host is running a different game build — you both need the same game.html file. This match was refused.'); try { note('Version mismatch — match refused. You both need the same game.html.', true); } catch (e) {} return; }
-        if (o.difficulty) pickDifficulty = o.difficulty;
+        if (o.difficulty) pickDifficulty = (o.difficulty === 'hurricane') ? 'normal' : o.difficulty; /* v201 port (J201-3): Hurricane is SP-only */
         /* Stage C: a start that did not come out of a queue match is a
            custom room's — any multi seating is cleared so the 2-player
            shapes hold exactly. Queue guests keep queue_start's seats
@@ -2580,8 +2608,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var i = parseInt(b.getAttribute('data-fdanimal'), 10);
       var takenBy = -1;
       for (var p in d.picks) if (d.picks[p] === i) takenBy = parseInt(p, 10);
-      b.disabled = takenBy >= 0 || !mine;
-      b.textContent = mpRaceName(d.animals[i]) + (takenBy >= 0 ? ' — ' + (FD.players[takenBy] || 'picked') + (d.autoPicks && d.autoPicks[takenBy] ? ' (auto)' : '') : '');
+      var isRandom = d.animals[i] === 'random'; /* v201 port (J201-1): Random is not a race — any number of players may pick it, so it is never "taken" */
+      b.disabled = (takenBy >= 0 && !isRandom) || !mine;
+      b.textContent = mpRaceName(d.animals[i]) + (takenBy >= 0 && !isRandom ? ' — ' + (FD.players[takenBy] || 'picked') + (d.autoPicks && d.autoPicks[takenBy] ? ' (auto)' : '') : '');
     });
     var pk = document.getElementById('fdDraftPicks');
     if (pk) pk.textContent = FD.players.map(function (nm, pi) { return nm + ': ' + (d.picks[pi] != null ? mpRaceName(d.animals[d.picks[pi]]) : '…'); }).join(' · ');
@@ -2722,7 +2751,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (o.type === 'draft_start') {
       FD.state = 'draft';
       FD.draft = { animals: (o.animals || []).slice(), order: (o.order || []).slice(), picks: {}, autoPicks: {}, turnPlayer: -1 };
-      fdSetStatus('fdDraftStatus', 'Picks are unique — once an animal is taken, it is gone.');
+      fdSetStatus('fdDraftStatus', 'Picks are unique, except Random.');
       fdBuildDraftButtons();
       fdShowScreen('mpDraft');
       fdRenderDraft();
@@ -4211,6 +4240,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var base = baseOf(ti); return base ? { x: base.x, y: base.y + 90 } : null;
   }
   function newGame(race) {
+    /* v197: Random — rolled here (at Take Off, and on every selection click;
+       only the Take Off roll matters) — uniform across the 8 races, hidden
+       until in-game (the menu shows 'Random', the game shows the rolled race). */
+    if (race === 'random') race = RKEYS[Math.floor(Math.random() * RKEYS.length)];
     /* Lockstep builds the world from an explicit lineup on BOTH machines
        (LS_LINEUP, set by the start flow) so the worlds start identical;
        single-player keeps the shuffled lineup. Either way the RNG cage is
@@ -5727,10 +5760,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var ti = silo.team, pick = pickOverride !== undefined ? pickOverride : silo.nukePick, i, b, d;
     if (pick && pick.race) {
       if (pick.which === 'hq') { /* the AI finisher (aiNukePick): the HQ directly — the closest/middle/furthest picker cannot express "the HQ" (judgment call) */
-        for (i = 0; i < G.teams.length; i++) { if (G.teams[i].race === pick.race && i !== ti && !G.teams[i].dead) { var hq = baseOf(i); if (hq && hq.hp > 0) return { x: hq.x, y: hq.y, bld: hq, race: pick.race, which: 'hq' }; } }
+        for (i = 0; i < G.teams.length; i++) { if (G.teams[i].race === pick.race && isHostile(ti, i) && !G.teams[i].dead) { var hq = baseOf(i); if (hq && hq.hp > 0) return { x: hq.x, y: hq.y, bld: hq, race: pick.race, which: 'hq' }; } }
       } else {
         var cands = [];
-        for (i = 0; i < G.blds.length; i++) { b = G.blds[i]; if (b.team === ti || b.hp <= 0 || b.dead || G.teams[b.team].race !== pick.race) continue; cands.push({ b: b, d: Math.hypot(b.x - silo.x, b.y - silo.y) }); }
+        for (i = 0; i < G.blds.length; i++) { b = G.blds[i]; if (!isHostile(ti, b.team) || b.hp <= 0 || b.dead || G.teams[b.team].race !== pick.race) continue; cands.push({ b: b, d: Math.hypot(b.x - silo.x, b.y - silo.y) }); }
         cands.sort(function (a, b) { return a.d - b.d; });
         if (cands.length) {
           var idx = pick.which === 'furthest' ? cands.length - 1 : pick.which === 'middle' ? Math.floor((cands.length - 1) / 2) : 0;
@@ -5740,7 +5773,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       }
     }
     var best = null, bd = 1e9;
-    for (i = 0; i < G.blds.length; i++) { b = G.blds[i]; if (b.team === ti || b.hp <= 0 || b.dead) continue; d = Math.hypot(b.x - silo.x, b.y - silo.y); if (d < bd) { bd = d; best = b; } }
+    for (i = 0; i < G.blds.length; i++) { b = G.blds[i]; if (!isHostile(ti, b.team) || b.hp <= 0 || b.dead) continue; d = Math.hypot(b.x - silo.x, b.y - silo.y); if (d < bd) { bd = d; best = b; } }
     if (!best) return null;
     return { x: best.x, y: best.y, bld: best, race: G.teams[best.team].race, which: 'closest' };
   }
@@ -5804,6 +5837,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      resolveNukeTarget, or null when no enemy stands. */
   function aiNukePick(silo) {
     var ti = silo.team, i, fb, pct, fin = -1, finPct = 0.35;
+    /* v197: on Hurricane an AI silo only ever nukes the human — the finisher
+       (human HQ under 35%) targets the HQ directly, else the closest human
+       building; the threat scan below only runs off Hurricane (or team 0). */
+    if (isHurricane() && ti !== 0) { var hb197 = baseOf(0); if (!G.teams[0].dead && hb197 && hb197.hp > 0) return { race: G.teams[0].race, which: (hb197.hp / hb197.max < 0.35) ? 'hq' : 'closest' }; }
     for (i = 0; i < G.teams.length; i++) { if (i === ti || G.teams[i].dead) continue; fb = baseOf(i); if (!fb || fb.hp <= 0) continue; pct = fb.hp / fb.max; if (pct < finPct) { finPct = pct; fin = i; } }
     if (fin >= 0) return { race: G.teams[fin].race, which: 'hq' };
     var pickT = -1, pickS = -Infinity;
@@ -6033,6 +6070,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     return !!(hq && hq.hp > 0 && cdiff(hq, plane) <= 1);
   }
   function canTarget(viewerTeam, plane) {
+    if (plane && plane.team !== viewerTeam && !isHostile(viewerTeam, plane.team)) return false; /* v197: Hurricane alliance — an allied plane (or nuke) is never a target. Same-team still returns true below; off Hurricane isHostile is (a !== b), so this line is a no-op there. */
     if (plane && plane.nuke) return true; /* v168: a nuke is targetable through its WHOLE flight (Taylor) — the v167 out-of-frame window is gone. */
     if (!plane || !plane.cloaked || plane.team === viewerTeam) return true;
     return detectedBy(viewerTeam, plane);
@@ -6081,7 +6119,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function heliTarget(p, range) {
     var best = null, bs = 1e9, j, d, q, e;
     for (j = 0; j < G.planes.length; j++) { q = G.planes[j]; if (q.team === p.team || q.hp <= 0 || !canTarget(p.team, q)) continue; d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= range && d < bs) { bs = d; best = q; } }
-    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (e.team === p.team || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
+    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (!isHostile(p.team, e.team) || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
     for (j = 0; j < G.balloons.length; j++) { e = G.balloons[j]; if (e.hp <= 0 || e.dead) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } } /* v136: helis engage balloons */
     for (j = 0; j < G.nukes.length; j++) { e = G.nukes[j]; if (e.hp <= 0 || e.dead || e.team === p.team || !canTarget(p.team, e)) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } } /* v167: helis engage nukes (the balloon precedent — enemy nukes only); v168: the whole flight is in frame now */
     return best;
@@ -6153,7 +6191,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var fb = ballFocusTarget(p, range); if (fb) return fb; /* v192: a ball-member F16 shoots the ball's shared focus plane */
     var best = null, bs = 1e9, j, d, q, e;
     for (j = 0; j < G.planes.length; j++) { q = G.planes[j]; if (q.team === p.team || q.hp <= 0 || !canTarget(p.team, q)) continue; d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= range && d - 60 < bs) { bs = d - 60; best = q; } }
-    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (e.team === p.team || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
+    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (!isHostile(p.team, e.team) || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
     for (j = 0; j < G.balloons.length; j++) { e = G.balloons[j]; if (e.hp <= 0 || e.dead) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } } /* v170 (Taylor): F16s engage balloons — the shared-search/heli scoring (edge distance, neutral, no team check) */
     for (j = 0; j < G.nukes.length; j++) { e = G.nukes[j]; if (e.hp <= 0 || e.dead || e.team === p.team || !canTarget(p.team, e)) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } } /* v190 (Taylor): F16s engage nukes — the shared-search scoring (edge distance, enemy nukes only: own-team nukes are never targeted, like every other nuke-acquisition path) */
     return best;
@@ -6167,7 +6205,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var fb = ballFocusTarget(p, range); if (fb) return fb; /* v192: a ball-member Quillstorm shoots the ball's shared focus plane */
     var best = null, bs = 1e9, j, d, q, e;
     for (j = 0; j < G.planes.length; j++) { q = G.planes[j]; if (q.team === p.team || q.hp <= 0 || !canTarget(p.team, q)) continue; d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= range && d - 60 < bs) { bs = d - 60; best = q; } }
-    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (e.team === p.team || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
+    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (!isHostile(p.team, e.team) || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
     for (j = 0; j < G.balloons.length; j++) { e = G.balloons[j]; if (e.hp <= 0 || e.dead) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } }
     for (j = 0; j < G.nukes.length; j++) { e = G.nukes[j]; if (e.hp <= 0 || e.dead || e.team === p.team || !canTarget(p.team, e)) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } } /* v190 (Taylor): Quillstorms engage nukes — the shared-search scoring (edge distance, enemy nukes only) */
     return best;
@@ -6218,7 +6256,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lastBreathTarget(p, range) {
     var best = null, bs = 1e9, j, d, q, e;
     for (j = 0; j < G.planes.length; j++) { q = G.planes[j]; if (q.team === p.team || q.hp <= 0 || !canTarget(p.team, q)) continue; d = Math.hypot(q.x - p.x, q.y - p.y); if (d <= range && d - 60 < bs) { bs = d - 60; best = q; } }
-    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (e.team === p.team || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
+    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (!isHostile(p.team, e.team) || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
     for (j = 0; j < G.balloons.length; j++) { e = G.balloons[j]; if (e.hp <= 0 || e.dead) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } }
     for (j = 0; j < G.nukes.length; j++) { e = G.nukes[j]; if (e.hp <= 0 || e.dead || e.team === p.team || !canTarget(p.team, e)) continue; d = Math.hypot(e.x - p.x, e.y - p.y) - e.r; if (d <= range && d < bs) { bs = d; best = e; } }
     return best;
@@ -6432,7 +6470,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   // everywhere else. Deterministic nearest — no randomness.
   function mortarTarget(b, range) {
     var best = null, bs = 1e9, j, d, e;
-    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (e.team === b.team || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - b.x, e.y - b.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
+    for (j = 0; j < G.blds.length; j++) { e = G.blds[j]; if (!isHostile(b.team, e.team) || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue; d = Math.hypot(e.x - b.x, e.y - b.y) - BLD[e.type].r; if (d <= range && d < bs) { bs = d; best = e; } }
     return best;
   }
   // v180: the Mortar Turret's shot (HEDGEHOG-SPEC.md §3) — one shell on a
@@ -6856,7 +6894,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         if (d <= reach && d - 60 < bs) { bs = d - 60; best = q; bd = d; }
       }
       for (j = 0; j < blds.length; j++) {
-        var e = blds[j]; if (e.team === p.team || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue;
+        var e = blds[j]; if (!isHostile(p.team, e.team) || e.hp <= 0 || (e.type === 'wall' && e.complete && wallProtected(e))) continue;
         d = Math.hypot(e.x - p.x, e.y - p.y) - BLD[e.type].r;
         if (d <= reach && d < bs) { bs = d; best = e; bd = d; }
       }
@@ -6887,7 +6925,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var b2BombTarget = null;
       if (p.kind === 'b2') {
         var bombDist = 1e9;
-        for (j = 0; j < blds.length; j++) { var bombB = blds[j]; if (bombB.team === p.team || bombB.hp <= 0 || (bombB.type === 'wall' && bombB.complete && wallProtected(bombB))) continue; var bombD = Math.hypot(bombB.x-p.x,bombB.y-p.y); if (bombD < bombDist) { bombDist = bombD; b2BombTarget = bombB; } }
+        for (j = 0; j < blds.length; j++) { var bombB = blds[j]; if (!isHostile(p.team, bombB.team) || bombB.hp <= 0 || (bombB.type === 'wall' && bombB.complete && wallProtected(bombB))) continue; var bombD = Math.hypot(bombB.x-p.x,bombB.y-p.y); if (bombD < bombDist) { bombDist = bombD; b2BombTarget = bombB; } }
         if (b2BombTarget && bombDist <= AGGRO + 120) { best = b2BombTarget; bd = Math.max(0, bombDist - BLD[b2BombTarget.type].r); }
       }
       var ta = null, mvx = 0, mvy = 0, moving = false;
@@ -6956,7 +6994,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         if (p.gunCd <= 0) {
           var gunTarget = null, gunDist = st.range + 0.01; /* v131: rear-gun reach rides the B2 Range line */
           for (j = 0; j < planes.length; j++) { var gp = planes[j]; if (gp.team === p.team || gp.hp <= 0 || !canTarget(p.team, gp)) continue; var gd = Math.hypot(gp.x-p.x,gp.y-p.y); if (gd <= gunDist) { gunDist = gd; gunTarget = gp; } }
-          for (j = 0; j < blds.length; j++) { var gb = blds[j]; if (gb.team === p.team || gb.hp <= 0 || (gb.type === 'wall' && gb.complete && wallProtected(gb))) continue; var gbd = Math.hypot(gb.x-p.x,gb.y-p.y); if (gbd <= gunDist) { gunDist = gbd; gunTarget = gb; } }
+          for (j = 0; j < blds.length; j++) { var gb = blds[j]; if (!isHostile(p.team, gb.team) || gb.hp <= 0 || (gb.type === 'wall' && gb.complete && wallProtected(gb))) continue; var gbd = Math.hypot(gb.x-p.x,gb.y-p.y); if (gbd <= gunDist) { gunDist = gbd; gunTarget = gb; } }
           for (j = 0; j < G.balloons.length; j++) { var gbn = G.balloons[j]; if (gbn.hp <= 0 || gbn.dead) continue; var gnd = Math.hypot(gbn.x-p.x,gbn.y-p.y) - gbn.r; if (gnd <= gunDist) { gunDist = gnd; gunTarget = gbn; } } /* v136: the B2 rear gun engages balloons */
           for (j = 0; j < G.nukes.length; j++) { var gnk = G.nukes[j]; if (gnk.hp <= 0 || gnk.dead || gnk.team === p.team || !canTarget(p.team, gnk)) continue; var gndN = Math.hypot(gnk.x-p.x,gnk.y-p.y) - gnk.r; if (gndN <= gunDist) { gunDist = gndN; gunTarget = gnk; } } /* v167: the B2 rear gun engages nukes */
           if (gunTarget) { p.gunCd = 0.25; p.gunTgt = gunTarget; p.gunSide = !p.gunSide; p.gunAt = G.t; /* v194: the top turret tracks this target; the twin barrels alternate (the Blimp's p.side pattern) — display only, the gun's numbers are unchanged */ hit(p, gunTarget, 6 * uMul(p.team, 'damage'), false, true); /* v132: Taylor ruled the B2 Damage line covers BOTH weapons — bomb and rear gun; v194: noTracer — hit()'s own centre tracer is suppressed, so the muzzle bullet below is the ONLY tracer (without it each shot spawned two bullets) */ var b2aim = Math.atan2(gunTarget.y - p.y, gunTarget.x - p.x), b2off = (p.gunSide ? -3.5 : 3.5), b2mx = p.x + Math.cos(b2aim) * 12 + Math.cos(b2aim + Math.PI / 2) * b2off, b2my = p.y + Math.sin(b2aim) * 12 + Math.sin(b2aim + Math.PI / 2) * b2off; G.parts.push({kind:'bullet',x:b2mx,y:b2my,z:(p.alt||24)+10,tx:gunTarget.x,ty:gunTarget.y,tz:zOf(gunTarget),t:0,life:Math.max(0.08,Math.hypot(gunTarget.x-b2mx,gunTarget.y-b2my)/900),team:p.team}); /* v194: the tracer leaves the firing barrel's muzzle (was a thin sniperBeam from the plane centre — invisible) */ }
@@ -6969,7 +7007,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
           G.parts.push({kind:'impactRing',x:b2BombTarget.x,y:b2BombTarget.y,z:8,t:0,life:0.75,team:p.team});
           for (var bi = 0; bi < blds.length; bi++) {
             var blastB = blds[bi];
-            if (blastB.team === p.team || blastB.hp <= 0 || (blastB.type === 'wall' && blastB.complete && wallProtected(blastB))) continue;
+            if (!isHostile(p.team, blastB.team) || blastB.hp <= 0 || (blastB.type === 'wall' && blastB.complete && wallProtected(blastB))) continue;
             if (Math.hypot(blastB.x-b2BombTarget.x, blastB.y-b2BombTarget.y) <= 25) hit(p, blastB, 100 * uMul(p.team, 'damage')); /* v131: B2 Damage line = bomb damage (v132: the rear gun scales with it too) */
           }
         }
@@ -7213,7 +7251,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (!own.length) return false;
     for (var pi = 0; pi < G.planes.length; pi++) {
       var p = G.planes[pi];
-      if (p.team === ti || p.hp <= 0) continue;
+      if (!isHostile(ti, p.team) || p.hp <= 0) continue; /* v197: allied planes near the base are not a threat */
       if (p.cloaked && !canTarget(ti, p)) continue;
       for (var oi = 0; oi < own.length; oi++) { if (Math.hypot(p.x - own[oi].x, p.y - own[oi].y) < 700) { G.ai.threat[ti] = G.t + 30; return true; } }
     }
@@ -7233,7 +7271,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     // building network (nearest own building) so the growth front stays connected.
     var nearBld = function (cell) { var m = 1e9; for (var bi = 0; bi < G.blds.length; bi++) if (G.blds[bi].team === ti) { var d = Math.hypot(G.blds[bi].x - cell.x, G.blds[bi].y - cell.y); if (d < m) m = d; } return m; };
     cells.sort(function(a,b){
-      if (G.difficulty === 'nightmare') { /* v119: Storm hugs its HQ — closest-to-base first, so the 3x3 around the base fills first and the cluster grows outward ring by ring (Taylor: hug HQ, not the gold) */
+      if (isStorm(ti)) { /* v119: Storm hugs its HQ — closest-to-base first, so the 3x3 around the base fills first and the cluster grows outward ring by ring (Taylor: hug HQ, not the gold) */
         var da = Math.hypot(a.x-base.x,a.y-base.y), db = Math.hypot(b.x-base.x,b.y-base.y); if (da !== db) return da - db;
         var naS = nearBld(a), nbS = nearBld(b); if (naS !== nbS) return naS - nbS;
         return 0;
@@ -7243,7 +7281,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var na = nearBld(a), nb = nearBld(b); if (na !== nb) return na - nb;
       return Math.hypot(a.x-base.x,a.y-base.y)-Math.hypot(b.x-base.x,b.y-base.y);
     });
-    for (var i = 0; i < cells.length; i++) { if (G.difficulty === 'nightmare' && isGold(cells[i])) continue; /* v116 Deathball Storm: never pick gold */ if (!padError(ti,cells[i].x,cells[i].y)) return cells[i]; }
+    for (var i = 0; i < cells.length; i++) { if (isStorm(ti) && isGold(cells[i])) continue; /* v116 Deathball Storm: never pick gold */ if (!padError(ti,cells[i].x,cells[i].y)) return cells[i]; }
     return null;
   }
   // v86 difficulties. Normal is exactly the pre-v86 AI (tick 1 s, reserve 40,
@@ -7258,13 +7296,20 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     easy: { label: 'Easy', tick: 2, needBase: 14, needStep: 4, needCap: 40, reserve: 80, target: 'random', adv: 1 },
     normal: { label: 'Normal', tick: 1, needBase: 6, needStep: 3, needCap: 30, reserve: 40, target: 'leader', adv: 1 },
     hard: { label: 'Hard', tick: 0.6, needBase: 5, needStep: 2, needCap: 24, reserve: 20, target: 'leader', adv: 1 },
-    nightmare: { label: 'Storm', tick: 0.3, needBase: 4, needStep: 2, needCap: 20, reserve: 0, target: 'finisher', adv: 3 }
+    nightmare: { label: 'Storm', tick: 0.3, needBase: 4, needStep: 2, needCap: 20, reserve: 0, target: 'finisher', adv: 3 },
+    hurricane: { label: 'Hurricane', tick: 0.3, needBase: 4, needStep: 2, needCap: 20, reserve: 0, target: 'finisher', adv: 3 } /* v197: Storm's exact numbers — Hurricane is Storm AI, allied 3v1 (Taylor: 'Just 3vs 1 as hard as can be without cheating') */
   };
   function aiDiff() { return DIFF[(G && G.difficulty) || 'normal'] || DIFF.normal; }
   /* v95: Storm gate for new AI behaviours. All teams read difficulty globally,
      so this is the single gate: only the Storm (nightmare) AI gets raids,
      extra hangars and special-building use. Easy/Normal/Hard are untouched. */
-  function isStorm(ti) { return G.difficulty === 'nightmare'; }
+  function isStorm(ti) { return !!(G && (G.difficulty === 'nightmare' || G.difficulty === 'hurricane')); } /* v197: Hurricane IS Storm AI (same difficulty values, same gates); null-safe now */
+  function isHurricane() { return !!(G && G.difficulty === 'hurricane'); } /* v197 */
+  /* v197: Hurricane alliance — on Hurricane, teams 1-3 are allied with each
+     other and hostile to team 0 (the human); on every other difficulty two
+     distinct teams are always hostile, so isHostile(a, b) === (a !== b)
+     exactly off Hurricane and every gated site below is a no-op there. */
+  function isHostile(a, b) { return a !== b && !(isHurricane() && a !== 0 && b !== 0); }
   function aiReserve() { return aiDiff().reserve; }
   /* v161: threat score for Storm targeting (Taylor — "take out whoever
      is the biggest threat or long term threat"). Army strength is the
@@ -7289,6 +7334,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     // v86: Easy picks a random living enemy instead of the leader; Storm
     // finishes off a team whose HQ is below half health (lowest first, using
     // the HQ bars the player also sees), otherwise it targets the leader.
+    /* v197: on Hurricane the AIs are allied — an AI team always targets the
+       human (team 0) while the human lives; the finisher/threat/leader logic
+       below only runs for team 0 (the harness) or after the human is gone. */
+    if (isHurricane() && ti !== 0) { var hb197 = baseOf(0); if (!G.teams[0].dead && hb197 && hb197.hp > 0) return 0; }
     var d = aiDiff();
     if (d.target === 'random') { var alive = []; for (var ri = 0; ri < G.teams.length; ri++) { if (ri !== ti && !G.teams[ri].dead && baseOf(ri) && baseOf(ri).hp > 0) alive.push(ri); } if (alive.length) return alive[Math.floor(simRandom() * alive.length)]; }
     if (d.target === 'finisher') { var fin = -1, finPct = 0.35; for (var fi = 0; fi < G.teams.length; fi++) { if (fi === ti || G.teams[fi].dead) continue; var fb = baseOf(fi); if (!fb || fb.hp <= 0) continue; var pct = fb.hp / fb.max; if (pct < finPct) { finPct = pct; fin = fi; } } if (fin >= 0) return fin; }
@@ -7338,7 +7387,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var fp = freePads(ti);
     if (!fp.length) { if (!(isStorm(ti) && aiPadInProgress(ti))) { var sp = findPadSpot(ti); if (sp) tryPad(ti, sp.x, sp.y); } return; } /* v122: one pad at a time on Storm */
     if (type === 'wall' && !wallOk(fp[0])) return;
-    var selp3 = (G.difficulty === 'nightmare') ? fp.filter(function (p) { return !isGold(p); })[0] : fp[0]; if (!selp3) return; placeBuilding(ti, type, selp3); /* v116 Deathball Storm: never gold */
+    var selp3 = (isStorm(ti)) ? fp.filter(function (p) { return !isGold(p); })[0] : fp[0]; if (!selp3) return; placeBuilding(ti, type, selp3); /* v116 Deathball Storm: never gold */
   }
   // ---------- v71 #9: advanced AI policy ----------
   // The buy/choose functions now take a team parameter, so the AI plays by the
@@ -7364,7 +7413,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var fp = freePads(ti);
     if (!fp.length) { if (T.clouds >= cost(ti, 'pad') + (reserve || 0) && !(isStorm(ti) && aiPadInProgress(ti))) { var s = findPadSpot(ti); if (s) tryPad(ti, s.x, s.y); } return false; } /* v122: one pad at a time on Storm */
     if (type === 'wall' && !wallOk(fp[0])) return false;
-    var selp2 = (G.difficulty === 'nightmare') ? fp.filter(function (p) { return !isGold(p); })[0] : fp[0]; if (!selp2) return false; return placeBuilding(ti, type, selp2); /* v116 Deathball Storm: never build on gold (was v94 gold-first for production); v180: the return value carries the Chaos Pad denial (placeBuilding refuses inside an enemy aura) */
+    var selp2 = (isStorm(ti)) ? fp.filter(function (p) { return !isGold(p); })[0] : fp[0]; if (!selp2) return false; return placeBuilding(ti, type, selp2); /* v116 Deathball Storm: never build on gold (was v94 gold-first for production); v180: the return value carries the Chaos Pad denial (placeBuilding refuses inside an enemy aura) */
   }
   // Hamster Tube Exit: place it on the route toward the current target's HQ, at a
   // safe distance (outside HQ cannon range 540), on the first empty cell that works.
@@ -7444,7 +7493,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (!isStorm(ti) && countType(ti, 'factory') < 4) return false; /* after the early factory push (judgment call — the spec fixes only 'once the economy allows'; Storm is already 10-gated by v125) */
     var own = baseOf(ti); if (!own) return false;
     var targetTeam = aiTargetTeam(ti), tb = targetTeam >= 0 ? baseOf(targetTeam) : null;
-    if (!tb) { var ni, nb, nd = 1e18; for (ni = 0; ni < G.teams.length; ni++) { if (ni === ti || G.teams[ni].dead) continue; nb = baseOf(ni); if (!nb || nb.hp <= 0) continue; var dd0 = Math.hypot(nb.x - own.x, nb.y - own.y); if (dd0 < nd) { nd = dd0; tb = nb; } } } /* no strategic target — fall back to the nearest living enemy HQ */
+    if (!tb) { var ni, nb, nd = 1e18; for (ni = 0; ni < G.teams.length; ni++) { if (!isHostile(ti, ni) || G.teams[ni].dead) continue; nb = baseOf(ni); if (!nb || nb.hp <= 0) continue; var dd0 = Math.hypot(nb.x - own.x, nb.y - own.y); if (dd0 < nd) { nd = dd0; tb = nb; } } } /* no strategic target — fall back to the nearest living enemy HQ */
     if (!tb) return false;
     var homeD = Math.hypot(tb.x - own.x, tb.y - own.y);
     var lastD = homeD; /* v192: forward of the LAST pad — a new pad must be strictly closer to the target HQ than the closest existing pad (or home, if no pad stands yet) */
@@ -7468,7 +7517,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var bx = 0, by = 0, found = false;
     bd = 1e9;
     for (i = 0; i < cells.length; i++) {
-      if (G.difficulty === 'nightmare' && isGold(cells[i])) continue; /* v116 Deathball Storm: never pick gold */
+      if (isStorm(ti) && isGold(cells[i])) continue; /* v116 Deathball Storm: never pick gold */
       if (padError(ti, cells[i].x, cells[i].y)) continue; /* anchored to an own building, unoccupied, outside any enemy aura (the mirror rule — padError reads chaosDenies), off the volcano */
       d = Math.hypot(cells[i].x - tb.x, cells[i].y - tb.y);
       if (d >= lastD) continue; /* not forward of the last pad */
@@ -7480,14 +7529,14 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   function aiResearchOrder(T) {
     var o = ['damage', 'health', 'speed', 'range'];
-    if (T.race === 'beaver' && !T.lab.walls) { if (G.difficulty === 'nightmare') o = ['walls', 'damage', 'health', 'speed', 'range']; else o.push('walls'); } /* v192: Storm Beaver researches walls first — the wall cap grows to 8 (the full 3x3 ring) before the plane lines (§9) */
+    if (T.race === 'beaver' && !T.lab.walls) { if (isStorm()) o = ['walls', 'damage', 'health', 'speed', 'range']; else o.push('walls'); } /* v192: Storm Beaver researches walls first — the wall cap grows to 8 (the full 3x3 ring) before the plane lines (§9) */
     return o;
   }
   /* v131: the unique stat lines, bought at the unique lab after the team has
      committed to its unique. Same caps pattern as the core lines. */
   function aiNextUResearch(ti) {
     var T = G.teams[ti], o = ['damage', 'health', 'speed', 'range'], i, key;
-    for (i = 0; i < o.length; i++) { key = o[i]; var cap = (G && G.difficulty === 'nightmare') ? 3 : 2; if (T.ulab[key] < cap) return { key: key, cost: ULAB[key].costs[T.ulab[key]] }; }
+    for (i = 0; i < o.length; i++) { key = o[i]; var cap = (G && isStorm(ti)) ? 3 : 2; if (T.ulab[key] < cap) return { key: key, cost: ULAB[key].costs[T.ulab[key]] }; }
     return null;
   }
   /* v147: the Armory lines, next-buyable first in the old per-turret
@@ -7506,7 +7555,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function aiWantsSpecialTurret(ti) { var quota = aiPersona(ti) === 'turret' ? 3 : 1, have = 0, waiting = false; for (var i = 0; i < G.blds.length; i++) { var b = G.blds[i]; if (b.team !== ti || b.type !== 'turret' || b.hp <= 0) continue; if (b.upg && b.upg.special) have++; else if (b.complete && !b.turretJob && b.upg && !b.upg.special && b.upg.choice === 'basic') waiting = true; /* v165: born Basic — a Basic turret is the waiting one */ } return have < quota && waiting; }
   function aiNextResearch(ti) {
     var T = G.teams[ti], o = aiResearchOrder(T), i, key;
-    for (i = 0; i < o.length; i++) { key = o[i]; var cap = (key === 'damage' || key === 'health' || key === 'speed' || key === 'range') ? ((G && G.difficulty === 'nightmare') ? 3 : 2) : 1; /* v94 Storm: core research to Lv 3 */ if (T.lab[key] < cap) return { key: key, cost: LUP[key].costs[T.lab[key]] }; }
+    for (i = 0; i < o.length; i++) { key = o[i]; var cap = (key === 'damage' || key === 'health' || key === 'speed' || key === 'range') ? ((G && isStorm(ti)) ? 3 : 2) : 1; /* v94 Storm: core research to Lv 3 */ if (T.lab[key] < cap) return { key: key, cost: LUP[key].costs[T.lab[key]] }; }
     return null;
   }
 
@@ -7622,12 +7671,12 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function aiRaidSend(ti, sizeMode, prioMode) {
     if (!G.ai.raidCd) G.ai.raidCd = {};
     if (G.ai.raidCd[ti] && G.t < G.ai.raidCd[ti]) return false;
-    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.ball; }); /* v136: detachment planes are not wave/raid/snipe material; v192: ball members stay with the ball */
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.ball && !p.rescue; }); /* v136: detachment planes are not wave/raid/snipe material; v192: ball members stay with the ball; v198: rescue planes stay with the rescue */
     var targetTeam = aiTargetTeam(ti);
     if (targetTeam < 0) return false;
     var targetBase = baseOf(targetTeam); if (!targetBase) return false;
     if (targetBase.hp / targetBase.max < 0.5) return false; /* finisher HQ: keep HQ pressure */
-    var cands = G.blds.filter(function (b) { return b.team === targetTeam && b.complete && b.hp > 0 && (b.type === 'lab' || b.type === 'ulab' || b.type === 'turret' || isHangarType(b.type)); });
+    var cands = G.blds.filter(function (b) { return b.team === targetTeam && b.complete && b.hp > 0 && (b.type === 'lab' || b.type === 'ulab' || b.type === 'turret' || isHangarType(b.type)) && Math.hypot(b.x - targetBase.x, b.y - targetBase.y) > aiHqRange(targetTeam) + AI_HQ_SAFE; }); /* v198: never raid inside HQ cannon range — raids are never kill attempts (the finisher check above already refuses HQ < 50%) */
     if (!cands.length) return false;
     var tgt = null;
     if (prioMode === 'lab') {
@@ -7665,13 +7714,14 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var targetTeam = aiTargetTeam(ti); if (targetTeam < 0) return false;
     var targetBase = baseOf(targetTeam); if (!targetBase) return false;
     if (targetBase.hp / targetBase.max < 0.5) return false; /* finisher state: leave it to the waves */
-    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.ball; }); /* v136: detachment planes are not wave/raid/snipe material; v192: ball members stay with the ball */
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.ball && !p.rescue; }); /* v136: detachment planes are not wave/raid/snipe material; v192: ball members stay with the ball; v198: rescue planes stay with the rescue */
     if (idle.length < 24) return false; /* 12 go, at least 12 stay home */
     var SIZE = 12, best = null, bestScore = -1e9;
     for (var bi = 0; bi < G.blds.length; bi++) {
       var b = G.blds[bi];
       if (b.team !== targetTeam || !b.complete || b.hp <= 0) continue;
       if (b.type !== 'factory' && b.type !== 'lab' && b.type !== 'ulab') continue;
+      if (Math.hypot(b.x - targetBase.x, b.y - targetBase.y) <= aiHqRange(targetTeam) + AI_HQ_SAFE) continue; /* v198: never snipe inside HQ cannon range — snipes are never kill attempts (the finisher check above already refuses HQ < 50%) */
       var def = 0, qi, q;
       for (qi = 0; qi < G.planes.length; qi++) { q = G.planes[qi]; if (q.team === targetTeam && q.hp > 0 && !(q.cloaked && !canTarget(ti, q)) && Math.hypot(q.x - b.x, q.y - b.y) < 700) def += 1; }
       for (var wi = 0; wi < G.blds.length; wi++) { var tb = G.blds[wi]; if (tb.team === targetTeam && tb.type === 'turret' && tb.hp > 0 && Math.hypot(tb.x - b.x, tb.y - b.y) < 700) def += 4; }
@@ -7930,10 +7980,32 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function aiSoftTargetStorm(ti, targetTeam) {
     var targetBase = targetTeam >= 0 ? baseOf(targetTeam) : null; if (!targetBase) return null;
     if (targetBase.hp / targetBase.max < 0.35) return targetBase;
+    /* v198 (Taylor: 'More safely' — fix 3): a Storm wave never dives
+       the HQ cannon unless it is going for the kill (the finisher
+       above). Prefer a SAFE target — outside the target HQ's cannon
+       range + 150 — lab/hangar/turret first (the v109 priority), then
+       a safe factory (the edge pick-off); if nothing is safe, take
+       the edge-most building (furthest from the HQ). Factories are
+       new candidates here (previously only lab/ulab/turret/hangar). */
+    var hqR = aiHqRange(targetTeam);
+    var safe = function (b) { return Math.hypot(b.x - targetBase.x, b.y - targetBase.y) > hqR + AI_HQ_SAFE; };
+    var prio = function (b) { return (b.type === 'lab' || b.type === 'ulab') ? 0 : (isHangarType(b.type) ? 1 : 2); };
     var cands = G.blds.filter(function (b) { return b.team === targetTeam && b.complete && b.hp > 0 && (b.type === 'lab' || b.type === 'ulab' || b.type === 'turret' || isHangarType(b.type)); });
-    if (!cands.length) return targetBase;
-    cands.sort(function (a, b) { var pa = (a.type === 'lab' || a.type === 'ulab') ? 0 : (isHangarType(a.type) ? 1 : 2); var pb = (b.type === 'lab' || b.type === 'ulab') ? 0 : (isHangarType(b.type) ? 1 : 2); if (pa !== pb) return pa - pb; return (a.hp / a.max) - (b.hp / b.max); });
-    return cands[0];
+    var facs = G.blds.filter(function (b) { return b.team === targetTeam && b.complete && b.hp > 0 && b.type === 'factory'; });
+    var safeC = cands.filter(safe);
+    if (safeC.length) {
+      safeC.sort(function (a, b) { var pa = prio(a), pb = prio(b); if (pa !== pb) return pa - pb; return (a.hp / a.max) - (b.hp / b.max); });
+      return safeC[0];
+    }
+    var safeF = facs.filter(safe);
+    if (safeF.length) {
+      safeF.sort(function (a, b) { return (a.hp / a.max) - (b.hp / b.max); });
+      return safeF[0];
+    }
+    var all = cands.concat(facs);
+    if (!all.length) return targetBase;
+    all.sort(function (a, b) { return Math.hypot(b.x - targetBase.x, b.y - targetBase.y) - Math.hypot(a.x - targetBase.x, a.y - targetBase.y); });
+    return all[0];
   }
   /* v192 (Taylor — builder's judgment call, §15.6): the Hamster anti-kite
      leash. A Hamster plane never pursues a target it cannot catch: if the
@@ -7992,28 +8064,46 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     for (i = 0; i < G.balloons.length; i++) if (!G.balloons[i].dead && G.balloons[i].hp > 0 && !(isStorm(ti) && G.teams[ti].race === 'hamster' && G.balloons[i].val < 200)) bals.push(G.balloons[i]); /* v192: Hamster contests only large balloons (the only ones it can catch — §15.7) */
     var mine = G.planes.filter(function (q) { return q.team === ti && q.hp > 0; });
     var threatened = aiThreatened(ti);
+    var recall199 = []; /* v199: released Storm planes fly home instead of stopping dead mid-map (fix 2) */
     for (i = 0; i < mine.length; i++) {
-      p = mine[i]; if (!p.balDet) continue;
+      p = mine[i];
+      if (p.recall && !p.dest) p.recall = 0; /* v199: a recalled plane that arrived home is no longer recalling */
+      if (!p.balDet) continue;
       var alive = false; for (var bi = 0; bi < bals.length; bi++) if (bals[bi].id === p.balDet) alive = true;
-      if (!alive || threatened || p.hp < p.max * 0.3) { p.balDet = 0; if (p.balDest) { p.dest = null; p.wp = null; p.balDest = false; } }
+      var inHq = false; /* v198: a Storm detachment is released when its balloon drifts into a hostile HQ's cannon range — don't chase balloons into the HQ (fix 3) */
+      if (alive && isStorm(ti)) { var bal198 = null; for (var bj = 0; bj < bals.length; bj++) if (bals[bj].id === p.balDet) bal198 = bals[bj]; if (bal198) for (var hj = 0; hj < G.teams.length; hj++) { if (!isHostile(ti, hj) || G.teams[hj].dead) continue; if (!aiHqSafeSpot(hj, bal198.x, bal198.y)) { inHq = true; break; } } }
+      if (!alive || threatened || p.hp < p.max * 0.3 || inHq) { p.balDet = 0; if (p.balDest) { p.dest = null; p.wp = null; p.balDest = false; } if (isStorm(ti) && (!alive || p.hp < p.max * 0.3 || inHq)) { p.recall = 1; recall199.push(p); } /* v199: balloon dead / hurt / HQ-drift recalls home; a threat-only release keeps dest=null — the self-defence (fix 1) takes those planes straight to the fight */ }
     }
+    if (recall199.length) { var home199 = baseOf(ti); if (home199) sendUnits(recall199, { x: home199.x, y: home199.y }); else { for (var ri199 = 0; ri199 < recall199.length; ri199++) recall199[ri199].recall = 0; } }
     /* v192 (Taylor): the Fox/Raccoon early ball IS the balloon play (§4) — when 8+ planes are idle pre-boom, the detachment yields so the ball can launch toward the balloon nearest the focus enemy. Without this the detachment (which runs before the wave block) would steal the ball's planes and send them to the own-HQ balloon instead, and the ball's balloon destination would never be reached. The guard mirrors the earlyBall condition (Storm, Fox/Raccoon, pre-boom, no finisher). */
     if (isStorm(ti) && (G.teams[ti].race === 'fox' || G.teams[ti].race === 'raccoon') && !(G.ai.boom && G.ai.boom[ti])) {
       var finD = false;
-      for (var fdi = 0; fdi < G.teams.length; fdi++) { if (fdi === ti || G.teams[fdi].dead) continue; var fdb = baseOf(fdi); if (fdb && fdb.hp > 0 && fdb.hp / fdb.max < 0.35) { finD = true; break; } }
-      if (!finD) { var idleD = 0; for (var idi = 0; idi < G.planes.length; idi++) { var ip = G.planes[idi]; if (ip.team === ti && ip.hp > 0 && !ip.dest && !ip.raidTargetId && !ip.balDet) idleD++; } if (idleD >= 8) return; }
+      for (var fdi = 0; fdi < G.teams.length; fdi++) { if (!isHostile(ti, fdi) || G.teams[fdi].dead) continue; var fdb = baseOf(fdi); if (fdb && fdb.hp > 0 && fdb.hp / fdb.max < 0.35) { finD = true; break; } }
+      if (!finD) { var idleD = 0; for (var idi = 0; idi < G.planes.length; idi++) { var ip = G.planes[idi]; if (ip.team === ti && ip.hp > 0 && !ip.dest && !ip.raidTargetId && !ip.balDet && !ip.rescue) idleD++; } if (idleD >= 8) return; }
     }
     if (!bals.length || threatened) return;
     var base = baseOf(ti); if (!base) return;
     var target = bals[0], td = 1e18;
     for (i = 0; i < bals.length; i++) { var dd = Math.hypot(bals[i].x - base.x, bals[i].y - base.y); if (dd < td) { td = dd; target = bals[i]; } }
+    if (isStorm(ti)) { /* v198: never chase a balloon into a hostile HQ's cannon range — take the nearest SAFE balloon, or none at all (fix 3) */
+      var safeB = null, sd = 1e18;
+      for (var sbi = 0; sbi < bals.length; sbi++) {
+        var sb = bals[sbi], sok = true;
+        for (var shj = 0; shj < G.teams.length; shj++) { if (!isHostile(ti, shj) || G.teams[shj].dead) continue; if (!aiHqSafeSpot(shj, sb.x, sb.y)) { sok = false; break; } }
+        if (!sok) continue;
+        var sdd = Math.hypot(sb.x - base.x, sb.y - base.y);
+        if (sdd < sd) { sd = sdd; safeB = sb; }
+      }
+      if (!safeB) return;
+      target = safeB;
+    }
     var members = mine.filter(function (q) { return q.balDet === target.id; });
     var earlyStorm = isStorm(ti) && !(G.ai.boom && G.ai.boom[ti]); /* v171 (Taylor): Storm before the boom latch — the early-balloon window */
     var want = (earlyStorm || (isStorm(ti) && G.teams[ti].race === 'hamster')) ? mine.length : Math.max(2, Math.min(4, Math.round(mine.length * 0.2))); /* v171: pre-boom Storm sends nearly everything (gate 2, want = whole eligible army); v192: Hamster contests with its full army, pre- and post-boom (§15.7) */
     if (members.length < want) {
       var gate = earlyStorm ? 2 : (isStorm(ti) ? 34 : 10); /* v171: pre-boom Storm gate 8 -> 2 (Taylor); post-boom 34 and non-Storm 10 unchanged */
       if (mine.length >= gate) {
-        var cand = mine.filter(function (q) { return !q.balDet && !q.dest && !q.raidTargetId && !q.storeAt && !q.ball && q.kind !== 'carrier'; }); /* v192: ball members stay with the ball (the ball IS the Fox/Raccoon balloon play) */
+        var cand = mine.filter(function (q) { return !q.balDet && !q.dest && !q.raidTargetId && !q.storeAt && !q.ball && !q.rescue && q.kind !== 'carrier'; }); /* v192: ball members stay with the ball (the ball IS the Fox/Raccoon balloon play); v198: rescue planes stay with the rescue */
         for (i = 0; i < cand.length && members.length < want; i++) { cand[i].balDet = target.id; members.push(cand[i]); }
       }
     }
@@ -8061,6 +8151,303 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       mp.dest = { x: cx, y: cy }; mp.wp = routeTo(mp.x, mp.y, cx, cy);
     }
   }
+  /* v198 (Taylor — Hurricane harder): the HQ cannon's reach, read from
+     the firing code (v197 line 4405): 540 + 55 per HQ range level
+     (max 870 at Lv6). The AI uses the ENEMY HQ's actual range — the
+     range level is public (the HQ card shows it), so this is the same
+     knowledge a player has. */
+  var AI_HQ_SAFE = 150; /* v198: the safety margin — planes shoot from
+     their 130 weapon range, so a target further than HQ range + 150
+     from the HQ is attacked from outside the cannon's reach. */
+  function aiHqRange(team) {
+    var hq = baseOf(team);
+    if (!hq || hq.hp <= 0) return 540;
+    return 540 + ((hq.upg && hq.upg.range) || 0) * 55;
+  }
+  /* v198: is point (x, y) outside team `tgt`'s HQ cannon range + margin? */
+  function aiHqSafeSpot(tgt, x, y) {
+    var hq = baseOf(tgt);
+    if (!hq || hq.hp <= 0) return true;
+    return Math.hypot(x - hq.x, y - hq.y) > aiHqRange(tgt) + AI_HQ_SAFE;
+  }
+  /* v198 (Taylor — Hurricane harder, fix 1: ally rescue): on Hurricane
+     the AIs defend each other — when an allied AI is under attack
+     (aiThreatened, the same check that builds defensive turrets), the
+     other AIs send half their idle planes (cap 12, only when 8+ idle)
+     to the fight at its base (the centroid of the hostile planes near
+     its buildings, or its HQ if the threat is only the 30s hold echo).
+     A helper never rescues while it is itself threatened. Rescue
+     planes are flagged p.rescue (excluded from wave/raid/snipe/
+     balloon pools) and come home when the ally is safe, dies, the
+     helper is threatened, or after 60s. */
+  function aiRescueSend(ti) {
+    if (!isHurricane() || ti === 0) return false;
+    if (aiThreatened(ti)) return false;
+    var ally = -1;
+    for (var i = 1; i < G.teams.length; i++) {
+      if (i === ti || G.teams[i].dead) continue;
+      if (aiThreatened(i)) { ally = i; break; }
+    }
+    if (ally < 0) return false;
+    for (var j = 0; j < G.planes.length; j++) if (G.planes[j].team === ti && G.planes[j].rescue) return false; /* already rescuing someone — finish that rescue first */
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.ball && !p.rescue; });
+    /* v199 (Taylor — v198 playtest: the rescue must actually have planes
+       to send): when idle is short of 8, draw on arrived early-ball
+       members too — planes with p.ball and no dest (they arrived at
+       their balloon/base and are waiting). Take at most half the ball
+       and keep at least 3 members (below 3 the ball dissolves anyway).
+       Only Fox/Raccoon ever have a ball; other races are unchanged. */
+    var pool = idle;
+    if (idle.length < 8) {
+      var ballPool = G.planes.filter(function (p) { return p.team === ti && p.ball && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.rescue; });
+      var takeBall = Math.min(ballPool.length - 3, Math.floor(ballPool.length / 2));
+      if (takeBall > 0) pool = idle.concat(ballPool.slice(0, takeBall));
+    }
+    if (pool.length < 8) return false;
+    var n = Math.min(24, Math.floor(pool.length / 2)); /* v200: the defend cap rises 12 -> 24 — against an 80-plane deathball 12 was token (fix 2) */
+    var base = baseOf(ally); if (!base) return false;
+    var tx = base.x, ty = base.y, tc = 0, tsx = 0, tsy = 0;
+    for (var m = 0; m < G.planes.length; m++) {
+      var q = G.planes[m];
+      if (!isHostile(ally, q.team) || q.hp <= 0) continue;
+      if (q.cloaked && !canTarget(ti, q)) continue;
+      var near = false;
+      for (var bi = 0; bi < G.blds.length; bi++) { var ab = G.blds[bi]; if (ab.team === ally && ab.hp > 0 && Math.hypot(q.x - ab.x, q.y - ab.y) < 700) { near = true; break; } }
+      if (!near) continue;
+      tsx += q.x; tsy += q.y; tc++;
+    }
+    if (tc) { tx = tsx / tc; ty = tsy / tc; }
+    pool.sort(function (a, b) { return (a.kind ? 1 : 0) - (b.kind ? 1 : 0); });
+    var det = pool.slice(0, n);
+    for (var k = 0; k < det.length; k++) { det[k].rescue = ally; det[k].rescueT0 = G.t; det[k].ball = 0; /* v199: a ball member sent to rescue leaves the ball — aiBallManage must not pull it back */ }
+    sendUnits(det, { x: tx, y: ty });
+    /* v200 (Taylor — v199 playtest: "coordinate attack and defense
+       ideally"): the counter-attack — while the human's deathball is
+       away killing the ally, his own base is undefended. If fewer
+       than 8 of his planes are near his own buildings (his base is
+       OPEN — planes and buildings are visible game state, no fog of
+       war, so this is public knowledge, not cheating) and at least 8
+       idle planes remain after the defend take, the rest
+       counter-attack his safe edge target (the v198 rule — pick off
+       his factories/labs, never dive a healthy HQ). The counter
+       detachment reuses the raid machinery (raidTargetId / raidT0 /
+       raidN0 + aiRaidManage: target dead / half lost / 75s -> fly
+       home), so no filter edits are needed — the raid flags already
+       exclude the planes from every other pool. The flags are set
+       directly, so the 45s raid cooldown is neither read nor set. */
+    var rest200 = pool.slice(n);
+    if (rest200.length >= 8 && !G.teams[0].dead) {
+      var homeGuards = 0, open200 = true;
+      for (var gi = 0; gi < G.planes.length; gi++) {
+        var gp = G.planes[gi];
+        if (gp.team !== 0 || gp.hp <= 0) continue;
+        if (gp.cloaked && !canTarget(ti, gp)) continue; /* a cloaked plane the AI cannot see does not count as a guard (the aiThreatened rule) */
+        for (var gb = 0; gb < G.blds.length; gb++) { var hb = G.blds[gb]; if (hb.team === 0 && hb.hp > 0 && Math.hypot(gp.x - hb.x, gp.y - hb.y) < 700) { homeGuards++; break; } }
+        if (homeGuards >= 8) { open200 = false; break; }
+      }
+      if (open200) {
+        var ctrTgt = aiSoftTargetStorm(ti, 0);
+        if (ctrTgt && !(ctrTgt.type === 'base' && ctrTgt.hp / ctrTgt.max >= 0.35)) {
+          var nctr = Math.min(24, rest200.length);
+          var ctr = rest200.slice(0, nctr);
+          for (var ci = 0; ci < ctr.length; ci++) { ctr[ci].raidTargetId = ctrTgt.id; ctr[ci].raidT0 = G.t; ctr[ci].raidN0 = nctr; ctr[ci].ball = 0; }
+          sendUnits(ctr, ctrTgt);
+        }
+      }
+    }
+    if (!G.ai.rescues) G.ai.rescues = {};
+    G.ai.rescues[ti] = (G.ai.rescues[ti] || 0) + 1;
+    return true;
+  }
+  function aiRescueManage(ti) {
+    var planes = G.planes.filter(function (p) { return p.team === ti && p.hp > 0 && p.rescue; });
+    if (!planes.length) return;
+    var ally = planes[0].rescue;
+    var t0 = planes[0].rescueT0 || 0;
+    var allyBase = baseOf(ally);
+    var done = !allyBase || allyBase.hp <= 0 || G.teams[ally].dead || !aiThreatened(ally) || aiThreatened(ti) || (G.t - t0 > 60);
+    if (!done) return;
+    var home = baseOf(ti);
+    for (var j = 0; j < planes.length; j++) {
+      var p = planes[j];
+      var hx = home ? home.x + ((j % 5) - 2) * 30 : p.x, hy = home ? home.y + 40 + Math.floor(j / 5) * 25 : p.y;
+      p.dest = { x: hx, y: hy }; p.wp = routeTo(p.x, p.y, hx, hy);
+      p.rescue = 0; p.rescueT0 = 0;
+    }
+  }
+  /* v198 (Taylor — Hurricane harder, fix 2: combined waves): on
+     Hurricane, a ready wave HOLDS until every living AI ally that
+     has not already launched this round is ready too (or 60s pass
+     since the first ready mark), then the ready AIs launch with
+     arrival synchronisation — each AI's launch is delayed so the
+     waves ARRIVE at the human HQ together (delay = slowest travel
+     time minus this AI's travel time; travel = base-to-HQ distance
+     / basic plane speed). The finisher never holds; pre-boom early
+     balls are not waves. Ready is stamped with the wave number so
+     a stale ready mark from a launched wave never counts. Each AI
+     computes its own launch time from shared state (deterministic,
+     no coordinator). A lone AI (all allies dead or already launched
+     this round) never waits. */
+  function aiWaveLaunchOK(ti, need, finNow, earlyBall) {
+    if (!isHurricane() || ti === 0) return true;
+    if (finNow || earlyBall) return true;
+    if (!(G.ai.boom && G.ai.boom[ti])) return true;
+    if (!G.ai.waveReady) G.ai.waveReady = {};
+    if (!G.ai.waveLaunchAt) G.ai.waveLaunchAt = {};
+    if (G.ai.waveLaunchAt[ti] !== undefined && G.ai.waveLaunchAt[ti] !== null) {
+      if (G.t >= G.ai.waveLaunchAt[ti]) { delete G.ai.waveLaunchAt[ti]; delete G.ai.waveReady[ti]; return true; }
+      return false; /* waiting for our staggered launch time */
+    }
+    var waitFor = [];
+    for (var i = 1; i < G.teams.length; i++) {
+      if (G.teams[i].dead) continue;
+      if (G.ai.wave[i] > G.ai.wave[ti]) continue; /* already launched this round */
+      waitFor.push(i);
+    }
+    var mark = G.ai.waveReady[ti];
+    if (!mark || mark.w !== G.ai.wave[ti]) { G.ai.waveReady[ti] = { t: G.t, w: G.ai.wave[ti] }; }
+    var allReady = true, firstReady = 1e18;
+    for (var j = 0; j < waitFor.length; j++) {
+      var m = G.ai.waveReady[waitFor[j]];
+      if (!m || m.w !== G.ai.wave[waitFor[j]]) { allReady = false; continue; }
+      if (m.t < firstReady) firstReady = m.t;
+    }
+    if (!allReady) {
+      if (waitFor.length <= 1) { delete G.ai.waveReady[ti]; return true; } /* nobody to combine with — launch alone */
+      if (G.t - firstReady < 60) return false; /* still waiting for the rest */
+      /* timeout: launch the ready ones, synchronised */
+    }
+    var humanHQ = baseOf(0), times = {}, tmax = 0;
+    for (var k = 0; k < waitFor.length; k++) {
+      var a = waitFor[k], ma = G.ai.waveReady[a];
+      if (!ma || ma.w !== G.ai.wave[a]) continue; /* not ready (timeout case) — it launches on its own schedule later */
+      var ab = baseOf(a);
+      var spd = (G.st && G.st[a]) ? G.st[a].spd : 150;
+      var tt = (humanHQ && ab) ? Math.hypot(ab.x - humanHQ.x, ab.y - humanHQ.y) / Math.max(1, spd) : 0;
+      times[a] = tt; if (tt > tmax) tmax = tt;
+    }
+    for (var a2 in times) G.ai.waveLaunchAt[a2] = G.t + (tmax - times[a2]);
+    if (G.ai.waveLaunchAt[ti] !== undefined && G.t >= G.ai.waveLaunchAt[ti]) { delete G.ai.waveLaunchAt[ti]; delete G.ai.waveReady[ti]; return true; }
+    return false;
+  }
+  /* v198 (Taylor — Hurricane harder, fix 4: early pressure): on
+     Hurricane, an AI punishes a greedy human (3+ hangars, 4 or fewer
+     factories — the hangar rush Taylor won with) with one 8-plane
+     raid before the boom latch, once per AI per game. Fox/Raccoon
+     skip it — their early ball is already their early pressure.
+     The force goes to the fix-3 soft target (a peripheral building,
+     never a dive on the HQ). Counting the human's buildings uses
+     the same knowledge the AI already has (aiTargetTeam/threatOf
+     read enemy building counts) — no new vision. */
+  function aiEarlyPress(ti) {
+    if (!isHurricane() || ti === 0) return false;
+    if (G.ai.boom && G.ai.boom[ti]) return false;
+    if (G.t < 90) return false;
+    var race = G.teams[ti].race;
+    if (race === 'fox' || race === 'raccoon') return false;
+    if (!G.ai.earlyPress) G.ai.earlyPress = {};
+    if (G.ai.earlyPress[ti]) return false;
+    if (aiThreatened(ti)) return false;
+    if (G.teams[0].dead) return false;
+    if (aiCountHangars(0) < 3 || countType(0, 'factory') > 4) return false;
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.ball && !p.rescue; });
+    if (idle.length < 8) return false;
+    var tgt = aiSoftTargetStorm(ti, 0);
+    if (!tgt) return false;
+    idle.sort(function (a, b) { return (a.kind ? 1 : 0) - (b.kind ? 1 : 0); });
+    var det = idle.slice(0, 8);
+    for (var i = 0; i < det.length; i++) { det[i].raidTargetId = tgt.id; det[i].raidT0 = G.t; det[i].raidN0 = 8; }
+    sendUnits(det, tgt);
+    G.ai.earlyPress[ti] = true;
+    return true;
+  }
+  /* v199 (Taylor — v198 playtest: the AI never defended its own base):
+     self-defence — when a Storm AI is under attack (aiThreatened, the
+     same check that builds defensive turrets), its idle planes fly to
+     the fight instead of sitting just out of reach. Planes only
+     acquire within 300px when idle (v198 line 4167), so a plane 400px
+     from the fight never engages on its own — the AI must ORDER it
+     there. Sends ALL idle planes (the wave pool — planes gathered
+     for the next deathball defend first); arrived early-ball members
+     have their ball flag cleared so aiBallManage doesn't pull them
+     back. No order on the 30s hold echo alone (no live attackers, no
+     fight). No flag is needed: defenders have a dest while flying
+     (excluded from every other pool), and on arrival they re-join
+     the idle pool — re-sent next tick if the threat persists. */
+  function aiDefendSend(ti) {
+    if (!isStorm(ti)) return false;
+    if (!aiThreatened(ti)) return false;
+    var tx = 0, ty = 0, tc = 0;
+    for (var m = 0; m < G.planes.length; m++) {
+      var q = G.planes[m];
+      if (!isHostile(ti, q.team) || q.hp <= 0) continue;
+      if (q.cloaked && !canTarget(ti, q)) continue;
+      var near = false;
+      for (var bi = 0; bi < G.blds.length; bi++) { var ab = G.blds[bi]; if (ab.team === ti && ab.hp > 0 && Math.hypot(q.x - ab.x, q.y - ab.y) < 700) { near = true; break; } }
+      if (!near) continue;
+      tx += q.x; ty += q.y; tc++;
+    }
+    if (!tc) return false; /* hold echo only — no live attackers to fight */
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.storeAt && !p.rescue; });
+    if (!idle.length) return false;
+    var finNow = false; /* v199: a launchable finisher outranks defence — a hostile HQ under 35% with 12+ idle planes means the wave goes for the kill instead (the raid already refuses a finisher HQ < 50% and the snipe refuses when threatened, so nothing steals the finisher's planes between here and the wave block) */
+    for (var fni = 0; fni < G.teams.length; fni++) { if (!isHostile(ti, fni) || G.teams[fni].dead) continue; var fnb = baseOf(fni); if (fnb && fnb.hp > 0 && fnb.hp / fnb.max < 0.35) { finNow = true; break; } }
+    if (finNow && idle.length >= 12) return false;
+    for (var k = 0; k < idle.length; k++) idle[k].ball = 0; /* arrived ball members defend too — clear the flag so aiBallManage doesn't pull them back */
+    sendUnits(idle, { x: tx / tc, y: ty / tc });
+    return true;
+  }
+  /* v200 (Taylor — v199 playtest: "really attack after the curse"):
+     the curse window — when a hostile player kills an HQ they take
+     the Retribution curse (15% of current HP off everything they own
+     + 50% plane slow for 15s), and that is the moment to pounce. The
+     curse is public state (announcer callout + red vignette, visible
+     to every player), so reacting to it is decision-making, not
+     cheating. aiCursedTeam finds a hostile team with an unexpired
+     curse slow (retMul < 1 — the v186 team-level retSlows, game-time
+     expiry). aiCursePounce sends ALL idle planes at the cursed
+     team's slowed army (its centroid, when that is outside the
+     cursed HQ's cannon range + 150) or at the cursed team's safe
+     edge target — never a dive on a healthy HQ. No flag: like the
+     v199 defence, the pounce is stateless — planes re-pounce each
+     tick while the window is open (chasing the slowed army as it
+     moves) and rejoin the wave pool when it closes. The wave pounce
+     (need 12 + combine bypass + target override) lives in the wave
+     block below; this function is the no-ready-wave case and runs
+     after the wave block, so a launched wave claims the idle planes
+     first. */
+  function aiCursedTeam(ti) {
+    for (var x = 0; x < G.teams.length; x++) {
+      if (!isHostile(ti, x) || G.teams[x].dead) continue;
+      if (retMul(x) < 1) return x;
+    }
+    return -1;
+  }
+  function aiCursePounce(ti) {
+    if (!isStorm(ti)) return false;
+    var ct = aiCursedTeam(ti);
+    if (ct < 0) return false;
+    var idle = G.planes.filter(function (p) { return p.team === ti && (!p.dest || p.recall) && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.rescue; });
+    if (idle.length < 8) return false;
+    var tx = 0, ty = 0, tc = 0;
+    for (var m = 0; m < G.planes.length; m++) {
+      var q = G.planes[m];
+      if (q.team !== ct || q.hp <= 0) continue;
+      if (q.cloaked && !canTarget(ti, q)) continue;
+      tx += q.x; ty += q.y; tc++;
+    }
+    var tgt = null;
+    if (tc && aiHqSafeSpot(ct, tx / tc, ty / tc)) tgt = { x: tx / tc, y: ty / tc };
+    else {
+      var soft = aiSoftTargetStorm(ti, ct);
+      if (!soft) return false;
+      if (soft.type === 'base' && soft.hp / soft.max >= 0.35) return false; /* no safe target — never dive a healthy HQ */
+      tgt = soft;
+    }
+    for (var k = 0; k < idle.length; k++) { idle[k].recall = 0; idle[k].ball = 0; } /* a recalled plane taken by the pounce is no longer recalling; a ball member leaves the ball (aiBallManage would pull it back) */
+    sendUnits(idle, tgt);
+    return true;
+  }
   function aiTickTeam(dt, ti) {
     if (G.teams[ti].dead) return;
     var ai = G.ai; ai.t[ti] += dt; if (ai.t[ti] < aiDiff().tick) return; ai.t[ti] = 0;
@@ -8083,7 +8470,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         if (type === 'turret' && isStorm(ti) && !aiThreatened(ti)) continue; /* v123: Storm builds turrets only when attacked — otherwise the clouds go to factories (Taylor) */
         var free = freePads(ti);
         if (!free.length) { if (T.clouds >= cost(ti, 'pad') && !(isStorm(ti) && aiPadInProgress(ti))) { var s = null; if (type === 'turret' && isStorm(ti)) s = aiGoldTurretCell(ti); /* v128: a turret may claim an enveloped gold cell (Taylor's screenshot) */ if (!s) s = findPadSpot(ti); if (s) tryPad(ti, s.x, s.y); } } /* v122: one pad at a time on Storm */
-        else if (!(type === 'factory' && hangarDue190) && T.clouds >= cost(ti, type)) { var selp; if (G.difficulty === 'nightmare') { /* v190: the factory step pauses while a hangar is due (hangarDue190 above) — the pad-start branch still runs (the pad serves the hangar too) */ selp = null; if (type === 'turret' && isStorm(ti)) selp = free.filter(function (p) { return isGold(p) && aiGoldEnveloped(ti, p); })[0]; /* v127: turrets may take an enveloped gold pad (Taylor) */ if (!selp) selp = free.filter(function (p) { return !isGold(p); })[0]; } else selp = free[0]; if (selp) placeBuilding(ti, type, selp); } /* v116 Deathball Storm: never build on gold */
+        else if (!(type === 'factory' && hangarDue190) && T.clouds >= cost(ti, type)) { var selp; if (isStorm(ti)) { /* v190: the factory step pauses while a hangar is due (hangarDue190 above) — the pad-start branch still runs (the pad serves the hangar too) */ selp = null; if (type === 'turret' && isStorm(ti)) selp = free.filter(function (p) { return isGold(p) && aiGoldEnveloped(ti, p); })[0]; /* v127: turrets may take an enveloped gold pad (Taylor) */ if (!selp) selp = free.filter(function (p) { return !isGold(p); })[0]; } else selp = free[0]; if (selp) placeBuilding(ti, type, selp); } /* v116 Deathball Storm: never build on gold */
         break;
       }
     }
@@ -8097,13 +8484,16 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     }
     for (var advI = 0; advI < aiDiff().adv; advI++) aiAdvanced(ti); // v71 #9: research, transforms, upgrades, 2nd hangar, special buildings (Storm takes 3 per tick)
     if (isStorm(ti)) aiRaidManage(ti);
+    if (isStorm(ti) && isHurricane() && ti !== 0) { aiRescueManage(ti); aiRescueSend(ti); } /* v198: Hurricane ally rescue — defend an attacked ally before launching anything (fix 1) */
     if (isStorm(ti) && (T.race === 'fox' || T.race === 'raccoon')) aiBallManage(ti); /* v192: the deathball manager — focus fire + cohesion for the Fox/Raccoon early ball */
     aiWeatherEvac(ti); /* v142: weather evacuation rides every AI tick too (spec SS8 — Taylor: 100%) */
     aiBalloonDetach(ti); /* v136: balloon detachment rides every AI tick, all difficulties */
-    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet; }); /* v136: detachment planes are not wave/raid/snipe material */
+    if (isStorm(ti)) aiDefendSend(ti); /* v199: self-defence — when threatened, idle planes fly to the fight before anything else claims them (fix 1) */
+    var idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.rescue; }); /* v136: detachment planes are not wave/raid/snipe material; v198: rescue planes stay with the rescue */
+    if (isStorm(ti) && isHurricane() && ti !== 0) aiEarlyPress(ti); /* v198: Hurricane early pressure — punish a greedy human (3+ hangars, few factories) before the boom latch (fix 4) */
     if (!aiNoSmallForces(ti) && isStorm(ti) && ai.wave[ti] > 0) aiRaidSend(ti, '8', 'weak'); /* v116: raids wait until the first deathball has launched */
     else if (!aiNoSmallForces(ti) && isStorm(ti)) aiSnipeSend(ti); /* v124: before the deathball, an exposed enemy factory/lab may be sniped instead (Taylor: building sniping + early gameplay) */
-    idle = G.planes.filter(function (p) { return p.team === ti && !p.dest && p.hp > 0 && !p.raidTargetId && !p.balDet; }); /* v136 */
+    idle = G.planes.filter(function (p) { return p.team === ti && (!p.dest || p.recall) && p.hp > 0 && !p.raidTargetId && !p.balDet && !p.rescue; }); /* v136; v198: rescue planes stay with the rescue; v199: a recalling plane is wave material — the deathball interrupts the flight home (fix 2) */
     var need;
     if (isStorm(ti)) {
       /* v116 Deathball Storm: conquer only after the economy is up. A latch
@@ -8114,17 +8504,19 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       if (!ai.boom) ai.boom = {};
       if (countType(ti, 'factory') >= 8) ai.boom[ti] = true;
       var finNow = false;
-      for (var fni = 0; fni < G.teams.length; fni++) { if (fni === ti || G.teams[fni].dead) continue; var fnb = baseOf(fni); if (fnb && fnb.hp > 0 && fnb.hp / fnb.max < 0.35) { finNow = true; break; } }
+      for (var fni = 0; fni < G.teams.length; fni++) { if (!isHostile(ti, fni) || G.teams[fni].dead) continue; var fnb = baseOf(fni); if (fnb && fnb.hp > 0 && fnb.hp / fnb.max < 0.35) { finNow = true; break; } }
+      var curseTgt = aiCursedTeam(ti); /* v200: the curse window — a hostile team that just killed an HQ is cursed (15% HP off everything, planes 50% slow 15s) and the wave pounces on it */
+      var curseNow = curseTgt >= 0;
       var earlyBall = !finNow && !ai.boom[ti] && (T.race === 'fox' || T.race === 'raccoon'); /* v192 (Taylor): the Fox/Raccoon early deathball — 8 planes, pre-boom (§15.1/§15.5) */
-      need = finNow ? 12 : (ai.boom[ti] ? (ai.wave[ti] === 0 ? (T.race === 'bunny' ? 20 : (aiPersona(ti) === 'rush' ? 24 : 30)) : (T.race === 'bunny' ? 24 : (aiPersona(ti) === 'rush' ? 28 : 35))) : 1e9); /* v129: rush-flavoured animals attack a bit sooner (Taylor); v192: Bunny waves are smaller and more frequent (20/24 — wave after wave of little planes) */
+      need = (finNow || curseNow) ? 12 : (ai.boom[ti] ? (ai.wave[ti] === 0 ? (T.race === 'bunny' ? 20 : (aiPersona(ti) === 'rush' ? 24 : 30)) : (T.race === 'bunny' ? 24 : (aiPersona(ti) === 'rush' ? 28 : 35))) : 1e9); /* v129: rush-flavoured animals attack a bit sooner (Taylor); v192: Bunny waves are smaller and more frequent (20/24 — wave after wave of little planes); v200: a curse drops the need to 12 like a finisher — the 15s window is too short to wait for a full deathball */
       if (earlyBall) need = 8; /* v192: the early ball replaces the 1e9 pre-boom need for Fox/Raccoon only */
     } else need = Math.min(aiDiff().needCap, aiDiff().needBase + ai.wave[ti] * aiDiff().needStep);
     /* v192 (Taylor): the first-wave unique waits — Hamster waits for 2+ Blimps, Beaver for 2+ B2s, Turtle for 3+ Tanks among the idle (wave) planes, unless the team can no longer produce them (§15.12). Never blocks a finisher. */
-    if (isStorm(ti) && !finNow && ai.boom && ai.boom[ti] && ai.wave[ti] === 0 && aiUniqueWait(ti, idle)) need = 1e9;
+    if (isStorm(ti) && !finNow && !curseNow && ai.boom && ai.boom[ti] && ai.wave[ti] === 0 && aiUniqueWait(ti, idle)) need = 1e9; /* v200: a curse skips the first-wave unique wait, like a finisher — the 15s window is too short to wait for Blimps/B2s/Tanks */
     var hedgeStage = (isStorm(ti) && T.race === 'hedgehog' && idle.length >= need) ? aiHedgeStage(ti, idle) : null; /* v192: Hedgehog waves stage at the furthest Chaos Pad (§11) — if the wave is not at the pad yet, it rallies there instead of attacking (ai.wave is NOT incremented — the wave launches once it reaches the pad) */
-    if (hedgeStage) sendUnits(idle, hedgeStage);
-    if (idle.length >= need && !hedgeStage) {
-      var targetTeam = aiTargetTeam(ti);
+    if (hedgeStage) { for (var hi199 = 0; hi199 < idle.length; hi199++) idle[hi199].recall = 0; /* v199: a recalled plane staged to the Chaos Pad is no longer recalling */ sendUnits(idle, hedgeStage); }
+    if (idle.length >= need && !hedgeStage && aiWaveLaunchOK(ti, need, finNow || curseNow, earlyBall)) { /* v198: Hurricane combined waves — a ready wave holds until its allies are ready, then all arrive together (fix 2; aiWaveLaunchOK is a no-op off Hurricane, on a finisher, and for the pre-boom early ball); v200: a curse breaks the hold like a finisher — the curse is a shared trigger, so all ready AIs launch within a tick of each other */
+      var targetTeam = (curseNow && !earlyBall) ? curseTgt : aiTargetTeam(ti); /* v200: a pouncing wave targets the cursed team (the 240s threat lock is overridden for this launch only — the lock itself is not cleared); the pre-boom early ball keeps its balloon job */
       var targetBase = targetTeam >= 0 ? baseOf(targetTeam) : null;
       if (targetBase && isStorm(ti)) { var softT = aiSoftTargetStorm(ti, targetTeam); if (softT) targetBase = softT; } // v109: best genome soft wave target (Storm only)
       if (targetBase) {
@@ -8132,17 +8524,18 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
            focus enemy's HQ (§4); if no balloon is live it raids the focus
            enemy's base (the standard soft target below). */
         var ballDest = null;
-        if (earlyBall) { var focusHQ = baseOf(targetTeam); if (focusHQ) { var bb = null, bd2 = 1e18; for (var bbi = 0; bbi < G.balloons.length; bbi++) { var bl = G.balloons[bbi]; if (bl.hp <= 0 || bl.dead) continue; var bdd = Math.hypot(bl.x - focusHQ.x, bl.y - focusHQ.y); if (bdd < bd2) { bd2 = bdd; bb = bl; } } if (bb) ballDest = { x: bb.x, y: bb.y }; } }
+        if (earlyBall) { var focusHQ = baseOf(targetTeam); if (focusHQ) { var bb = null, bd2 = 1e18; for (var bbi = 0; bbi < G.balloons.length; bbi++) { var bl = G.balloons[bbi]; if (bl.hp <= 0 || bl.dead) continue; if (!aiHqSafeSpot(targetTeam, bl.x, bl.y)) continue; /* v198: the early ball never chases a balloon into the HQ cannon — if none is safe, ballDest stays null and the ball raids the base (the soft target below) */ var bdd = Math.hypot(bl.x - focusHQ.x, bl.y - focusHQ.y); if (bdd < bd2) { bd2 = bdd; bb = bl; } } if (bb) ballDest = { x: bb.x, y: bb.y }; } }
         var tubeEnt = T.race === 'hamster' ? aiFind(ti, 'tube', true) : null;
         var tubeExit = T.race === 'hamster' ? aiFind(ti, 'exit', true) : null;
-        if (earlyBall) { for (var bi = 0; bi < idle.length; bi++) idle[bi].ball = 1; } /* the early ball is flagged for aiBallManage (focus fire + cohesion) */
-        else { for (var ci = 0; ci < idle.length; ci++) idle[ci].ball = 0; } /* any other wave absorbs the ball into the deathball */
+        if (earlyBall) { for (var bi = 0; bi < idle.length; bi++) { idle[bi].ball = 1; idle[bi].recall = 0; } } /* the early ball is flagged for aiBallManage (focus fire + cohesion); v199: a recalled plane taken into the ball is no longer recalling */
+        else { for (var ci = 0; ci < idle.length; ci++) { idle[ci].ball = 0; idle[ci].recall = 0; } } /* any other wave absorbs the ball into the deathball; v199: recall cleared on wave take */
         if (tubeEnt && tubeExit) sendUnits(idle, { x: tubeEnt.x, y: tubeEnt.y }); // emerge at the Exit, next wave check sends them on
         else if (ballDest) sendUnits(idle, ballDest);
         else sendUnits(idle, targetBase);
         ai.wave[ti]++;
       }
     }
+    if (isStorm(ti)) aiCursePounce(ti); /* v200: the curse window — no ready wave? Send the idle planes at the cursed team's slowed army (fix 1). Runs after the wave block, so a launched wave claims the idle planes first. */
   }
 
   // ---------- drawing ----------
@@ -11985,8 +12378,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       portraitSetRace(r0); nm.textContent = RACES[r0].name + ' Pilot'; sb.textContent = 'Normal plane · select a unit to see its pilot';
     }
   }
-  /* v134: StarCraft-style selection grid. Display-only: reads plane
-     state, never writes it. Cells are rebuilt ONLY when the selection's
+  /* v134: StarCraft-style selection grid. Display-only until v201:
+     reads plane state, never writes it — except the v201 portrait click
+     (selGridPick), which narrows the selection to the clicked plane.
+     Cells are rebuilt ONLY when the selection's
      composition (the ordered plane-id set) changes; every panel refresh
      otherwise just rewrites the HP bar widths/colours from live state.
      Grouping: specials first (carrier, b2, tank, heli, wraith, blimp, f16, vwing),
@@ -11999,6 +12394,23 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function selGridBarColor(frac) { return frac > 0.5 ? '#43b04c' : frac > 0.25 ? '#e0a91f' : '#d63c52'; }
   function selGridSizeClass(n) { return n <= 16 ? 'sgA' : n <= 36 ? 'sgB' : n <= 64 ? 'sgC' : 'sgD'; }
   function resetSelGrid() { selGridHost = null; selGridSig = ''; selGridCells = []; }
+  /* v201 (Taylor — v200 playtest: click a portrait to micro one plane
+     out of danger): narrow the selection to the clicked plane. The id
+     is re-looked-up — a plane can die between render and click, so a
+     dead, gone, or deselected plane ignores the click and the stale
+     grid just refreshes (syncHud rebuilds it: the dead plane drops
+     out of the composition). Otherwise clearSel + that plane only,
+     the map-click sound + portrait nod, and syncHud() lands the
+     single-plane stat view (the lonePlane path; selectedTurret stays
+     null, as it already is in grid mode). Selection flags only — no
+     sim state, no camera move. */
+  function selGridPick(pid) {
+    if (!G || mode !== 'play') return;
+    var p = null, i;
+    for (i = 0; i < G.planes.length; i++) if (G.planes[i].id === pid) { p = G.planes[i]; break; }
+    if (!p || p.hp <= 0 || p.team !== mpHudTeam() || !p.sel) { syncHud(); return; }
+    clearSel(); p.sel = true; portraitClickUnit(p.id); Aud.ui('select'); syncHud(); if (MP.enabled) mpSyncSel(); /* v201 port (J201-6b): sync the guest selection cache with the narrowed flags (selpick M1d) */
+  }
   function updateSelGrid(el, selNow) {
     var sorted = selNow.slice().sort(function (a, b) { var ra = a.kind ? SELGRID_KIND_ORDER[a.kind] : 8, rb = b.kind ? SELGRID_KIND_ORDER[b.kind] : 8; return ra - rb; }); /* v180: basics sort after all eight specials (was 7, now vwing's slot; v167: was 6, now f16's slot) */
     var sig = G.teams[mpHudTeam()].race + '|' + sorted.map(function (p) { return p.id; }).join(','); /* Stage A adaptation A1: SP read G.teams[0].race; MP reads the HUD team's race */
@@ -12022,6 +12434,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         else { var em = document.createElement('span'); em.className = 'sgEmoji'; em.textContent = p.kind === 'blimp' ? '🎈' : p.kind === 'b2' ? '🛩️' : p.kind === 'carrier' ? '🚢' : p.kind === 'heli' ? '🚁' : p.kind === 'wraith' ? '👻' : p.kind === 'f16' ? '✈️' : raceIcon(race); cell.appendChild(em); }
         var bar = document.createElement('div'); bar.className = 'sgBar';
         var fill = document.createElement('i'); bar.appendChild(fill); cell.appendChild(bar);
+        cell.addEventListener('click', (function (pid) { return function () { selGridPick(pid); }; })(p.id)); /* v201: click a portrait to select just that plane (Taylor — micro a damaged plane out of danger). The id rides a per-cell closure: `var p` is function-scoped, and the headless stub's dispatch does not bind `this`, so neither a shared closure nor this/event.target can carry it. A plain click listener — the same mechanism as every DOM button — so touch taps fire it too (touchCapDown only intercepts canvas-targeted touches). */
         host.appendChild(cell);
         selGridCells.push({ plane: p, fill: fill });
       }
@@ -12783,6 +13196,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var dPassive = document.createElement('span'); dPassive.className = 'rpassive';
   detailEl.appendChild(dName); detailEl.appendChild(dBlurb); detailEl.appendChild(dUniques); detailEl.appendChild(dPassive);
   function showRaceDetail(key) {
+    if (key === 'random') { dName.textContent = 'Random'; dBlurb.textContent = 'Hidden until you are in game.'; dUniques.innerHTML = ''; dPassive.textContent = ''; return; } /* v197: Random has no race row — the panel names it, nothing more (phone rule: short) */
     var r = RACES[key], pv = RACE_PASSIVE[key];
     dName.textContent = r.name;
     dBlurb.textContent = r.blurb;
@@ -12803,6 +13217,23 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     });
     racesEl.appendChild(b);
   });
+  /* v197: the Random tile — the 9th tile. Same shape as a race tile (a
+     portrait circle with a '?'), same click behaviour; the roll happens
+     in newGame at Take Off. Tapping a race after Random replaces the pick. */
+  (function () {
+    var rb = document.createElement('button');
+    rb.className = 'race'; rb.setAttribute('aria-pressed', 'false'); rb.setAttribute('data-race', 'random');
+    var rc = document.createElement('canvas'); rc.width = 104; rc.height = 104;
+    var rcc = rc.getContext('2d'); rcc.fillStyle = '#e8eef4'; rcc.beginPath(); rcc.arc(52, 52, 50, 0, TAU); rcc.fill(); rcc.fillStyle = '#1c3247'; rcc.font = '700 64px Fredoka, sans-serif'; rcc.textAlign = 'center'; rcc.textBaseline = 'middle'; rcc.fillText('?', 52, 56);
+    rb.appendChild(rc);
+    rb.addEventListener('click', function () {
+      pickRace = 'random'; Aud.ui('select');
+      Array.prototype.forEach.call(racesEl.children, function (x) { x.setAttribute('aria-pressed', x === rb ? 'true' : 'false'); });
+      showRaceDetail('random');
+      newGame('random');
+    });
+    racesEl.appendChild(rb);
+  })();
   showRaceDetail(pickRace); /* v177: Fox's details on arrival (pickRace defaults to 'fox') */
   var diffBtns = document.querySelectorAll('[data-diff]');
   Array.prototype.forEach.call(diffBtns, function (b) { b.addEventListener('click', function () { pickDifficulty = b.getAttribute('data-diff'); Aud.ui('select'); Array.prototype.forEach.call(diffBtns, function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); newGame(pickRace); }); });

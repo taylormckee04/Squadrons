@@ -197,6 +197,9 @@ const FILL_MS = parseInt(process.env.SQ_FILL_MS || '20000', 10);    /* Stage C f
    keep the legacy host+guest room, 3-4 get a Stage C seated room). */
 const MATCH_HUMANS = 4;
 const ANIMALS = ['hamster', 'fox', 'bunny', 'otter', 'beaver', 'turtle', 'raccoon', 'hedgehog']; /* race keys, game order (v179: raccoon appended last; v185: hedgehog appended last, like RACES — Hedgehog is pickable in multiplayer now) */
+const DRAFT_ANIMALS = ANIMALS.concat(['random']); /* v201 port (J201-1): the queue draft offers Random as a 9th pick (index 8); it resolves to a concrete race at finishDraft and never enters a lineup */
+const RANDOM_IDX = ANIMALS.length; /* 8 — the Random draft pick */
+function isRaceKey(r) { return r === 'random' || ANIMALS.indexOf(r) >= 0; } /* v201 port: a lobby pick is valid if it is a race or Random */
 if (AUTH_DEV_MODE) console.log('[relay] *** AUTH DEV MODE: GOOGLE_CLIENT_ID not set — dev: tokens accepted ***');
 
 /* ---------------- accounts: Postgres + gamertags (step 2) ----------------
@@ -570,7 +573,7 @@ function lobbyStateFor(room, you) {
   const seats = [];
   for (let s = 0; s < 4; s++) {
     const c = room.seats[s];
-    seats.push(c ? { name: fdName(c), race: ANIMALS.indexOf(c.seatRace) >= 0 ? c.seatRace : 'fox', build: c.build || null } : null);
+    seats.push(c ? { name: fdName(c), race: isRaceKey(c.seatRace) ? c.seatRace : 'fox', build: c.build || null } : null);
   }
   return { type: 'lobbyState', you, difficulty: CUSTOM_DIFFS.indexOf(room.difficulty) >= 0 ? room.difficulty : 'normal', seats };
 }
@@ -605,7 +608,7 @@ function seatCustomGuest(conn, room, code, o) {
   if (seat < 0) { sendTo(conn, { type: 'joinError', msg: 'That room is full — a game seats at most 4 players' }); return; }
   room.seats[seat] = conn;
   conn.role = 'guest'; conn.room = code; conn.seat = seat;
-  conn.seatRace = ANIMALS.indexOf(o && o.race) >= 0 ? o.race : 'fox';
+  conn.seatRace = isRaceKey(o && o.race) ? o.race : 'fox';
   if (o && typeof o.build === 'string') conn.build = o.build;
   sendTo(conn, { type: 'roomSeats', seat, room: code });
   broadcastLobbyState(room);
@@ -619,11 +622,14 @@ function launchCustomRoom(conn, room) {
   if (humans.length < 2) { sendTo(conn, { type: 'launchError', msg: 'You need at least one guest to launch — a custom game seats 2 to 4 players' }); return; }
   /* Lineup: the humans' own picks in seat order (duplicates allowed —
      team colours distinguish), then AI backfill from the animals no
-     human picked, at the host's chosen difficulty. */
-  const picks = humans.map((c) => ANIMALS.indexOf(c.seatRace) >= 0 ? c.seatRace : 'fox');
-  const leftovers = fdShuffled(ANIMALS.filter((a) => picks.indexOf(a) < 0));
-  const teamAnimals = picks.slice();
-  while (teamAnimals.length < 4) teamAnimals.push(leftovers[teamAnimals.length - humans.length]);
+     human picked, at the host's chosen difficulty. v201 port (J201-1):
+     a Random pick resolves here, once, from the shuffled leftovers —
+     it never duplicates a concrete pick and never enters the lineup. */
+  const picks = humans.map((c) => isRaceKey(c.seatRace) ? c.seatRace : 'fox');
+  const concrete = picks.filter((a) => a !== 'random');
+  const leftovers = fdShuffled(ANIMALS.filter((a) => concrete.indexOf(a) < 0));
+  const teamAnimals = picks.map((a) => a === 'random' ? leftovers.shift() : a);
+  while (teamAnimals.length < 4) teamAnimals.push(leftovers.shift());
   const aiTeams = [];
   for (let t = humans.length; t < 4; t++) aiTeams.push(t);
   const diffKey = CUSTOM_DIFFS.indexOf(room.difficulty) >= 0 ? room.difficulty : 'normal';
@@ -1243,7 +1249,7 @@ function startDraft(match) {
   const order = fdShuffled(match.players);
   match.draft = { order, turn: 0, picks: new Map(), taken: new Set(), deadline: 0 };
   console.log('[relay] match ' + match.id + ': draft order is ' + order.map(fdName).join(' -> '));
-  for (const p of match.players) sendTo(p, { type: 'draft_start', order: order.map(fdName), pickMs: PICK_MS, animals: ANIMALS.slice() });
+  for (const p of match.players) sendTo(p, { type: 'draft_start', order: order.map(fdName), pickMs: PICK_MS, animals: DRAFT_ANIMALS.slice() });
   draftNextTurn(match);
 }
 
@@ -1269,10 +1275,10 @@ function applyPick(match, conn, animal, auto) {
   const d = match.draft;
   if (match.timer) { clearTimeout(match.timer); match.timer = null; }
   d.picks.set(conn, animal);
-  d.taken.add(animal);
+  if (animal !== RANDOM_IDX) d.taken.add(animal); /* v201 port: Random is not a race — any number of players may pick it */
   const playerIdx = match.players.indexOf(conn);
   for (const p of match.players) sendTo(p, { type: 'draft_picked', player: playerIdx, animal, auto: !!auto });
-  console.log('[relay] match ' + match.id + ': ' + fdName(conn) + ' picked ' + ANIMALS[animal] + (auto ? ' (auto)' : ''));
+  console.log('[relay] match ' + match.id + ': ' + fdName(conn) + ' picked ' + (animal === RANDOM_IDX ? 'Random' : ANIMALS[animal]) + (auto ? ' (auto)' : ''));
   d.turn++;
   draftNextTurn(match);
 }
@@ -1283,7 +1289,7 @@ function draftPick(conn, o) {
   const d = match.draft;
   if (d.order[d.turn] !== conn) { sendTo(conn, { type: 'draft_error', msg: 'It is not your pick yet' }); return; }
   const animal = o ? o.animal : null;
-  if (typeof animal !== 'number' || animal % 1 !== 0 || animal < 0 || animal >= ANIMALS.length) { sendTo(conn, { type: 'draft_error', msg: 'Pick one of the eight animals' }); return; }
+  if (typeof animal !== 'number' || animal % 1 !== 0 || animal < 0 || animal > RANDOM_IDX) { sendTo(conn, { type: 'draft_error', msg: 'Pick one of the animals' }); return; }
   if (d.taken.has(animal)) { sendTo(conn, { type: 'draft_error', msg: ANIMALS[animal] + ' is already taken' }); return; }
   applyPick(match, conn, animal, false);
 }
@@ -1297,9 +1303,15 @@ function finishDraft(match) {
   fdMatches.delete(match);
   const players = match.players;
   for (const p of players) p.fdMatch = null;
-  const teamAnimals = players.map((p) => ANIMALS[match.draft.picks.get(p)]);
-  const leftovers = fdShuffled(ANIMALS.filter((a) => teamAnimals.indexOf(a) < 0));
-  while (teamAnimals.length < 4) teamAnimals.push(leftovers[teamAnimals.length - players.length]);
+  /* v201 port (J201-1): a Random pick resolves HERE, once — concrete
+     picks first, then each Random draw from the shuffled remaining
+     pool (two Random picks get different races), then AI backfill
+     from what's left. The lineup never contains 'random'. */
+  const draftPicks = players.map((p) => match.draft.picks.get(p));
+  const concrete = draftPicks.filter((a) => a !== RANDOM_IDX).map((a) => ANIMALS[a]);
+  const leftovers = fdShuffled(ANIMALS.filter((a) => concrete.indexOf(a) < 0));
+  const teamAnimals = draftPicks.map((a) => a === RANDOM_IDX ? leftovers.shift() : ANIMALS[a]);
+  while (teamAnimals.length < 4) teamAnimals.push(leftovers.shift());
   const aiTeams = [];
   for (let t = players.length; t < 4; t++) aiTeams.push(t);
   const lineup = { teamAnimals, aiTeams, aiDifficulty: 'Normal' };
@@ -1473,7 +1485,7 @@ function routeMessage(conn, msg) {
       room.guest = conn; conn.role = 'guest'; conn.room = code;
       /* Custom 4: remember the pick + build on the connection, so a
          later promotion already knows this seat's lobby state. */
-      conn.seatRace = ANIMALS.indexOf(o.race) >= 0 ? o.race : 'fox';
+      conn.seatRace = isRaceKey(o.race) ? o.race : 'fox';
       if (typeof o.build === 'string') conn.build = o.build;
       if (conn.identity) o.name = fdName(conn); /* the host's lobby slot shows the guest's display name (gamertag once accounts are on) */
       sendTo(room.host, o); /* host learns the guest's race from the original join */
@@ -1498,11 +1510,11 @@ function routeMessage(conn, msg) {
        promotion notice still lands). Nothing else fans out
        pre-launch — in particular a raw 'start' cannot bypass the
        seated launch. */
-    if (o.type === 'lobbyPick') { if (ANIMALS.indexOf(o.race) >= 0) { conn.seatRace = o.race; broadcastLobbyState(room); } return; }
+    if (o.type === 'lobbyPick') { if (isRaceKey(o.race)) { conn.seatRace = o.race; broadcastLobbyState(room); } return; }
     if (o.type === 'lobbyDiff') { if (conn.seat === 0 && CUSTOM_DIFFS.indexOf(o.difficulty) >= 0) { room.difficulty = o.difficulty; broadcastLobbyState(room); } return; }
     if (o.type === 'customLaunch') { if (conn.seat === 0) launchCustomRoom(conn, room); return; }
-    if (o.type === 'race' && conn.seat > 0) { if (ANIMALS.indexOf(o.race) >= 0) { conn.seatRace = o.race; broadcastLobbyState(room); } return; }
-    if (o.type === 'lobby' && conn.seat === 0) { if (ANIMALS.indexOf(o.hostRace) >= 0) conn.seatRace = o.hostRace; if (CUSTOM_DIFFS.indexOf(o.difficulty) >= 0) room.difficulty = o.difficulty; broadcastLobbyState(room); return; }
+    if (o.type === 'race' && conn.seat > 0) { if (isRaceKey(o.race)) { conn.seatRace = o.race; broadcastLobbyState(room); } return; }
+    if (o.type === 'lobby' && conn.seat === 0) { if (isRaceKey(o.hostRace)) conn.seatRace = o.hostRace; if (CUSTOM_DIFFS.indexOf(o.difficulty) >= 0) room.difficulty = o.difficulty; broadcastLobbyState(room); return; }
     return;
   }
   if (room.queueRoom) { forwardQueueRoom(conn, room, o, msg); return; }
@@ -1513,8 +1525,8 @@ function routeMessage(conn, msg) {
      starts from the picks everyone already sees. The messages
      themselves still forward verbatim below, exactly as before. */
   if (room.multiSeat) {
-    if (conn.role === 'host' && o.type === 'lobby') { if (ANIMALS.indexOf(o.hostRace) >= 0) conn.seatRace = o.hostRace; if (CUSTOM_DIFFS.indexOf(o.difficulty) >= 0) room.difficulty = o.difficulty; }
-    else if (conn.role === 'guest' && o.type === 'race' && ANIMALS.indexOf(o.race) >= 0) conn.seatRace = o.race;
+    if (conn.role === 'host' && o.type === 'lobby') { if (isRaceKey(o.hostRace)) conn.seatRace = o.hostRace; if (CUSTOM_DIFFS.indexOf(o.difficulty) >= 0) room.difficulty = o.difficulty; }
+    else if (conn.role === 'guest' && o.type === 'race' && isRaceKey(o.race)) conn.seatRace = o.race;
   }
   const peer = conn.role === 'host' ? room.guest : room.host;
   if (peer && !peer.dead) { try { peer.sock.write(wsFrame(msg)); } catch (e) { killConn(peer, 'forward failed'); } }
