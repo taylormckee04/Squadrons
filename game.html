@@ -855,7 +855,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '6f2e468608';
+  var LS_BUILD_ID = '30da9a4c3c';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -979,7 +979,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   function lsProject() {
     var planes = G.planes.slice().sort(function (a, b) { return a.id - b.id; }).map(function (p) { return [p.id, p.team, p.kind || '', p.x, p.y, p.a, p.hp, p.alt || 0, p.cloaked ? 1 : 0, p.gone ? 1 : 0, p.lastHurtT === undefined ? -99 : p.lastHurtT, p.swiftT || 0, p.vwLeft || 0, p.vwNext || 0, p.vwReloadT || 0, p.vwSide ? 1 : 0, p.lbT || 0, p.spin || 0, p.lastShot === undefined ? -99 : p.lastShot, p.recall || 0, p.rescue || 0]; }); /* v201 port: recall / rescue (AI-order flags, v198/v199 — both gate the wave idle filter, so a disagreement changes orders; rescue holds the ally team index). v196 Stage B: spin / lastShot (Leviathan minigun state, v194) — spin decides whether the gun fires this tick, lastShot decides spin-up vs the 3 s grace, same pattern as lastHurtT / swiftT; Stage B: lastHurtT (Hamster heal clock) + swiftT (Fox speed window) — both decide future sim state; v185 Stage B: vwLeft/vwNext/vwReloadT/vwSide (V Wing burst state, v180) + lbT (dying spin-out timer, v182/v183) — all decide future sim state, same pattern */
     var tub = G.tub.map(function (e) { return [e.team, e.p ? e.p.id : -1, e.t, e.tx, e.ty]; });
-    var teams = G.teams.map(function (t) { return { clouds: t.clouds, income: typeof t.income === 'number' ? t.income : 0, dead: t.dead ? 1 : 0, lab: t.lab, ulab: t.ulab, upg: t.upg, arm: t.arm || { damage: 0, range: 0, health: 0 }, sarm: t.sarm || { damage: 0, range: 0, health: 0 }, nukeHp: typeof t.nukeHp === 'number' ? t.nukeHp : 0, ret: (t.retSlows || []).map(function (e) { return [e.mul, e.until]; }) }; }); /* v196 Stage B: ret — the team's active retribution slows (v186), each [mul, until]; they decide plane speeds via retMul, same pattern as nukeHp; Stage B: nukeHp — the team's nuke-HP level (team knowledge, sets future warhead HP) */
+    var teams = G.teams.map(function (t) { return { clouds: t.clouds, income: typeof t.income === 'number' ? t.income : 0, dead: t.dead ? 1 : 0, lab: t.lab, ulab: t.ulab, upg: t.upg, arm: t.arm || { damage: 0, range: 0, health: 0 }, sarm: t.sarm || { damage: 0, range: 0, health: 0 }, nukeHp: typeof t.nukeHp === 'number' ? t.nukeHp : 0, exitDownT: typeof t.exitDownT === 'number' ? t.exitDownT : -99, ret: (t.retSlows || []).map(function (e) { return [e.mul, e.until]; }) }; }); /* v202 port: exitDownT — the team's last Tube Exit destruction time (sim time; the v202 rebuild cooldown gates tryBuild on it, so a disagreement changes orders — same pattern as nukeHp). v196 Stage B: ret — the team's active retribution slows (v186), each [mul, until]; they decide plane speeds via retMul, same pattern as nukeHp; Stage B: nukeHp — the team's nuke-HP level (team knowledge, sets future warhead HP) */
     var blds = G.blds.slice().sort(function (a, b) { return a.id - b.id; }).map(function (b) { return [b.id, b.type, b.team, b.x, b.y, b.hp, b.complete ? 1 : 0, b.buildT, b.upg && b.upg.choice ? b.upg.choice : '', b.stored ? b.stored.length : -1, b.dead ? 1 : 0, b.nukeT, b.nukePick || null, b.nukeFlying ? 1 : 0, b.lastDmg === undefined ? -1 : b.lastDmg]; }); /* v196 Stage B: lastDmg — the last team that damaged the building (v186 Retribution; -1 = none yet, stamped by hit() and quadBldHit, read when an HQ dies); Stage B: nukeT / nukePick / nukeFlying — the silo's launch state (nukeT is undefined on non-silos, null in flight, a countdown otherwise; lsCanon tells all three apart) */
     var pads = G.pads.slice().sort(function (a, b) { return a.id - b.id; }).map(function (p) { return [p.id, p.team, p.x, p.y, p.bld == null ? 0 : (typeof p.bld === 'object' ? p.bld.id : p.bld), p.t]; });
     var balloons = (G.balloons || []).slice().sort(function (a, b) { return a.id - b.id; }).map(function (b) { return [b.id, b.size, b.x, b.y, b.hp, b.vx, b.vy, b.lastBy]; }); /* Stage C: balloons are sim entities (INVENTORY §3) */
@@ -3143,12 +3143,12 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   var RACES = {
     hamster: { name: 'Hamsters', blurb: 'Health Specialist', /* v168: Taylor's pick (was 'Slow but Powerful') */ hp: 2, dmg: 1, spd: 0.6666667, /* v90: speed 108 -> 100 */ range: 1, size: 1.80, /* v91: size 2.0 -> 1.80, visual only */ spawn: 9, /* v144: doubled 4.5 -> 9 (v90: hangar prod = HQ fallback = 4.5) */ cost: 1, income: 1, body: '#e9b45a', face: '#f4d49c', ear: '#d98f3a', muzzle: '#fff1d6', inner: '#f2b9a0' },
     fox: { name: 'Foxes', blurb: 'Speed Specialist', /* v168: Taylor's pick (was 'Fast and Nimble') */ hp: 1, dmg: 1.125, /* v90: dmg 4.2 -> 4.5 */ spd: 1.3333333, /* v174: speed 250 -> 200 (Taylor); v90: speed 247.5 -> 250 */ range: 1.1923077, /* v90: range 130*1.1923+25 = 180 */ size: 1, spawn: 7, /* v144: doubled 3.5 -> 7 */ cost: 1, income: 1, body: '#ef8a47', face: '#e8742f', ear: '#b9501a', muzzle: '#fff4e6', inner: '#3a2a22' },
-    bunny: { name: 'Bunnies', blurb: 'Production Specialists', hp: 25/30, /* v85: normal plane HP 30 -> 25 */ dmg: 1, spd: 1, range: 1, size: 0.83, /* v91: size 0.71 -> 0.83, visual only */ spawn: 5, /* v144: doubled 2.5 -> 5 */ cost: 1, income: 1, body: '#b9a3e0', face: '#f3eef8', ear: '#e4d9f0', muzzle: '#ffffff', inner: '#f1a9c0' },
-    otter: { name: 'Otters', blurb: 'Builders (50% cost on buildings)', hp: 1, dmg: 1, spd: 1, range: 1, size: 1, spawn: 7.5, /* v144: doubled 3.75 -> 7.5 (v90: hangar prod = HQ fallback = 3.75) */ cost: 0.5, income: 1, body: '#6fb0a8', face: '#8a6a55', ear: '#6b5040', muzzle: '#e2cdb6', inner: '#6b5040' },
+    bunny: { name: 'Bunnies', blurb: 'Production Specialists', hp: 25/30, /* v85: normal plane HP 30 -> 25 */ dmg: 3/4, /* v202: basic damage 4 -> 3 (Taylor) */ spd: 145/150, /* v202: basic speed 150 -> 145 (Taylor) */ range: 1, size: 0.83, /* v91: size 0.71 -> 0.83, visual only */ spawn: 5, /* v144: doubled 2.5 -> 5 */ cost: 1, income: 1, body: '#b9a3e0', face: '#f3eef8', ear: '#e4d9f0', muzzle: '#ffffff', inner: '#f1a9c0' },
+    otter: { name: 'Otters', blurb: 'Builders (50% cost on buildings)', hp: 27/30, /* v202: basic HP 30 -> 27 (Taylor) */ dmg: 7/8, /* v202: basic damage 4 -> 3.5 (Taylor) */ spd: 130/150, /* v202: basic speed 150 -> 130 (Taylor) */ range: 1, size: 1, spawn: 7.5, /* v144: doubled 3.75 -> 7.5 (v90: hangar prod = HQ fallback = 3.75) */ cost: 0.5, income: 1, body: '#6fb0a8', face: '#8a6a55', ear: '#6b5040', muzzle: '#e2cdb6', inner: '#6b5040' },
     beaver: { name: 'Beavers', blurb: 'Defense Wall Specialists', hp: 1.3333333, /* v90: HP 30 -> 40 */ dmg: 1, spd: 0.8333333, /* v90: speed 165 -> 125 */ range: 1, size: 1.33, /* v90: size 1 -> 1.33, visual only */ spawn: 8, /* v144: doubled 4.0 -> 8 (v90: hangar prod = HQ fallback = 4.0) */ cost: 1, income: 1, build: 0.5, bhp: 2.0, /* v168: Fortified — Beaver buildings 2x HP (was 1.5x) */ body: '#a9744f', face: '#c8946a', ear: '#7a4e32', muzzle: '#f3e1c8', inner: '#5a3a28' },
     turtle: { name: 'Turtles', blurb: 'Defense Specialist', hp: 1.6666667, /* v90: HP 52.5 -> 50 */ dmg: 1, spd: 0.7666667, /* v90: speed 127.5 -> 115 */ range: 1, size: 1.67, /* v90: size 1.25 -> 1.67, visual only */ spawn: 8.5, /* v144: doubled 4.25 -> 8.5 (v90: hangar prod = HQ fallback = 4.25) */ cost: 1, income: 1, body: '#7fbf6a', face: '#9ad27f', ear: '#5d9a4a', muzzle: '#e8f5d6', inner: '#3f6e35' },
-    raccoon: { name: 'Raccoons', blurb: 'Rocket Specialist', hp: 1, dmg: 1, spd: 1, range: 1, size: 1, spawn: 7, cost: 1, income: 1, body: '#868d95', face: '#aab0b6', ear: '#6f757d', muzzle: '#efe9dd', inner: '#d8c6ae' } /* v167: seventh race (Taylor, 2026-11-13) — average all round; colours from approved preview-raccoon-v4.html; size 1 is the mid value */,
-    hedgehog: { name: 'Hedgehogs', blurb: 'Masters of Chaos', hp: 1, dmg: 1, spd: 1.1, range: 1, size: 1, spawn: 7, cost: 1, income: 1, body: '#8a6b4a', face: '#d9b98a', ear: '#6b4f36', muzzle: '#f3e6cc', inner: '#4a3423' } /* v180: eighth race (Taylor, 2026-11-16) — average like Raccoon except speed 165 (spd 1.1, spec §1); colours + portrait variant A from approved preview-hedgehog-v4.html */
+    raccoon: { name: 'Raccoons', blurb: 'Rocket Specialist', hp: 32/30, /* v202: basic HP 30 -> 32 (Taylor) */ dmg: 1, spd: 1, range: 1, size: 1, spawn: 7, cost: 1, income: 1, body: '#868d95', face: '#aab0b6', ear: '#6f757d', muzzle: '#efe9dd', inner: '#d8c6ae' } /* v167: seventh race (Taylor, 2026-11-13) — average all round; colours from approved preview-raccoon-v4.html; size 1 is the mid value */,
+    hedgehog: { name: 'Hedgehogs', blurb: 'Masters of Chaos', hp: 32/30, /* v202: basic HP 30 -> 32 (Taylor) */ dmg: 1, spd: 1.1, range: 1, size: 1, spawn: 7, cost: 1, income: 1, body: '#8a6b4a', face: '#d9b98a', ear: '#6b4f36', muzzle: '#f3e6cc', inner: '#4a3423' } /* v180: eighth race (Taylor, 2026-11-16) — average like Raccoon except speed 165 (spd 1.1, spec §1); colours + portrait variant A from approved preview-hedgehog-v4.html */
   };
   /* v154: per-animal unique items shown under each race's blurb on the
      animal picker (Taylor-approved 2026-11-11) — building, turret, plane,
@@ -3231,7 +3231,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
   function uMul(ti, key) { var t = G && G.teams[ti]; return 1 + 0.1 * ((t && t.ulab && t.ulab[key]) || 0); }
   function hasULab(ti) { if (!G) return false; for (var i = 0; i < G.blds.length; i++) { var b = G.blds[i]; if (b.team === ti && b.type === 'ulab' && b.hp > 0 && b.complete) return true; } return false; }
-  var BLD = { base: { r: 80, hp: 1800, sc: 1.6, top: 60 }, factory: { r: 34, hp: 130, sc: 1.7, top: 30 }, turret: { r: 30, hp: 350, sc: 1.9, top: 14 }, hangar: { r: 40, hp: 350, sc: 1.6, top: 30 }, lab: { r: 42, hp: 200, sc: 1.55, top: 38 }, armory: { r: 42, hp: 350, sc: 1.55, top: 38 }, uarmory: { r: 42, hp: 350, sc: 1.55, top: 40 }, ulab: { r: 42, hp: 350, sc: 1.55, top: 40 }, wall: { r: 70, hp: 2000, sc: 1.6, top: 26 }, field: { r: 34, hp: 600, sc: 1.7, top: 30 }, dock: { r: 36, hp: 300, sc: 1.6, top: 32 }, tube: { r: 34, hp: 200, sc: 1.7, top: 30 }, exit: { r: 30, hp: 200, sc: 1.7, top: 14 }, b2hangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, thangar: { r: 44, hp: 450, sc: 1.6, top: 34 }, flyinghangar: { r: 58, hp: 450, sc: 2.1, top: 35 }, helihangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, wraithhangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, f16hangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, vwinghangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, burrow: { r: 42, hp: 450, sc: 1.55, top: 30 }, accel: { r: 36, hp: 450, sc: 1.6, top: 32 }, silo: { r: 36, hp: 350, sc: 1.6, top: 32 } /* v167: r/sc/top follow the Accelerator/Dock circular-pad precedent (judgment call — the spec fixes only HP 350) */, chaos: { r: 36, hp: 2000, sc: 1.6, top: 32 } /* v180: r/sc/top follow the Accelerator/Dock circular-pad precedent (spec §4 fixes only HP 2000) */ };
+  var BLD = { base: { r: 80, hp: 1800, sc: 1.6, top: 60 }, factory: { r: 34, hp: 130, sc: 1.7, top: 30 }, turret: { r: 30, hp: 350, sc: 1.9, top: 14 }, hangar: { r: 40, hp: 350, sc: 1.6, top: 30 }, lab: { r: 42, hp: 200, sc: 1.55, top: 38 }, armory: { r: 42, hp: 350, sc: 1.55, top: 38 }, uarmory: { r: 42, hp: 350, sc: 1.55, top: 40 }, ulab: { r: 42, hp: 350, sc: 1.55, top: 40 }, wall: { r: 70, hp: 1000, /* v202: HP 2000 -> 1000 (Taylor) */ sc: 1.6, top: 26 }, field: { r: 34, hp: 600, sc: 1.7, top: 30 }, dock: { r: 36, hp: 300, sc: 1.6, top: 32 }, tube: { r: 34, hp: 200, sc: 1.7, top: 30 }, exit: { r: 30, hp: 300, /* v202: HP 200 -> 300 (Taylor) */ sc: 1.7, top: 14 }, b2hangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, thangar: { r: 44, hp: 450, sc: 1.6, top: 34 }, flyinghangar: { r: 58, hp: 450, sc: 2.1, top: 35 }, helihangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, wraithhangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, f16hangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, vwinghangar: { r: 44, hp: 450, sc: 1.6, top: 32 }, burrow: { r: 42, hp: 450, sc: 1.55, top: 30 }, accel: { r: 36, hp: 450, sc: 1.6, top: 32 }, silo: { r: 36, hp: 350, sc: 1.6, top: 32 } /* v167: r/sc/top follow the Accelerator/Dock circular-pad precedent (judgment call — the spec fixes only HP 350) */, chaos: { r: 36, hp: 950, /* v202: HP 2000 -> 950 (Taylor) */ sc: 1.6, top: 32 } /* v180: r/sc/top follow the Accelerator/Dock circular-pad precedent (spec §4 fixes only HP 2000; v202: 950) */ };
   var BTIME = { factory: 10, turret: 10, hangar: 20, lab: 20, armory: 20, wall: 10, field: 10, dock: 10, tube: 20, exit: 5, /* v90: Tube Exit 7 -> 5 s, per agreed sheet */ b2hangar: 20, helihangar: 20, wraithhangar: 20, f16hangar: 20, vwinghangar: 20, burrow: 15, accel: 10, silo: 20, chaos: 20 /* v180: spec §4 */ }, WALL_MAX = 4, ONLY = { wall: 'beaver', field: 'turtle', dock: 'otter', tube: 'hamster', exit: 'hamster', b2hangar: 'beaver', burrow: 'bunny', accel: 'fox', silo: 'raccoon', chaos: 'hedgehog' /* v167: every other race building is in ONLY (tryBuild defense) — the silo follows the pattern; its status text has its own branch BEFORE the ONLY branch, like the Accelerator/Burrow; v180: the Chaos Pad follows the same pattern (ONLY hedgehog, status text before the ONLY branch) */ };
   var MU = 1.25, CAP = 80, RANGE = 130, AGGRO = 300, CRUISE = 24;
   // Turtle Tank (unique Turtle plane). spd is the 0.2 speed multiplier applied to the 150 base plane speed. cd is seconds between shots.
@@ -4192,10 +4192,10 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   }
 
   // ---------- game setup ----------
-  function mkTeam(id, race) { return { id: id, race: race, dead: false, clouds: 100, upg: { guns: 0, armor: 0, engines: 0 }, lab: { damage: 0, speed: 0, range: 0, health: 0, walls: 0 }, ulab: { damage: 0, speed: 0, range: 0, health: 0 }, arm: { damage: 0, range: 0, health: 0 }, sarm: { damage: 0, range: 0, health: 0 }, nukeHp: 0, /* v169: nuke-HP upgrade level (team knowledge, the Armory pattern) */ spawnT: 0, income: 0, rr: 0, wave: 0, retSlows: [] /* v186: Retribution — the team's active curse slows, [{mul, until}] (game-time expiry; strongest wins, never stacked) */, ms: msZero(), elimT: 0 }; }
+  function mkTeam(id, race) { return { id: id, race: race, dead: false, clouds: 100, upg: { guns: 0, armor: 0, engines: 0 }, lab: { damage: 0, speed: 0, range: 0, health: 0, walls: 0 }, ulab: { damage: 0, speed: 0, range: 0, health: 0 }, arm: { damage: 0, range: 0, health: 0 }, sarm: { damage: 0, range: 0, health: 0 }, nukeHp: 0, /* v169: nuke-HP upgrade level (team knowledge, the Armory pattern) */ spawnT: 0, income: 0, rr: 0, wave: 0, retSlows: [] /* v186: Retribution — the team's active curse slows, [{mul, until}] (game-time expiry; strongest wins, never stacked) */, exitDownT: -99 /* v202: Tube Exit rebuild cooldown — sim time (G.t) the team's last exit was destroyed (-99 = never; the lastHurtT pattern) */, ms: msZero(), elimT: 0 }; }
   function addBld(ti, type, x, y) {
     var hm = RACES[G.teams[ti].race].bhp || 1;
-    var bmax = type === 'wall' ? 2000 : BLD[type].hp * hm; /* v90: Beaver Wall 3000 -> 2000 */
+    var bmax = type === 'wall' ? 1000 : BLD[type].hp * hm; /* v90: Beaver Wall 3000 -> 2000; v202: 2000 -> 1000 (Taylor) */
     var bBaseMax = bmax;
     if (type === 'turret' && G.teams[ti]) bmax = bmax * (1 + 0.3 * ((G.teams[ti].arm || {}).health || 0)); /* v147: a new turret is born with the team's Armory Health levels (basic set; baseMax stays the unscaled base) */
     var b = { id: G.nid++, team: ti, type: type, x: x, y: y, hp: bmax, max: bmax, baseMax: bBaseMax, cd: 0, a: ti === 0 ? -0.8 : 2.3, tur: ti === 0 ? -0.8 : 2.3, /* v193: the HQ cannon's turret angle (the Tank's p.tur pattern) — every building carries it, only the base uses it */ flash: 0, puffT: fxRandom(), pad: null, upg: type === 'turret' ? { damage: 0, range: 0, health: 0, weapon: 0, special: false, choice: 'basic' } /* v165: born Basic, like hangars (v158) */ : type === 'base' ? { armor: 0, regen: 0, turret: 0, range: 0 } : (type === 'lab' || type === 'ulab') ? { damage: 0, speed: 0, range: 0, health: 0 } : (type === 'hangar' || type === 'b2hangar' || type === 'thangar' || type === 'flyinghangar' || type === 'helihangar' || type === 'wraithhangar' || type === 'f16hangar' || type === 'vwinghangar') ? { blimp: 0, choice: type === 'hangar' ? 'basic' : 'unique' } : type === 'burrow' ? { blimp: 0, choice: 'unique', turret: 0, damage: 0, range: 0, health: 0, weapon: 0, special: false } : null, buildT: 0, buildTotal: 1, complete: true, shot: 0, laser: null, dead: false, hurtT: 0, lastHurtT: -99, /* v168: Hamster Regeneration — sim-time (G.t) stamp of the last damage taken; -99 = never hurt. NOT hurtT (that is the 1.2 s flash timer). */ lastDmg: -1, /* v186: Retribution — the last player team to damage this building (-1 = none; weather never stamps it, so a pure weather kill curses nobody). */ conv: null, convT: 0, turretJob: null, upgradeJob: null };
@@ -4368,6 +4368,14 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     for (var i = 0; i < G.pads.length; i++) { var p = G.pads[i]; var d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } }
     return best;
   }
+  /* v202: Tube Exit rebuild cooldown (Taylor — 10 s after an exit is
+     destroyed, before the team can build another). Sim time (G.t), so
+     it is deterministic; a second destruction re-stamps exitDownT and
+     restarts the timer. Gated in tryBuild, so the AI's aiPlaceTubeExit
+     is covered by the same line. Dismantle does NOT start it — the
+     handler removes the building directly, never through reward(). */
+  var EXIT_REBUILD_CD = 10;
+  function exitCooldownLeft(ti) { if (!G || !G.teams || !G.teams[ti] || typeof G.teams[ti].exitDownT !== 'number') return 0; return Math.max(0, EXIT_REBUILD_CD - (G.t - G.teams[ti].exitDownT)); }
   function tryBuild(ti, type, x, y) {
     if (type === 'bhangar') return 'The Leviathan Hangar building was removed in v90; transform a Hangar instead.'; /* v194: rename */
     if (type === 'pad') return tryPad(ti, x, y);
@@ -4376,6 +4384,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (type === 'exit') {
       var ep = gridPos(x, y); if (!countType(ti, 'tube')) return 'Build a Tube Entrance first.';
       if (countType(ti, 'exit') >= 1) return 'You already have a Tube Exit.'; /* v91: one Tube Exit per team */
+      var cdLeft = exitCooldownLeft(ti); if (cdLeft > 0) return 'Tube Exit rebuilds in ' + Math.ceil(cdLeft) + ' s.'; /* v202: 10 s rebuild cooldown after an exit is destroyed (Taylor) */
       if (cellOccupied(ep.x, ep.y)) return 'That square is already occupied.';
       if (chaosDenies(ti, ep.x, ep.y)) return 'A Chaos Pad blocks building there.'; /* v180: the Tube Exit is construction too (spec §4: no enemy construction of any kind) */
       placeBuilding(ti, 'exit', addPad(ti, ep.x, ep.y)); return null;
@@ -4724,6 +4733,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     return true;
   }
   function reward(team, tgt) {
+    if (tgt.type === 'exit') G.teams[tgt.team].exitDownT = G.t; /* v202: a destroyed Tube Exit starts the 10 s rebuild cooldown (Taylor) — stamped here for combat kills, in wxBldDown for weather kills */
     var v = tgt.type ? (({ base: 0, factory: 20, turret: 25, hangar: 25, lab: 30, armory: 30, uarmory: 30, field: 25, dock: 25, wall: 0, tube: 25, exit: 10, b2hangar: 25, thangar: 25, burrow: 20, flyinghangar: 25, helihangar: 25, wraithhangar: 25, f16hangar: 25, vwinghangar: 25, accel: 25, silo: 25 /* v167: the v96 lesson — a missing entry would pay 0 for a destroyed silo */, chaos: 25 /* v180: spec §4 — the v96 lesson again: a missing entry pays 0 */ })[tgt.type] || 0) : 2; /* v96: accel was missing from this map (since v77), so destroying a Fox Accelerator gave clouds += undefined = NaN, breaking that team's economy forever in long games */
     if (G.teams[team].race === 'raccoon') v = Math.round(v * 1.5); /* v167: SCAVENGERS — a raccoon team's kill reward is x1.5 (Taylor's pick). Math.round is the judgment call: 25-cloud kills round 37.5 -> 38 (floor would give 37) — a one-line change if Taylor prefers it. The v159 floater below reads the same v, so it stays consistent. */
     G.teams[team].clouds += v;
@@ -4939,6 +4949,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     if (b.hp <= 0) { b.dead = true; wxBldDown(b); }
   }
   function wxBldDown(b) {
+    if (b.type === 'exit') G.teams[b.team].exitDownT = G.t; /* v202: a weather-destroyed Tube Exit starts the 10 s rebuild cooldown too (the reward() stamp covers combat kills) */
     burst(b.x, b.y, 18);
     if (b.type === 'base') {
       Aud.ui('bigboom');
@@ -5498,8 +5509,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
   // ---------- v136: hot-air balloon objectives + the leader mark ----------
   /* Balloons (BALLOON-OBJECTIVES-SPEC.md, Taylor's §7 rulings; retuned in
      v137 from his live playtest): seven neutral balloons — first at 0:30,
-     then every minute, the last at 6:30 (v164 weather retime) — 2 small (400 HP / 40 clouds),
-     3 medium (1000 / 100) and 2 large (2000 / 200), 780 clouds in all, in
+     then every minute, the last at 6:30 (v164 weather retime) — 2 small (400 HP / 50 clouds),
+     3 medium (1000 / 100) and 2 large (2000 / 200), 800 clouds in all (v202: small 40 -> 50), in
      a random order that never repeats a size back to back (BAL_SET). A spawn may land anywhere on the map INCLUDING the centre
      gold, but never within 2 squares (Chebyshev) of any building, HQ
      included. A balloon never shoots; any team's planes can shoot it down.
@@ -5519,7 +5530,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      with the rest of the sim state. */
   var BAL_TIMES = [30, 90, 150, 210, 270, 330, 390]; /* v164 weather retime (Taylor): one per minute, 0:30 to 6:30 — seven spawns (v142: 1:00 to 7:00; v137: every 90 s, last at 10:00) */
   var BAL_DEF = {
-    small: { hp: 400, val: 40, spd: 270, r: 30, dr: 24 },
+    small: { hp: 400, val: 50, /* v202: 40 -> 50 clouds (Taylor) */ spd: 270, r: 30, dr: 24 },
     medium: { hp: 1000, val: 100, spd: 150, r: 40, dr: 42 },
     large: { hp: 2000, val: 200, spd: 90, r: 52, dr: 66 }
   };
@@ -5702,9 +5713,9 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
      setNukeRace, setNukeWhich, buyNukeHp, aiNukePick, launchNuke,
      nukeTick, nukeBlast, siloTick) is Stage B — it must NOT re-add
      these helpers. */
-  var NUKE = { speed: 50, /* v168: 100 -> 50 — half speed, twice the exposure (Taylor) */ hp: 400, /* v169: 1000 -> 400 (Taylor) */ r: 36, /* v168: 30 -> 36 (+20%, Taylor) */ interval: 120, /* v169: 60 -> 120 (Taylor) */ centerDmg: 100, edgeDmg: 50, hatchZ: 30, arcH: 220 /* arcH is a judgment call (display-only): the Bezier peak is ~169, high above the map */ }; /* v168: out0/out1 deleted with the out-of-frame window */
+  var NUKE = { speed: 50, /* v168: 100 -> 50 — half speed, twice the exposure (Taylor) */ hp: 500, /* v169: 1000 -> 400 (Taylor); v202: 400 -> 500 (Taylor) */ r: 36, /* v168: 30 -> 36 (+20%, Taylor) */ interval: 120, /* v169: 60 -> 120 (Taylor) */ centerDmg: 100, edgeDmg: 50, hatchZ: 30, arcH: 220 /* arcH is a judgment call (display-only): the Bezier peak is ~169, high above the map */ }; /* v168: out0/out1 deleted with the out-of-frame window */
   /* v169: nuke-HP upgrades (Taylor) — +200 warhead HP per level, 3 levels
-     (400/600/800/1000), costs 100/180/280. The level is TEAM KNOWLEDGE
+     (500/700/900/1100; v202: base 400 -> 500), costs 100/180/280. The level is TEAM KNOWLEDGE
      (G.teams[ti].nukeHp, the Armory pattern): it survives the silo's
      destruction, and a rebuilt silo launches at the bought level. An
      in-flight nuke keeps the HP and level it launched with. */
@@ -5863,7 +5874,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     var tgt = resolveNukeTarget(silo, pick);
     if (!tgt) return null; /* no living enemy building — nothing to launch at; the timer resets and retries in 120 s (v169: was 60 s) */
     var dist = Math.hypot(tgt.x - silo.x, tgt.y - silo.y);
-    var lvl = nukeHpLvl(ti), hp0 = NUKE.hp + NUKE_HP.per * lvl; /* v169: the warhead's HP comes from the team's HP level (400/600/800/1000) — stamped at launch, an in-flight nuke keeps it */
+    var lvl = nukeHpLvl(ti), hp0 = NUKE.hp + NUKE_HP.per * lvl; /* v169: the warhead's HP comes from the team's HP level (500/700/900/1100; v202: base 400 -> 500) — stamped at launch, an in-flight nuke keeps it */
     var n = { id: G.nid++, nuke: true, team: ti, x: silo.x, y: silo.y, x0: silo.x, y0: silo.y, tx: tgt.x, ty: tgt.y, r: NUKE.r, hp: hp0, max: hp0, dead: false, flash: 0, u: 0, t: 0, life: Math.max(0.5, dist / NUKE.speed), alt: NUKE.hatchZ, src: { x: silo.x, y: silo.y, team: ti, type: 'silo' }, tgtId: tgt.bld ? tgt.bld.id : -1, tgtRace: tgt.race, tgtWhich: tgt.which, lvl: lvl, /* v169: the launch HP level (0-3) — Stage 2's warhead draw reads n.lvl || 0 */ siloId: silo.id /* v169: the launching silo — the reset at the nuke's end finds it by id; a silo destroyed mid-flight is simply not found */ };
     G.nukes.push(n);
     burst(silo.x, silo.y, 10); Aud.at('boom', silo.x, silo.y, ti); Aud.ui('nukeSiren'); /* v168: the launch siren — Aud.ui (not Aud.at) so it reaches EVERYONE at full volume regardless of camera position: no proximity falloff, like the balloon chime and the announcer warnings */
@@ -11861,7 +11872,8 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     $('tubeActions').hidden = !(friendlySelb && friendlySelb.type === 'tube');
     /* v91: Tube Exit limit is visible — disable the Place Tube Exit button when the player already has one */
     var hasTubeExit = G.blds.some(function(b){ return b.team === ht && b.type === 'exit' && b.hp > 0; });
-    for (var ei = 0; ei < btnBuild.length; ei++) { if (btnBuild[ei].getAttribute('data-build') === 'exit') { btnBuild[ei].disabled = hasTubeExit; var exitBd = btnBuild[ei].querySelector('.bd'); if (exitBd) exitBd.textContent = hasTubeExit ? 'You already have a Tube Exit' : 'Any empty square, even enemy land'; } }
+    var exitCd = exitCooldownLeft(ht); /* v202: Tube Exit rebuild countdown (syncHud runs every 0.1 s, so it ticks) */
+    for (var ei = 0; ei < btnBuild.length; ei++) { if (btnBuild[ei].getAttribute('data-build') === 'exit') { btnBuild[ei].disabled = hasTubeExit || exitCd > 0; var exitBd = btnBuild[ei].querySelector('.bd'); if (exitBd) exitBd.textContent = hasTubeExit ? 'You already have a Tube Exit' : exitCd > 0 ? 'Rebuilds in ' + Math.ceil(exitCd) + ' s' : 'Any empty square, even enemy land'; } }
     $('burrowActions').hidden = !(friendlySelb && friendlySelb.type === 'burrow');
     if (friendlySelb && friendlySelb.type === 'burrow') { var burrowCount = (friendlySelb.stored || []).length; $('emptyBurrowCount').textContent = burrowCount + ' stored'; $('emptyBurrowBtn').disabled = !burrowCount; }
     /* v167: the silo targeting card — only for the player's own silo.
@@ -11904,7 +11916,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
       var hpBtn = $('nukeHpBtn');
       if (hpBtn) {
         var hlv = nukeHpLvl(ht), hmax = hlv >= NUKE_HP.max, hcost = hmax ? 0 : NUKE_HP.costs[hlv];
-        $('nukeHpDesc').textContent = hmax ? 'MAX · 1000 HP' : '+200 HP · Lv ' + hlv + '/3';
+        $('nukeHpDesc').textContent = hmax ? 'MAX · 1100 HP' : '+200 HP · Lv ' + hlv + '/3'; /* v202: max warhead 1000 -> 1100 (base 400 -> 500) */
         $('nukeHpCost').textContent = hmax ? 'MAX' : '' + hcost;
         hpBtn.disabled = !selSilo.complete || selSilo.hp <= 0 || hmax || t.clouds < hcost;
       }
@@ -12500,7 +12512,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
         else extra='<div><span>Damage</span><b>'+ts.damage.toFixed(1)+' (+'+(ts.damage-tBaseDmg).toFixed(1)+')</b></div><div><span>Range</span><b>'+ts.range+' (+'+(ts.range-tBaseRng)+')</b></div><div><span>Health Upgrade</span><b>Lv '+(tArmLv.health||0)+'/3</b></div><div><span>Attack Speed</span><b>'+(1/ts.cd).toFixed(2)+'/s (+'+((1/ts.cd)-(1/tBaseCd)).toFixed(2)+'/s)</b></div><div><span>Weapon</span><b>'+ts.weapon+'</b></div>';}
       else if(b.type==='base'){extra='<div><span>Attack Damage</span><b>'+(25*(1+0.25*G.teams[b.team].upg.guns)*(1+0.25*b.upg.turret)).toFixed(1)+'</b></div><div><span>Range</span><b>'+(540+(b.upg.range||0)*55)+'</b></div><div><span>Armor</span><b>+'+(b.upg.armor*350)+'</b></div><div><span>Regen</span><b>'+(1.2+b.upg.regen*1.8).toFixed(1)+'/s</b></div><div><span>Attack Speed</span><b>2.50/s</b></div><div><span>Gun</span><b>HQ Cannon</b></div>';}
       else if(b.type==='hangar'||b.type==='b2hangar'||b.type==='thangar'||b.type==='helihangar'||b.type==='wraithhangar'||b.type==='f16hangar'||b.type==='vwinghangar'){var prod=hangarDur(b);extra='<div><span>Production</span><b>'+prod.toFixed(2)+'s</b></div>';}
-      else if(b.type==='silo'){var cd3=!b.complete?'—':b.nukeFlying?'in flight':b.nukeT!==undefined&&b.nukeT!==null?Math.ceil(b.nukeT)+'s':'—';extra='<div><span>Next launch</span><b>'+cd3+'</b></div><div><span>Target</span><b>'+(b.team===mpHudTeam()?siloTargetDesc(b):'—')+'</b></div><div><span>Blast B/P</span><b title="Buildings 200 centre / 100 around; planes 100 centre / 50 around">200/100 100/50</b></div><div><span>Warhead</span><b>'+nukeMaxHp(b.team)+' HP · 50</b></div>';} /* v167: the target row shows '—' for an enemy silo (its pick is not shown); v168: text diet — Blast is centre/edge in the old order, Warhead is HP · speed (the 'shoot it down' hint is dropped, speed is 50 now); v170: Blast is buildings/planes now (200/100 vs 100/50 — buildings take double, Taylor; the B/P label + title carry the split, the value still wraps to 2 lines at the 104 px phone line); v169: Next launch reads 'in flight' while a nuke flies, Warhead reads the team's HP level (400/600/800/1000) */
+      else if(b.type==='silo'){var cd3=!b.complete?'—':b.nukeFlying?'in flight':b.nukeT!==undefined&&b.nukeT!==null?Math.ceil(b.nukeT)+'s':'—';extra='<div><span>Next launch</span><b>'+cd3+'</b></div><div><span>Target</span><b>'+(b.team===mpHudTeam()?siloTargetDesc(b):'—')+'</b></div><div><span>Blast B/P</span><b title="Buildings 200 centre / 100 around; planes 100 centre / 50 around">200/100 100/50</b></div><div><span>Warhead</span><b>'+nukeMaxHp(b.team)+' HP · 50</b></div>';} /* v167: the target row shows '—' for an enemy silo (its pick is not shown); v168: text diet — Blast is centre/edge in the old order, Warhead is HP · speed (the 'shoot it down' hint is dropped, speed is 50 now); v170: Blast is buildings/planes now (200/100 vs 100/50 — buildings take double, Taylor; the B/P label + title carry the split, the value still wraps to 2 lines at the 104 px phone line); v169: Next launch reads 'in flight' while a nuke flies, Warhead reads the team's HP level (500/700/900/1100; v202: base 400 -> 500) */
       else if(b.type==='chaos'){extra='<div><span>Slow</span><b>Enemy planes -30% • 3x3 area</b></div><div><span>Build denial</span><b>No enemy construction in 3x3</b></div>';} /* v180: short per the phone rule (spec §4) */
       else if(b.type==='lab'){var lv=G.teams[b.team].lab;extra='<div><span>Damage</span><b>Lv '+lv.damage+'</b></div><div><span>Speed</span><b>Lv '+lv.speed+'</b></div><div><span>Range</span><b>Lv '+lv.range+'</b></div><div><span>Health</span><b>Lv '+lv.health+'</b></div>';}
       else if(b.type==='ulab'){var uv2=G.teams[b.team].ulab;extra='<div><span>Damage</span><b>Lv '+uv2.damage+'</b></div><div><span>Speed</span><b>Lv '+uv2.speed+'</b></div><div><span>Range</span><b>Lv '+uv2.range+'</b></div><div><span>Health</span><b>Lv '+uv2.health+'</b></div>';}
