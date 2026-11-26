@@ -246,7 +246,11 @@ const DB_SCHEMA = [
   /* Amendment (Taylor, 2026-11-04): match_players learn each human's
      animal, for the leaderboard's per-animal table. Animals come from
      the relay's own lineup record — never from a client report. */
-  'ALTER TABLE match_players ADD COLUMN IF NOT EXISTS animal TEXT'
+  'ALTER TABLE match_players ADD COLUMN IF NOT EXISTS animal TEXT',
+  /* Visit counter (Taylor 2026-11-26): daily aggregate page
+     visits split by source. Aggregate only — no IPs, no
+     per-visitor rows. Same fail-soft rules as accounts. */
+  'CREATE TABLE IF NOT EXISTS visits (day DATE NOT NULL, source TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, source))'
 ];
 let dbSchemaReady = false, dbInitPromise = null, dbLastAttempt = 0;
 function ensureSchema() {
@@ -348,6 +352,9 @@ function requestHandler(req, res) {
   try { urlPath = decodeURIComponent((req.url || '/').split('?')[0]); } catch (e) { urlPath = ''; }
   if (urlPath === '/leaderboard') { leaderboardHandler(req, res).catch((e) => { try { res.writeHead(500); res.end('error'); } catch (e2) {} }); return; }
   if (urlPath === '/leaderboard.json') { leaderboardJsonHandler(req, res).catch((e) => { try { res.writeHead(500); res.end('error'); } catch (e2) {} }); return; }
+  if (urlPath === '/stats') { statsHandler(req, res); return; }
+  if (urlPath === '/stats.json') { statsJsonHandler(req, res).catch((e) => { try { res.writeHead(500); res.end('error'); } catch (e2) {} }); return; }
+  if (req.method === 'GET' && (urlPath === '/' || urlPath === '/game.html')) countVisit(req);
   staticHandler(req, res);
 }
 
@@ -1137,6 +1144,114 @@ async function leaderboardJsonHandler(req, res) {
   } catch (e) { console.log('[relay] leaderboard.json query failed: ' + e.message); unavailable(); }
 }
 
+
+/* ---------------- visit counter + /stats (Taylor 2026-11-26) ----------------
+ * Own-site aggregate visit counting: one count per front-door page
+ * load (GET / or /game.html), split by source — utm_source when
+ * present (sanitized), else an itch.io referrer, else direct/other.
+ * Daily aggregates only: no IPs, no cookies, no per-visitor rows.
+ * Counting is fire-and-forget and fail-soft exactly like accounts:
+ * a database problem skips the count and never touches serving.
+ * /stats data requires the Kizzle gamertag, verified with the same
+ * Google token check as multiplayer sign-in. */
+function visitSource(req) {
+  try {
+    const u = new URL(req.url || '/', 'http://localhost');
+    const utm = (u.searchParams.get('utm_source') || '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 24);
+    if (utm) return utm;
+  } catch (e) {}
+  const ref = String((req.headers && (req.headers.referer || req.headers.referrer)) || '');
+  if (/(^|[./])itch\.io(?=[:/?#]|$)/i.test(ref)) return 'itch.io';
+  return 'direct/other';
+}
+/* Counts accumulate in memory and flush to the database every
+   30 s (and before a /stats read), so serving a page never waits
+   on the database and counting never contends with match
+   recording. A crash loses at most the unflushed half-minute —
+   fine for aggregate visit counts, and still fail-soft. */
+const visitPending = new Map();
+function countVisit(req) {
+  if (!dbPool) return;
+  const key = new Date().toISOString().slice(0, 10) + '|' + visitSource(req);
+  visitPending.set(key, (visitPending.get(key) || 0) + 1);
+}
+async function flushVisits() {
+  if (!dbPool || !visitPending.size) return;
+  const batch = Array.from(visitPending.entries());
+  visitPending.clear();
+  try {
+    if (!(await ensureSchema())) throw new Error('schema unavailable');
+    for (const [key, n] of batch) {
+      const sep = key.indexOf('|');
+      await dbPool.query('INSERT INTO visits (day, source, count) VALUES ($1, $2, $3) ON CONFLICT (day, source) DO UPDATE SET count = visits.count + $3', [key.slice(0, sep), key.slice(sep + 1), n]);
+    }
+  } catch (e) {
+    console.log('[relay] visit flush skipped: ' + e.message);
+    for (const [key, n] of batch) visitPending.set(key, (visitPending.get(key) || 0) + n);
+  }
+}
+setInterval(() => { flushVisits(); }, 30000).unref();
+async function statsFetchData() {
+  await flushVisits();
+  if (!dbPool || !(await ensureSchema())) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const total = await dbPool.query('SELECT COALESCE(SUM(count),0)::int AS n FROM visits');
+  const bySource = await dbPool.query('SELECT source, SUM(count)::int AS n FROM visits GROUP BY source ORDER BY n DESC, source ASC');
+  const todayRows = await dbPool.query('SELECT source, count FROM visits WHERE day = $1 ORDER BY count DESC, source ASC', [today]);
+  const week = await dbPool.query("SELECT day::text AS day, source, count FROM visits WHERE day > (CURRENT_DATE - INTERVAL '7 days') ORDER BY day DESC, count DESC, source ASC");
+  return { total: total.rows[0].n, bySource: bySource.rows, today: todayRows.rows, week: week.rows };
+}
+function statsVerifyToken(token) {
+  return new Promise((resolve) => {
+    if (typeof token !== 'string' || !token) { resolve(null); return; }
+    if (AUTH_DEV_MODE) {
+      if (token.indexOf('dev:') === 0 && token.indexOf('dev:EXPIRED:') !== 0) {
+        const name = token.slice(4).trim().slice(0, 40);
+        if (name) { resolve({ sub: 'dev:' + name }); return; }
+      }
+      resolve(null); return;
+    }
+    verifyGoogleToken(token, (info) => resolve(info));
+  });
+}
+async function statsJsonHandler(req, res) {
+  const deny = (code, msg) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify({ error: msg })); };
+  try {
+    let token = '';
+    const authz = String((req.headers && req.headers.authorization) || '');
+    if (authz.indexOf('Bearer ') === 0) token = authz.slice(7);
+    if (!token && req.method === 'POST') {
+      const chunks = []; let size = 0;
+      for await (const c of req) { size += c.length; if (size > 16384) { deny(413, 'too large'); return; } chunks.push(c); }
+      try { token = (JSON.parse(Buffer.concat(chunks).toString('utf8')) || {}).idToken || ''; } catch (e) {}
+    }
+    const info = await statsVerifyToken(token);
+    if (!info) { deny(403, 'sign-in required'); return; }
+    const profile = await dbLoadProfile(info.sub);
+    if (profile.down) { deny(503, 'counts unavailable'); return; }
+    if (!profile.tag || profile.tag.toLowerCase() !== 'kizzle') { deny(403, 'not authorized'); return; }
+    const data = await statsFetchData();
+    if (!data) { deny(503, 'counts unavailable'); return; }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(data));
+  } catch (e) { console.log('[relay] stats query failed: ' + e.message); deny(503, 'counts unavailable'); }
+}
+function statsHandler(req, res) {
+  const cid = lbEscape(GOOGLE_CLIENT_ID);
+  const inner = '<h1>Squadrons — Visits</h1>\n<div class="date">Private page-view counts</div>\n' +
+    '<div id="gate"><p>Sign in with the Kizzle account to view counts.</p><div id="gbtn"></div><p id="msg"></p></div>\n<div id="out"></div>\n' +
+    '<p><a href="/game.html">Back to the game</a></p>\n' +
+    '<script src="https://accounts.google.com/gsi/client" async defer></' + 'script>\n' +
+    '<script>\n' +
+    'function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}\n' +
+    'function table(title, rows){ var h="<h2>"+title+"</h2>"; if(!rows.length) return h+"<p>No visits recorded.</p>"; h+="<table><tr><th>Source</th><th class=\\"n\\">Visits</th></tr>"; rows.forEach(function(r){ h+="<tr><td>"+esc(r.source)+"</td><td class=\\"n\\">"+r.n+"</td></tr>"; }); return h+"</table>"; }\n' +
+    'function show(d){ document.getElementById("gate").style.display="none"; var h="<p>Total visits: <b>"+d.total+"</b></p>"; h+=table("All time by source", d.bySource); h+=table("Today", d.today.map(function(r){return {source:r.source,n:r.count};})); h+="<h2>Last 7 days</h2>"; if(!d.week.length) h+="<p>No visits recorded.</p>"; else { h+="<table><tr><th>Day</th><th>Source</th><th class=\\"n\\">Visits</th></tr>"; d.week.forEach(function(r){ h+="<tr><td>"+esc(r.day)+"</td><td>"+esc(r.source)+"</td><td class=\\"n\\">"+r.count+"</td></tr>"; }); h+="</table>"; } document.getElementById("out").innerHTML=h; }\n' +
+    'function onCred(resp){ fetch("/stats.json",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:resp.credential})}).then(function(r){ return r.json().then(function(j){ if(r.ok) show(j); else document.getElementById("msg").textContent = (r.status===503 ? "Counts unavailable right now." : "That account cannot view these counts."); }); }).catch(function(){ document.getElementById("msg").textContent="Counts unavailable right now."; }); }\n' +
+    'window.onload=function(){ if(window.google && google.accounts && google.accounts.id){ google.accounts.id.initialize({client_id:"' + cid + '", callback:onCred}); google.accounts.id.renderButton(document.getElementById("gbtn"),{theme:"outline",size:"large",text:"signin_with"}); } };\n' +
+    '</' + 'script>\n';
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(lbPage('Visits', inner));
+}
 
 /* ---------------- front door: queue + ready check + draft ----------------
  * The matcher is a small state machine over authenticated connections:
