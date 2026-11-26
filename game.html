@@ -855,7 +855,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     customRoom: false, lobbySeats: null, lobbyDifficulty: null };
   /* Build identifier, stamped by work/build_lockstep.js after assembly
      (sha256 of this file with the stamp placeholder in place). */
-  var LS_BUILD_ID = '30da9a4c3c';
+  var LS_BUILD_ID = 'e8d33f5c24';
   /* ---------------- FRONT DOOR (Stage A+B) ----------------
      Mode select lives on the main menu (menuStep0): Single Player
      goes to the existing menu flow and is NEVER gated; Multiplayer
@@ -3144,7 +3144,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     hamster: { name: 'Hamsters', blurb: 'Health Specialist', /* v168: Taylor's pick (was 'Slow but Powerful') */ hp: 2, dmg: 1, spd: 0.6666667, /* v90: speed 108 -> 100 */ range: 1, size: 1.80, /* v91: size 2.0 -> 1.80, visual only */ spawn: 9, /* v144: doubled 4.5 -> 9 (v90: hangar prod = HQ fallback = 4.5) */ cost: 1, income: 1, body: '#e9b45a', face: '#f4d49c', ear: '#d98f3a', muzzle: '#fff1d6', inner: '#f2b9a0' },
     fox: { name: 'Foxes', blurb: 'Speed Specialist', /* v168: Taylor's pick (was 'Fast and Nimble') */ hp: 1, dmg: 1.125, /* v90: dmg 4.2 -> 4.5 */ spd: 1.3333333, /* v174: speed 250 -> 200 (Taylor); v90: speed 247.5 -> 250 */ range: 1.1923077, /* v90: range 130*1.1923+25 = 180 */ size: 1, spawn: 7, /* v144: doubled 3.5 -> 7 */ cost: 1, income: 1, body: '#ef8a47', face: '#e8742f', ear: '#b9501a', muzzle: '#fff4e6', inner: '#3a2a22' },
     bunny: { name: 'Bunnies', blurb: 'Production Specialists', hp: 25/30, /* v85: normal plane HP 30 -> 25 */ dmg: 3/4, /* v202: basic damage 4 -> 3 (Taylor) */ spd: 145/150, /* v202: basic speed 150 -> 145 (Taylor) */ range: 1, size: 0.83, /* v91: size 0.71 -> 0.83, visual only */ spawn: 5, /* v144: doubled 2.5 -> 5 */ cost: 1, income: 1, body: '#b9a3e0', face: '#f3eef8', ear: '#e4d9f0', muzzle: '#ffffff', inner: '#f1a9c0' },
-    otter: { name: 'Otters', blurb: 'Builders (50% cost on buildings)', hp: 27/30, /* v202: basic HP 30 -> 27 (Taylor) */ dmg: 7/8, /* v202: basic damage 4 -> 3.5 (Taylor) */ spd: 130/150, /* v202: basic speed 150 -> 130 (Taylor) */ range: 1, size: 1, spawn: 7.5, /* v144: doubled 3.75 -> 7.5 (v90: hangar prod = HQ fallback = 3.75) */ cost: 0.5, income: 1, body: '#6fb0a8', face: '#8a6a55', ear: '#6b5040', muzzle: '#e2cdb6', inner: '#6b5040' },
+    otter: { name: 'Otters', blurb: 'Builders (40% off buildings)', hp: 27/30, /* v202: basic HP 30 -> 27 (Taylor) */ dmg: 3/4, /* v203: basic damage 3.5 -> 3 (Taylor) */ spd: 130/150, /* v202: basic speed 150 -> 130 (Taylor) */ range: 1, size: 1, spawn: 8, /* v144: doubled 3.75 -> 7.5 (v90: hangar prod = HQ fallback = 3.75); v203: 7.5 -> 8 (Taylor) */ cost: 0.6, /* v203: building discount 50% off -> 40% off (Taylor) */ income: 1, body: '#6fb0a8', face: '#8a6a55', ear: '#6b5040', muzzle: '#e2cdb6', inner: '#6b5040' },
     beaver: { name: 'Beavers', blurb: 'Defense Wall Specialists', hp: 1.3333333, /* v90: HP 30 -> 40 */ dmg: 1, spd: 0.8333333, /* v90: speed 165 -> 125 */ range: 1, size: 1.33, /* v90: size 1 -> 1.33, visual only */ spawn: 8, /* v144: doubled 4.0 -> 8 (v90: hangar prod = HQ fallback = 4.0) */ cost: 1, income: 1, build: 0.5, bhp: 2.0, /* v168: Fortified — Beaver buildings 2x HP (was 1.5x) */ body: '#a9744f', face: '#c8946a', ear: '#7a4e32', muzzle: '#f3e1c8', inner: '#5a3a28' },
     turtle: { name: 'Turtles', blurb: 'Defense Specialist', hp: 1.6666667, /* v90: HP 52.5 -> 50 */ dmg: 1, spd: 0.7666667, /* v90: speed 127.5 -> 115 */ range: 1, size: 1.67, /* v90: size 1.25 -> 1.67, visual only */ spawn: 8.5, /* v144: doubled 4.25 -> 8.5 (v90: hangar prod = HQ fallback = 4.25) */ cost: 1, income: 1, body: '#7fbf6a', face: '#9ad27f', ear: '#5d9a4a', muzzle: '#e8f5d6', inner: '#3f6e35' },
     raccoon: { name: 'Raccoons', blurb: 'Rocket Specialist', hp: 32/30, /* v202: basic HP 30 -> 32 (Taylor) */ dmg: 1, spd: 1, range: 1, size: 1, spawn: 7, cost: 1, income: 1, body: '#868d95', face: '#aab0b6', ear: '#6f757d', muzzle: '#efe9dd', inner: '#d8c6ae' } /* v167: seventh race (Taylor, 2026-11-13) — average all round; colours from approved preview-raccoon-v4.html; size 1 is the mid value */,
@@ -3173,7 +3173,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     hamster: { name: 'Regeneration', desc: 'Heal 5% HP/s after 5 s without damage — planes and buildings.' },
     fox: { name: 'Swift Strikes', desc: 'Attacks grant +25 speed for 2 s.' },
     bunny: { name: 'Rapid Production', desc: 'New planes every 5 s.' },
-    otter: { name: 'Builders', desc: 'All buildings cost 50%.' },
+    otter: { name: 'Builders', desc: 'All buildings cost 60%.' }, /* v203: 50% -> 60% cost = 40% off (Taylor) */
     beaver: { name: 'Fortified', desc: 'Buildings: 2x HP, 2x build time. Pads reach 2 squares.' },
     turtle: { name: 'Home Ground', desc: 'Take 25% less damage over your own buildings.' },
     raccoon: { name: 'Scavengers', desc: 'Kills pay +50% more clouds.' },
@@ -4212,7 +4212,7 @@ button.chip.mpGuestAct:hover { border-color: var(--you); }
     msAdd(ti, 'planesProduced', 1);
   }
   /* v90: hangar production is per-race, NOT the old 3.8-interval formula. Bases: Hamster 9, Fox 7, Bunny 5, Otter 7.5, Beaver 8, Turtle 8.5 (v144: all doubled from 4.5/3.5/2.5/3.75/4.0/4.25). HQ fallback (RACES.spawn) equals the same base for every race. v156: the Production upgrade is removed (Taylor) — hangars always produce at base speed; more hangars is how you get more planes. */
-  var HANGAR_PROD_BASE = { hamster: 9, fox: 7, bunny: 5, otter: 7.5, beaver: 8, turtle: 8.5, raccoon: 7, hedgehog: 7 }; /* v144: all doubled (was 4.5/3.5/2.5/3.75/4.0/4.25); v167: raccoon 7 (spec — the mid value); v180: hedgehog 7 (spec — spawn 7, the mid value like Raccoon) */
+  var HANGAR_PROD_BASE = { hamster: 9, fox: 7, bunny: 5, otter: 8, beaver: 8, turtle: 8.5, raccoon: 7, hedgehog: 7 }; /* v144: all doubled (was 4.5/3.5/2.5/3.75/4.0/4.25); v167: raccoon 7 (spec — the mid value); v180: hedgehog 7 (spec — spawn 7, the mid value like Raccoon); v203: otter 7.5 -> 8 (Taylor) */
   function hangarProd(b) { var base = HANGAR_PROD_BASE[G.teams[b.team].race] || 7.6; /* v144: fallback default doubled with the bases (was 3.8) */ return base; } /* v156: Production upgrade removed — always base speed */
   var HANGAR_UNIQUE = { hamster: 'blimp', beaver: 'b2', turtle: 'tank', bunny: 'flying', otter: 'heli', fox: 'wraith', raccoon: 'f16', hedgehog: 'vwing' }; /* v167: the F16 Hangar (Stage 2) — the AI's generic hangar-transform path keys off this table, so a raccoon AI transforms once a unique lab stands */
   function isHangarType(t) { return t === 'hangar' || t === 'b2hangar' || t === 'thangar' || t === 'flyinghangar' || t === 'helihangar' || t === 'wraithhangar' || t === 'f16hangar' || t === 'vwinghangar'; }
